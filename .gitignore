@@ -28,4 +28,4 @@ replay_pid*
 
 __pycache__
 
-.gitignore
+*.dat
