@@ -12,8 +12,14 @@ This software is mostly built upon Plotly Dash, a Python framework for
 
 `conda create --name cardiacmap --file requirements.txt`
 
+3. Activate virtual environment
+
 `conda activate cardiacmap`
-``
+
+
+## To run the app
+Run `python app.py` in the root folder
 
 ## Development
+To write: 
 Standard software practices with pull requests etc
