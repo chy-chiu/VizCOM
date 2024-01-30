@@ -1,4 +1,4 @@
-### Simple parser script for .dat format
+### Simple parser script for .dat format. Writes locally to the same directory as a binary file 
 
 import argparse
 import io
@@ -6,7 +6,9 @@ import struct
 import pickle
 import numpy as np
 
-def cascade_import(filepath: str, format="binary", save=True):
+CHUNK_SIZE = 100000
+
+def cascade_import(filepath: str):
     """Main function to import cascade .DAT files.
 
     Args:
@@ -17,8 +19,6 @@ def cascade_import(filepath: str, format="binary", save=True):
     """Main function to import cascade .DAT files"""
 
     filename = filepath.split('.')[-2]
-
-    if save: output_file = open(f"{filename}", 'wb')
     
     with open(filepath, 'rb') as file:
         
@@ -28,7 +28,7 @@ def cascade_import(filepath: str, format="binary", save=True):
         file_version = file.read(1).decode()
 
         if file_version == "d":
-            # TODO: Version D is a WIP. 
+            # TODO: Version D needs testing
             header = file.read(1023)
 
             # In the original code, it reads 17 + 7 bytes of datetime. 
@@ -76,31 +76,23 @@ def cascade_import(filepath: str, format="binary", save=True):
     raw_image_data = list(struct.unpack('H'*(len_file//2), bstream))
 
     skip = skip_bytes / 2 # Because each long integer is 2 bytes)
-    imarray = []
+    output_file = open(filename, "wb'")
+
     for t in range(span_T):
 
         position = int(t * (span_X * span_Y + skip))
 
         im_raw = raw_image_data[position: position + span_X * span_Y]
 
-        if save:
-            output_file.write(struct.pack('H'*len(im_raw), *im_raw))
-
-        imarray.append(im_raw)
-
-    imarray = np.array(imarray)
-
-    return np.array([im.reshape(span_X, span_Y) for im in imarray])
-
+        output_file.write(struct.pack('H'*len(im_raw), *im_raw))
+    
+    output_file.close()
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Required positional argument
     parser.add_argument("filepath", help="Path to the .dat file")
-    
-    # Optional argument which requires a parameter (eg. -d test)
-    parser.add_argument("-f", "--format", action="store", dest="format", default="binary")
     
     args = parser.parse_args()
     cascade_import(**vars(args))
