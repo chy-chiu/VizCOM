@@ -2,6 +2,7 @@ from dash import Dash, dcc, html, Input, Output, callback
 import plotly.express as px
 
 from data import cascade_import
+from transforms import TimeAverage, SpatialAverage
 import json
 
 app = Dash(__name__)
@@ -28,6 +29,9 @@ app.layout = html.Div([
         multiple=False
     ),
     dcc.Graph(id='graph-image'),
+    html.Button('Time Averaging', id='time-avg'),
+    html.Button('Spatial Averaging', id='spatial-avg'),
+    html.Div(id='buttons'),
     dcc.Graph(id='graph-signal'),
     dcc.Slider(
         0,
