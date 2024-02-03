@@ -2,6 +2,7 @@ from dash import Dash, dcc, html, Input, Output, callback
 import plotly.express as px
 
 from data import cascade_import
+from transforms import TimeAverage, SpatialAverage
 import json
 
 app = Dash(__name__)
@@ -28,6 +29,10 @@ app.layout = html.Div([
         multiple=False
     ),
     dcc.Graph(id='graph-image'),
+    html.Button('Time Averaging', id='time-avg'),
+    html.Button('Spatial Averaging', id='spatial-avg'),
+    html.Div(id='time-button'),
+    html.Div(id='spatial-button'),
     dcc.Graph(id='graph-signal'),
     dcc.Slider(
         0,
@@ -40,6 +45,26 @@ app.layout = html.Div([
     dcc.Store(id='frame-index', storage_type="session"),
     dcc.Store(id='signal-position', storage_type="session")
 ])
+
+@callback(
+        Output('time-button', 'children'),
+        Input('time-avg', 'n_clicks'),
+        prevent_initial_call=True)
+def performTimeAverage(n_clicks):
+    global im_raw
+    im_raw = TimeAverage(im_raw, 8, 5);
+    msg = "Time Average completed."
+    return html.Div(msg)
+
+@callback(
+        Output('spatial-button', 'children'),
+        Input('spatial-avg', 'n_clicks'),
+        prevent_initial_call=True)
+def performSpatialAverage(n_clicks):
+    global im_raw
+    im_raw = SpatialAverage(im_raw, 8, 5);
+    msg = "Spatial Averaging Completed."
+    return html.Div(msg)
 
 @callback(
     Output('frame-index', 'data'),
