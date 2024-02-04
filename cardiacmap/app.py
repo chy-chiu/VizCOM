@@ -4,10 +4,12 @@ import plotly.express as px
 from data import cascade_import
 from transforms import TimeAverage, SpatialAverage
 import json
+import copy
 
 app = Dash(__name__)
 
 im_raw = cascade_import("2012-02-13_Exp000_Rec005_Cam3-Blue.dat")
+im_edited = im_raw.copy()
 
 app.layout = html.Div([
     dcc.Upload(
@@ -29,10 +31,12 @@ app.layout = html.Div([
         multiple=False
     ),
     dcc.Graph(id='graph-image'),
-    html.Button('Time Averaging', id='time-avg'),
-    html.Button('Spatial Averaging', id='spatial-avg'),
-    html.Div(id='time-button'),
-    html.Div(id='spatial-button'),
+    html.Button('Reset', id='reset-data-button'),
+    html.Div(id='reset-data-pressed'),
+    html.Button('Time Averaging', id='time-avg-button'),
+    html.Div(id='time-button-pressed'),
+    html.Button('Spatial Averaging', id='spatial-avg-button'),
+    html.Div(id='spatial-button-pressed'),
     dcc.Graph(id='graph-signal'),
     dcc.Slider(
         0,
@@ -47,24 +51,37 @@ app.layout = html.Div([
 ])
 
 @callback(
-        Output('time-button', 'children'),
-        Input('time-avg', 'n_clicks'),
+        Output('time-button-pressed', 'children', allow_duplicate=True),
+        Input('time-avg-button', 'n_clicks'),
         prevent_initial_call=True)
 def performTimeAverage(n_clicks):
-    global im_raw
-    im_raw = TimeAverage(im_raw, 8, 5);
+    global im_edited
+    im_edited = TimeAverage(im_edited, 4, 3);
     msg = "Time Average completed."
-    return html.Div(msg)
+    return msg
 
 @callback(
-        Output('spatial-button', 'children'),
-        Input('spatial-avg', 'n_clicks'),
+        Output('spatial-button-pressed', 'children', allow_duplicate=True),
+        Input('spatial-avg-button', 'n_clicks'),
         prevent_initial_call=True)
 def performSpatialAverage(n_clicks):
-    global im_raw
-    im_raw = SpatialAverage(im_raw, 8, 5);
+    global im_edited
+    im_edited = SpatialAverage(im_edited, 4, 3);
     msg = "Spatial Averaging Completed."
-    return html.Div(msg)
+    return msg
+
+@callback(
+        Output('reset-data-pressed', 'children'),
+        Output('time-button-pressed', 'children', allow_duplicate=True),
+        Output('spatial-button-pressed', 'children', allow_duplicate=True),
+        Input('reset-data-button', 'n_clicks'),
+        prevent_initial_call=True)
+def resetData(n_clicks):
+    global im_edited, im_raw
+    im_edited = im_raw.copy();
+    msg = "Data reset."
+    empty = ""
+    return msg, empty, empty
 
 @callback(
     Output('frame-index', 'data'),
@@ -113,7 +130,7 @@ def display_click_data(signal_position, frame_idx):
     x = signal_position['x']
     y = signal_position['y']
 
-    fig = px.line(im_raw[10:, x, y])
+    fig = px.line(im_edited[10:, x, y])
     fig.add_vline(x=frame_idx)
     
     return fig
