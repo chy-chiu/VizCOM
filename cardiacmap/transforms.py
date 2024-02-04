@@ -33,4 +33,9 @@ def SpatialAverage(arr, sigma, radius):
         raise ValueError("sigma must be non-negative")
     if(radius < 0):
         raise ValueError("radius must be non-negative")
-    return gaussian_filter(arr, sigma, radius=radius, axes = (1, 2))
+    
+    # convert sigma to sqrt(sigma/2)
+    # replicates Java version functionality
+    newSigma = np.sqrt(sigma/2)
+    
+    return gaussian_filter(arr, newSigma, radius=radius, axes = (1, 2))

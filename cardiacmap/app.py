@@ -66,7 +66,7 @@ def performTimeAverage(n_clicks):
         prevent_initial_call=True)
 def performSpatialAverage(n_clicks):
     global im_edited
-    im_edited = SpatialAverage(im_edited, 4, 3);
+    im_edited = SpatialAverage(im_edited, 8, 6);
     msg = "Spatial Averaging Completed."
     return msg
 
