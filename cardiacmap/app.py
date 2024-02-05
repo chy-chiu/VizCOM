@@ -1,72 +1,93 @@
-from dash import Dash, dcc, html, Input, Output, State, ctx, callback
+import dash
 import dash_bootstrap_components as dbc
+
+from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
 from data import cascade_import
 from transforms import TimeAverage, SpatialAverage
 import json
-import copy
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+from components import image_viewport, signal_viewport
+
+app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 im_raw = cascade_import("2012-02-13_Exp000_Rec005_Cam3-Blue.dat")
 im_edited = im_raw.copy()
 
-app.layout = html.Div([
-    dcc.Upload(
-        id='upload-data',
-        children=html.Div([
-            'Drag and Drop or ',
-            html.A('Select Files')
-        ]),
-        style={
-            'width': '100%',
-            'height': '60px',
-            'lineHeight': '60px',
-            'borderWidth': '1px',
-            'borderStyle': 'dashed',
-            'borderRadius': '5px',
-            'textAlign': 'center',
-            'margin': '10px'
-        },
-        multiple=False
-    ),
-    dcc.Graph(id='graph-image'),
-    html.Div([
-        dbc.Modal(
-            [
-                dbc.ModalHeader("HEADER", id="modal-header"),
-                dbc.ModalBody(
-                    [
-                        html.P("Sigma:"),
-                        dbc.Input(id='input-sigma', type="number", min = 0, value=0),
-                        html.P("Radius:"),
-                        dbc.Input(id='input-radius', type="number", min = 0, step = 1, value=0)
-                    ]),
-                dbc.ModalFooter(
-                    dbc.Button("Perform Averaging", id="perform-avg-button", className="ml-auto")
-                ),
+navbar = dbc.NavbarSimple(
+    children=[
+        dbc.DropdownMenu(
+            children=[
+                dbc.DropdownMenuItem("Upload", header=True),
+                dbc.DropdownMenuItem("Upload", href="#"),
+                dbc.DropdownMenuItem("Upload", href="#"),
             ],
-            id="modal")
-    ]),
-    html.Button('Reset', id='reset-data-button'),
-    html.Div(id='reset-data-pressed'),
-    html.Button('Time Averaging', id='time-avg-button'),
-    html.Div(id='time-button-pressed'),
-    html.Button('Spatial Averaging', id='spatial-avg-button'),
-    html.Div(id='spatial-button-pressed'),
-    dcc.Graph(id='graph-signal'),
-    dcc.Slider(
-        0,
-        5000,
-        step=None,
-        value=100,
-        id='frame-slider',
-        updatemode='drag'
-    ),
-    dcc.Store(id='frame-index', storage_type="session"),
-    dcc.Store(id='signal-position', storage_type="session"),
-])
+            nav=True,
+            in_navbar=True,
+            label="More",
+        ),
+    ],
+    brand="CardiacOpticalMapper",
+    brand_href="#",
+    color="primary",
+    dark=True,
+)
+
+app.layout = html.Div(
+    [
+        html.Div(
+            [
+                dbc.Row(navbar),
+                dbc.Row(
+                    [
+                        image_viewport(),
+                        signal_viewport(),
+                    ]
+                ),
+            ]
+        ),
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+            multiple=False,
+        ),
+        html.Div([
+            dbc.Modal(
+                [
+                    dbc.ModalHeader("HEADER", id="modal-header"),
+                    dbc.ModalBody(
+                        [
+                            html.P("Sigma:"),
+                            dbc.Input(id='input-sigma', type="number", min = 0, value=0),
+                            html.P("Radius:"),
+                            dbc.Input(id='input-radius', type="number", min = 0, step = 1, value=0)
+                        ]),
+                    dbc.ModalFooter(
+                        dbc.Button("Perform Averaging", id="perform-avg-button", className="ml-auto")
+                    ),
+                ],
+                id="modal")
+        ]),
+        html.Button('Reset', id='reset-data-button'),
+        html.Div(id='reset-data-pressed'),
+        html.Button('Time Averaging', id='time-avg-button'),
+        html.Div(id='time-button-pressed'),
+        html.Button('Spatial Averaging', id='spatial-avg-button'),
+        html.Div(id='spatial-button-pressed'),
+        dcc.Store(id='frame-index', storage_type="session"),
+        dcc.Store(id='signal-position', storage_type="session"),
+    ])
 
 
 @callback(
@@ -159,56 +180,65 @@ def resetData(n_clicks):
     empty = ""
     return msg, empty, empty
 
+
 @callback(
-    Output('frame-index', 'data'),
-    Input('frame-slider', 'value'),
-    )
+    Output("frame-index", "data"),
+    Input("frame-slider", "value"),
+)
 def update_frame_idx(frame_idx):
     return frame_idx
 
-@callback(
-    Output('frame-slider', 'value'),
-    Input('graph-signal', 'clickData'),
-    prevent_initial_call=True
-)
-def update_frame_slider_idx(clickData):
-    if clickData is not None: 
-        frame_idx = clickData['points'][0]['pointIndex']
-    return frame_idx
 
 @callback(
-    Output('signal-position', 'data'),
-    Input('graph-image', 'clickData'))
+    Output("frame-slider", "value"),
+    Input("graph-signal", "clickData"),
+    prevent_initial_call=True,
+)
+def update_frame_slider_idx(clickData):
+    if clickData is not None:
+        frame_idx = clickData["points"][0]["pointIndex"]
+    return frame_idx
+
+
+@callback(Output("signal-position", "data"), Input("graph-image", "clickData"))
 def update_signal_position(clickData):
-    if clickData is not None: 
-        x = clickData['points'][0]['x']
-        y = clickData['points'][0]['y']
+    if clickData is not None:
+        x = clickData["points"][0]["x"]
+        y = clickData["points"][0]["y"]
     else:
         x = 64
         y = 64
     return json.dumps({"x": x, "y": y})
 
 
-@callback( Output('graph-image', 'figure'),
-          Input('frame-index', 'data'))
+@callback(Output("graph-image", "figure"), Input("frame-index", "data"))
 def update_figure(frame_idx):
-
     fig = px.imshow(im_raw[frame_idx], binary_string=True)
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        margin=dict(l=5, r=5, t=5, b=5),   
+    )
 
     return fig
 
+
 @callback(
-    Output('graph-signal', 'figure'),
-    Input('signal-position', 'data'),
-    Input('frame-index', 'data'))
+    Output("graph-signal", "figure"),
+    Input("signal-position", "data"),
+    Input("frame-index", "data"),
+)
 def display_click_data(signal_position, frame_idx):
     signal_position = json.loads(signal_position)
-    x = signal_position['x']
-    y = signal_position['y']
+    x = signal_position["x"]
+    y = signal_position["y"]
 
     fig = px.line(im_edited[10:, x, y])
     fig.add_vline(x=frame_idx)
-    
+    fig.update_yaxes(fixedrange=True)
+    fig.update_layout(showlegend=False)
+
     return fig
     
 
