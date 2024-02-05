@@ -1,4 +1,5 @@
-from dash import Dash, dcc, html, Input, Output, callback
+from dash import Dash, dcc, html, Input, Output, State, ctx, callback
+import dash_bootstrap_components as dbc
 import plotly.express as px
 
 from data import cascade_import
@@ -6,7 +7,7 @@ from transforms import TimeAverage, SpatialAverage
 import json
 import copy
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 im_raw = cascade_import("2012-02-13_Exp000_Rec005_Cam3-Blue.dat")
 im_edited = im_raw.copy()
@@ -31,6 +32,23 @@ app.layout = html.Div([
         multiple=False
     ),
     dcc.Graph(id='graph-image'),
+    html.Div([
+        dbc.Modal(
+            [
+                dbc.ModalHeader("HEADER", id="modal-header"),
+                dbc.ModalBody(
+                    [
+                        html.P("Sigma:"),
+                        dbc.Input(id='input-sigma', type="number", min = 0, value=0),
+                        html.P("Radius:"),
+                        dbc.Input(id='input-radius', type="number", min = 0, step = 1, value=0)
+                    ]),
+                dbc.ModalFooter(
+                    dbc.Button("Perform Averaging", id="perform-avg-button", className="ml-auto")
+                ),
+            ],
+            id="modal")
+    ]),
     html.Button('Reset', id='reset-data-button'),
     html.Div(id='reset-data-pressed'),
     html.Button('Time Averaging', id='time-avg-button'),
@@ -47,31 +65,89 @@ app.layout = html.Div([
         updatemode='drag'
     ),
     dcc.Store(id='frame-index', storage_type="session"),
-    dcc.Store(id='signal-position', storage_type="session")
+    dcc.Store(id='signal-position', storage_type="session"),
 ])
 
+
 @callback(
-        Output('time-button-pressed', 'children', allow_duplicate=True),
-        Input('time-avg-button', 'n_clicks'),
-        prevent_initial_call=True)
-def performTimeAverage(n_clicks):
+    Output("modal", "is_open"),
+    Output("modal-header", "children"),
+    Output('input-sigma', 'value'),
+    Output('input-radius', 'value'),
+    Input("time-avg-button", "n_clicks"),
+    Input("spatial-avg-button", "n_clicks"),
+    Input("perform-avg-button", "n_clicks"),
+    Input("modal-header", "children"),
+    Input('input-sigma', 'value'),
+    Input('input-radius', 'value'),
+    State("modal", "is_open")
+)
+def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
+    # open modal with spatial
+    if 'spatial-avg-button' == ctx.triggered_id:
+        return True, "Spatial Averaging", 8, 6
+    
+    # open modal with time
+    elif 'time-avg-button' == ctx.triggered_id:
+        return True, "Time Averaging", 4, 3
+    
+    # close modal and perform averaging
+    elif 'perform-avg-button' == ctx.triggered_id:
+        return False, avgType, sigIn, radIn
+    
+    # ignore updates to inputs
+    elif 'input-sigma' == ctx.triggered_id or 'input-radius' == ctx.triggered_id:
+        return True, avgType, sigIn, radIn
+    
+    # initial call
+    # if you see "header" in modal, something went wrong
+    return is_open, "HEADER", 0, 0
+
+@callback(
+    Output('reset-data-pressed', 'children', allow_duplicate=True),    
+    Output('time-button-pressed', 'children', allow_duplicate=True),
+    Output('spatial-button-pressed', 'children', allow_duplicate=True),
+    Input('modal-header', "children"),
+    Input('input-sigma', 'value'),
+    Input('input-radius', 'value'),
+    Input("perform-avg-button", "n_clicks"),
+    prevent_initial_call=True)
+def performAverage(header, sig, rad, n):
+    empty = ""
+    # if the modal was closed by the 'perform average' button
+    if('perform-avg-button' == ctx.triggered_id):
+        # if bad inputs (str, negative nums, etc.)
+        if(sig is None or sig < 0):
+            sig = 0
+        if(rad is None or rad < 0):
+            rad = 0
+        # Time averaging
+        if(header.split()[0] == 'Time'):
+            msg = performTimeAverage(sig, rad)
+            return empty, msg, empty
+        # Spatial Averaging
+        elif(header.split()[0] == 'Spatial'):
+            msg = performSpatialAverage(sig, rad)
+            return empty, empty, msg
+        else:
+            return "Error app.py in performAverage()", header.split()[0], empty
+    else:
+        return empty, empty, empty;    
+
+def performTimeAverage(sig, rad):
     global im_edited
-    im_edited = TimeAverage(im_edited, 4, 3);
+    im_edited = TimeAverage(im_edited, sig, rad);
     msg = "Time Average completed."
     return msg
 
-@callback(
-        Output('spatial-button-pressed', 'children', allow_duplicate=True),
-        Input('spatial-avg-button', 'n_clicks'),
-        prevent_initial_call=True)
-def performSpatialAverage(n_clicks):
+def performSpatialAverage(sig, rad):
     global im_edited
-    im_edited = SpatialAverage(im_edited, 8, 6);
+    im_edited = SpatialAverage(im_edited, sig, rad);
     msg = "Spatial Averaging Completed."
     return msg
 
 @callback(
-        Output('reset-data-pressed', 'children'),
+        Output('reset-data-pressed', 'children', allow_duplicate=True),
         Output('time-button-pressed', 'children', allow_duplicate=True),
         Output('spatial-button-pressed', 'children', allow_duplicate=True),
         Input('reset-data-button', 'n_clicks'),
