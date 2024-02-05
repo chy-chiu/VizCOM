@@ -1,6 +1,5 @@
 import dash
 import dash_bootstrap_components as dbc
-
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
@@ -167,6 +166,7 @@ def performSpatialAverage(sig, rad):
     msg = "Spatial Averaging Completed."
     return msg
 
+
 @callback(
         Output('reset-data-pressed', 'children', allow_duplicate=True),
         Output('time-button-pressed', 'children', allow_duplicate=True),
@@ -179,7 +179,6 @@ def resetData(n_clicks):
     msg = "Data reset."
     empty = ""
     return msg, empty, empty
-
 
 @callback(
     Output("frame-index", "data"),
@@ -240,7 +239,7 @@ def display_click_data(signal_position, frame_idx):
     fig.update_layout(showlegend=False)
 
     return fig
-    
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)
