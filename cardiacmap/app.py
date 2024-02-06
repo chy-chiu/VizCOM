@@ -3,11 +3,11 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
-from data import cascade_import
-from transforms import TimeAverage, SpatialAverage
+from cardiacmap.data import cascade_import
+from  cardiacmap.transforms import TimeAverage, SpatialAverage
 import json
 
-from components import image_viewport, signal_viewport
+from cardiacmap.components import image_viewport, signal_viewport
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
