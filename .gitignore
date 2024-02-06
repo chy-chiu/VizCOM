@@ -28,4 +28,9 @@ replay_pid*
 
 __pycache__
 
+
 *.dat
+
+*.bin
+
+*.egg-info/
