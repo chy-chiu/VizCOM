@@ -7,7 +7,7 @@ from data import cascade_import
 from transforms import TimeAverage, SpatialAverage
 import json
 
-from components import image_viewport, signal_viewport
+from components import image_viewport, signal_viewport, input_modal, buttons_table
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -61,29 +61,9 @@ app.layout = html.Div(
             },
             multiple=False,
         ),
-        html.Div([
-            dbc.Modal(
-                [
-                    dbc.ModalHeader("HEADER", id="modal-header"),
-                    dbc.ModalBody(
-                        [
-                            html.P("Sigma:"),
-                            dbc.Input(id='input-sigma', type="number", min = 0, value=0),
-                            html.P("Radius:"),
-                            dbc.Input(id='input-radius', type="number", min = 0, step = 1, value=0)
-                        ]),
-                    dbc.ModalFooter(
-                        dbc.Button("Perform Averaging", id="perform-avg-button", className="ml-auto")
-                    ),
-                ],
-                id="modal")
-        ]),
-        html.Button('Reset', id='reset-data-button'),
-        html.Div(id='reset-data-pressed'),
-        html.Button('Time Averaging', id='time-avg-button'),
-        html.Div(id='time-button-pressed'),
-        html.Button('Spatial Averaging', id='spatial-avg-button'),
-        html.Div(id='spatial-button-pressed'),
+        html.Div([input_modal()]),
+        html.Div([buttons_table()], style={"textAlign": "center",}),
+        
         dcc.Store(id='frame-index', storage_type="session"),
         dcc.Store(id='signal-position', storage_type="session"),
     ])
@@ -103,15 +83,15 @@ app.layout = html.Div(
     State("modal", "is_open")
 )
 def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
-    # open modal with spatial
+    # open modal with spatial, 8 and 6 are defaults
     if 'spatial-avg-button' == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
     
-    # open modal with time
+    # open modal with time, 4 and 3 are defaults
     elif 'time-avg-button' == ctx.triggered_id:
         return True, "Time Averaging", 4, 3
     
-    # close modal and perform averaging
+    # close modal with current values
     elif 'perform-avg-button' == ctx.triggered_id:
         return False, avgType, sigIn, radIn
     
@@ -124,7 +104,7 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     return is_open, "HEADER", 0, 0
 
 @callback(
-    Output('reset-data-pressed', 'children', allow_duplicate=True),    
+    Output('reset-data-pressed', 'children', allow_duplicate=True),
     Output('time-button-pressed', 'children', allow_duplicate=True),
     Output('spatial-button-pressed', 'children', allow_duplicate=True),
     Input('modal-header', "children"),
@@ -149,6 +129,8 @@ def performAverage(header, sig, rad, n):
         elif(header.split()[0] == 'Spatial'):
             msg = performSpatialAverage(sig, rad)
             return empty, empty, msg
+        
+        # keep this else statement for debugging future functionality
         else:
             return "Error app.py in performAverage()", header.split()[0], empty
     else:
@@ -156,13 +138,13 @@ def performAverage(header, sig, rad, n):
 
 def performTimeAverage(sig, rad):
     global im_edited
-    im_edited = TimeAverage(im_edited, sig, rad);
+    im_edited = TimeAverage(im_edited, sig, rad)
     msg = "Time Average completed."
     return msg
 
 def performSpatialAverage(sig, rad):
     global im_edited
-    im_edited = SpatialAverage(im_edited, sig, rad);
+    im_edited = SpatialAverage(im_edited, sig, rad)
     msg = "Spatial Averaging Completed."
     return msg
 
@@ -175,7 +157,7 @@ def performSpatialAverage(sig, rad):
         prevent_initial_call=True)
 def resetData(n_clicks):
     global im_edited, im_raw
-    im_edited = im_raw.copy();
+    im_edited = im_raw.copy()
     msg = "Data reset."
     empty = ""
     return msg, empty, empty

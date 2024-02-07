@@ -33,3 +33,37 @@ def signal_viewport():
         width={"size": 9, "order": 2},
         id="col-signal"
     )
+
+def input_modal():
+    return dbc.Modal(
+                [
+                    dbc.ModalHeader("HEADER", id="modal-header"),
+                    dbc.ModalBody(
+                        [
+                            html.P("Sigma:"),
+                            dbc.Input(id='input-sigma', type="number", min = 0, value=0),
+                            html.P("Radius:"),
+                            dbc.Input(id='input-radius', type="number", min = 0, step = 1, value=0)
+                        ]),
+                    dbc.ModalFooter(
+                        dbc.Button("Perform Averaging", id="perform-avg-button")
+                    ),
+                ],
+                id="modal")
+
+def buttons_table():
+    return dbc.Row([
+                dbc.Col([
+                    dbc.Button('Reset', id='reset-data-button'),
+                    html.Div(id='reset-data-pressed'),
+                ], width=1),
+                dbc.Col([
+                    dbc.Button('Time Averaging', id='time-avg-button'),
+                    html.Div(id='time-button-pressed'),
+                ], width=1),
+                dbc.Col([
+                    dbc.Button('Spatial Averaging', id='spatial-avg-button'),
+                    html.Div(id='spatial-button-pressed'),
+                ], width=1),
+
+            ], justify="center", className="g-0")
