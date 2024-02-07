@@ -18,6 +18,14 @@ class CascadeData():
 
     def __init__(self):
         return
+    
+    def transform(self, type, **transform_kwargs):
+        
+        return
+    
+    @classmethod
+    def from_dat(cls):
+        return
 
 
 # TODO: Refactor this into a class method

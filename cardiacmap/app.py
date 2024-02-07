@@ -4,11 +4,11 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
-from data import cascade_import
-from transforms import TimeAverage, SpatialAverage, InvertSignal
+from cardiacmap.data import cascade_import
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal
 import json
 
-from components import image_viewport, signal_viewport, input_modal, buttons_table
+from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -69,66 +69,68 @@ app.layout = html.Div(
         dcc.Store(id='signal-position', storage_type="session"),
     ])
 
-
 @callback(
     Output("modal", "is_open"),
     Output("modal-header", "children"),
-    Output('input-sigma', 'value'),
-    Output('input-radius', 'value'),
+    Output("input-sigma", "value"),
+    Output("input-radius", "value"),
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
     Input("perform-avg-button", "n_clicks"),
     Input("modal-header", "children"),
-    Input('input-sigma', 'value'),
-    Input('input-radius', 'value'),
-    State("modal", "is_open")
+    Input("input-sigma", "value"),
+    Input("input-radius", "value"),
+    State("modal", "is_open"),
 )
-def toggleModal(n1, n2, n3, avgType, sigIn, radIn, is_open):
+
+def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     # open modal with spatial, 8 and 6 are defaults
-    if 'spatial-avg-button' == ctx.triggered_id:
+    if "spatial-avg-button" == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
-    
+
     # open modal with time, 4 and 3 are defaults
-    elif 'time-avg-button' == ctx.triggered_id:
+    elif "time-avg-button" == ctx.triggered_id:
         return True, "Time Averaging", 4, 3
-    
-    # close modal with current values
-    elif 'perform-avg-button' == ctx.triggered_id:
+
+    # close modal and perform averaging
+    elif "perform-avg-button" == ctx.triggered_id:
         return False, avgType, sigIn, radIn
-    
+
     # ignore updates to inputs
-    elif 'input-sigma' == ctx.triggered_id or 'input-radius' == ctx.triggered_id:
+    elif "input-sigma" == ctx.triggered_id or "input-radius" == ctx.triggered_id:
         return True, avgType, sigIn, radIn
-    
+
     # initial call
     # if you see "header" in modal, something went wrong
     return is_open, "HEADER", 0, 0
 
+
 @callback(
-    Output('reset-data-pressed', 'children', allow_duplicate=True),
-    Output('time-button-pressed', 'children', allow_duplicate=True),
-    Output('spatial-button-pressed', 'children', allow_duplicate=True),
-    Input('modal-header', "children"),
-    Input('input-sigma', 'value'),
-    Input('input-radius', 'value'),
+    Output("reset-data-pressed", "children", allow_duplicate=True),
+    Output("time-button-pressed", "children", allow_duplicate=True),
+    Output("spatial-button-pressed", "children", allow_duplicate=True),
+    Input("modal-header", "children"),
+    Input("input-sigma", "value"),
+    Input("input-radius", "value"),
     Input("perform-avg-button", "n_clicks"),
-    prevent_initial_call=True)
+    prevent_initial_call=True,
+)
 def performAverage(header, sig, rad, n):
     empty = ""
     msg="err"
     # if the modal was closed by the 'perform average' button
-    if('perform-avg-button' == ctx.triggered_id):
+    if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
-        if(sig is None or sig < 0):
+        if sig is None or sig < 0:
             sig = 0
-        if(rad is None or rad < 0):
+        if rad is None or rad < 0:
             rad = 0
         # Time averaging
-        if(header.split()[0] == 'Time'):
+        if header.split()[0] == "Time":
             msg = performTimeAverage(sig, rad)
             return empty, msg, empty
         # Spatial Averaging
-        elif(header.split()[0] == 'Spatial'):
+        elif header.split()[0] == "Spatial":
             msg = performSpatialAverage(sig, rad)
             return empty, empty, msg
         
@@ -136,13 +138,15 @@ def performAverage(header, sig, rad, n):
         else:
             return "Error app.py in performAverage()", header.split()[0], empty
     else:
-        return empty, empty, empty;    
+        return empty, empty, empty
+
 
 def performTimeAverage(sig, rad):
     global im_edited
     im_edited = TimeAverage(im_edited, sig, rad)
     msg = "Time Average completed."
     return msg
+
 
 def performSpatialAverage(sig, rad):
     global im_edited
@@ -165,18 +169,20 @@ def invertSignal(n):
 
 
 @callback(
-        Output('reset-data-pressed', 'children', allow_duplicate=True),
-        Output('time-button-pressed', 'children', allow_duplicate=True),
-        Output('spatial-button-pressed', 'children', allow_duplicate=True),
-        Output('invert-button-pressed', 'children', allow_duplicate=True),
-        Input('reset-data-button', 'n_clicks'),
-        prevent_initial_call=True)
+    Output("reset-data-pressed", "children", allow_duplicate=True),
+    Output("time-button-pressed", "children", allow_duplicate=True),
+    Output("spatial-button-pressed", "children", allow_duplicate=True),
+    Output("invert-button-pressed", "children", allow_duplicate=True),
+    Input("reset-data-button", "n_clicks"),
+    prevent_initial_call=True,
+)
 def resetData(n_clicks):
     global im_edited, im_raw
     im_edited = im_raw.copy()
     msg = "Data reset."
     empty = ""
     return msg, empty, empty, empty
+
 
 @callback(
     Output("frame-index", "data"),
@@ -197,7 +203,10 @@ def update_frame_slider_idx(clickData):
     return frame_idx
 
 
-@callback(Output("signal-position", "data"), Input("graph-image", "clickData"))
+@callback(
+    Output("signal-position", "data"),
+    Input("graph-image", "clickData"),
+)
 def update_signal_position(clickData):
     if clickData is not None:
         x = clickData["points"][0]["x"]
@@ -208,14 +217,19 @@ def update_signal_position(clickData):
     return json.dumps({"x": x, "y": y})
 
 
-@callback(Output("graph-image", "figure"), Input("frame-index", "data"))
-def update_figure(frame_idx):
+@callback(
+    Output("graph-image", "figure"),
+    Input("frame-index", "data"),
+    Input("reset-data-button", "n_clicks"),
+    State("frame-index", "data"),
+)
+def update_figure(_, b, frame_idx):
     fig = px.imshow(im_raw[frame_idx], binary_string=True)
     fig.update_layout(
         showlegend=False,
         xaxis=dict(visible=False),
         yaxis=dict(visible=False),
-        margin=dict(l=5, r=5, t=5, b=5),   
+        margin=dict(l=5, r=5, t=5, b=5),
     )
 
     return fig
@@ -225,8 +239,12 @@ def update_figure(frame_idx):
     Output("graph-signal", "figure"),
     Input("signal-position", "data"),
     Input("frame-index", "data"),
+    Input("reset-data-button", "n_clicks"),
+    State("signal-position", "data"),
+    State("frame-index", "data"),
 )
-def display_click_data(signal_position, frame_idx):
+def display_click_data(_a, _b, _c, signal_position, frame_idx):
+    
     signal_position = json.loads(signal_position)
     x = signal_position["x"]
     y = signal_position["y"]
