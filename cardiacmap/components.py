@@ -65,5 +65,8 @@ def buttons_table():
                     dbc.Button('Spatial Averaging', id='spatial-avg-button'),
                     html.Div(id='spatial-button-pressed'),
                 ], width=1),
-
+                dbc.Col([
+                    dbc.Button('Invert Signal', id='invert-signal-button'),
+                    html.Div(id='invert-button-pressed'),
+                ], width=1),
             ], justify="center", className="g-0")

@@ -1,10 +1,11 @@
+from operator import call
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
 from data import cascade_import
-from transforms import TimeAverage, SpatialAverage
+from transforms import TimeAverage, SpatialAverage, InvertSignal
 import json
 
 from components import image_viewport, signal_viewport, input_modal, buttons_table
@@ -82,7 +83,7 @@ app.layout = html.Div(
     Input('input-radius', 'value'),
     State("modal", "is_open")
 )
-def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
+def toggleModal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     # open modal with spatial, 8 and 6 are defaults
     if 'spatial-avg-button' == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
@@ -114,6 +115,7 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     prevent_initial_call=True)
 def performAverage(header, sig, rad, n):
     empty = ""
+    msg="err"
     # if the modal was closed by the 'perform average' button
     if('perform-avg-button' == ctx.triggered_id):
         # if bad inputs (str, negative nums, etc.)
@@ -148,11 +150,25 @@ def performSpatialAverage(sig, rad):
     msg = "Spatial Averaging Completed."
     return msg
 
+@callback(
+        Output('reset-data-pressed', 'children', allow_duplicate=True),
+        Output('invert-button-pressed', 'children', allow_duplicate=True),
+        Input('invert-signal-button', 'n_clicks'),
+        prevent_initial_call=True)
+def invertSignal(n):
+    msg = "Signal Inverted"
+    empty = ""
+    
+    global im_edited
+    im_edited = InvertSignal(im_edited)
+    return empty, msg
+
 
 @callback(
         Output('reset-data-pressed', 'children', allow_duplicate=True),
         Output('time-button-pressed', 'children', allow_duplicate=True),
         Output('spatial-button-pressed', 'children', allow_duplicate=True),
+        Output('invert-button-pressed', 'children', allow_duplicate=True),
         Input('reset-data-button', 'n_clicks'),
         prevent_initial_call=True)
 def resetData(n_clicks):
@@ -160,7 +176,7 @@ def resetData(n_clicks):
     im_edited = im_raw.copy()
     msg = "Data reset."
     empty = ""
-    return msg, empty, empty
+    return msg, empty, empty, empty
 
 @callback(
     Output("frame-index", "data"),

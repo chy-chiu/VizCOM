@@ -39,3 +39,14 @@ def SpatialAverage(arr, sigma, radius):
     newSigma = np.sqrt(sigma/2)
     
     return gaussian_filter(arr, newSigma, radius=radius, axes = (1, 2))
+
+def InvertSignal(arr):
+    """Function to invert array values
+    Args:
+        arr (array): data
+    Returns:
+        newArr: results, each data point is equal to: -(value) -1 
+                                                    i.e. np.invert([6, 0]) -> [-7, -1]
+    """   
+    newArr = np.invert(arr)
+    return newArr
