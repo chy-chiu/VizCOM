@@ -13,9 +13,9 @@ def navbar():
         children=[
             dbc.DropdownMenu(
                 children=[
-                    dbc.DropdownMenuItem("Upload", header=True),
-                    dbc.DropdownMenuItem("Upload", href="#"),
-                    dbc.DropdownMenuItem("Upload", href="#"),
+                    dbc.DropdownMenuItem("Test", header=True),
+                    dbc.DropdownMenuItem("Test", href="#"),
+                    dbc.DropdownMenuItem("Test", href="#"),
                 ],
                 nav=True,
                 in_navbar=True,

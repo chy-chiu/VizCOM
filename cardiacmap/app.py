@@ -3,13 +3,15 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
-from cardiacmap.data import cascade_import, CascadeData
+from cardiacmap.data import cascade_import, CascadeDataVoltage
 from cardiacmap.transforms import TimeAverage, SpatialAverage
 import json
 
 import numpy as np
 
 from cardiacmap.components import image_viewport, signal_viewport, navbar
+
+import os
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -34,7 +36,7 @@ app.layout = html.Div(
                 dbc.Row(navbar()),
                 dbc.Row(
                     dcc.Dropdown(
-                        options=list(signals_all.keys()),
+                        options=list(os.listdir('data')),
                         value="",
                         id="file-list-dropdown",
                         searchable=False,
@@ -47,21 +49,6 @@ app.layout = html.Div(
                     ]
                 ),
             ]
-        ),
-        dcc.Upload(
-            id="upload-data",
-            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-            style={
-                "width": "100%",
-                "height": "60px",
-                "lineHeight": "60px",
-                "borderWidth": "1px",
-                "borderStyle": "dashed",
-                "borderRadius": "5px",
-                "textAlign": "center",
-                "margin": "10px",
-            },
-            multiple=False,
         ),
         ## Modal stuff for transforms
         html.Div(
@@ -97,98 +84,32 @@ app.layout = html.Div(
                 )
             ]
         ),
-        html.Button("Test Upload", id="test-upload-button"),
-        html.Button("Reset", id="reset-data-button"),
-        html.Div(id="reset-data-pressed"),
-        # Average buttons
         html.Button("Time Averaging", id="time-avg-button"),
-        html.Div(id="time-button-pressed"),
         html.Button("Spatial Averaging", id="spatial-avg-button"),
-        html.Div(id="spatial-button-pressed"),
+        html.Button("Reset", id="reset-data-button"),
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
-        dcc.Store(
-            id="active-file-idx", storage_type="session"
-        ),  # Current file when there are multiple files
-        dcc.Store(id="active-file", storage_type="session"),
+        dcc.Store(id="active-file-idx", storage_type="session"),  # Current file when there are multiple files
+        dcc.Store(id="refresh-dummy", storage_type="session")
     ]
 )
 
-# # Mock upload button. Will remove later
-# @callback(
-#     Output("file-list-dropdown", "options"),
-#     Input("test-upload-button", "n_clicks"),
-#     prevent_initial_call=True,
-# )
-# def mock_upload(n_clicks):
-#     global signals_all
-#     print("HELLO")
-#     with open("2012-02-13_Exp000_Rec005_Cam3-Blue.dat", 'rb') as file:
-#         cascade_data_0 = CascadeData.from_dat(file) 
-#     signals_all[0] = cascade_data_0
-#     with open("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", 'rb') as file:
-#         cascade_data_1 = CascadeData.from_dat(file) 
-    
-#     print(cascade_data_1.transformed_data)
-
-#     signals_all[1] = cascade_data_1
-
-#     return list(signals_all.keys())
-
-
-@callback(Output("file-list-dropdown", "options"),
-              Input('upload-data', 'contents'),
-              State('upload-data', 'filename'),
-              State('upload-data', 'last_modified'),
-              prevent_initial_call=True)
-def update_output(list_of_contents, list_of_names, list_of_dates):
-    print("HELLO")
-    print(len(list_of_contents))
-    return None
-
-# Transforms
-def performTimeAverage(sig, rad):
-    global im_edited
-    im_edited = TimeAverage(im_edited, sig, rad)
-    msg = "Time Average completed."
-    return msg
-
-
-def performSpatialAverage(sig, rad):
-    global im_edited
-    im_edited = SpatialAverage(im_edited, sig, rad)
-    msg = "Spatial Averaging Completed."
-    return msg
-
-
-# Is this needed??
 @callback(
     Output("active-file-idx", "data"),
     Input("file-list-dropdown", "value"),
+    prevent_initial_call=True
 )
-def update_output(value):
-    # global im_raw
-    # im_raw = im_raws[value]
+def load_file(value):
+
+    global signals_all
+
+    if value is not None and value not in signals_all.keys():
+        signals_all[value] = CascadeDataVoltage.from_dat(value)
+
     return value
 
 # ================
-
-
-# @callback(
-#     Output("reset-data-pressed", "children", allow_duplicate=True),
-#     Output("time-button-pressed", "children", allow_duplicate=True),
-#     Output("spatial-button-pressed", "children", allow_duplicate=True),
-#     Input("reset-data-button", "n_clicks"),
-#     prevent_initial_call=True,
-# )
-# def resetData(n_clicks):
-#     global im_edited, im_raw
-#     im_edited = im_raw.copy()
-#     msg = "Data reset."
-#     empty = ""
-#     return msg, empty, empty
-
 
 # @callback(
 #     Output("frame-index", "data"),
@@ -212,6 +133,7 @@ def update_output(value):
 @callback(
     Output("signal-position", "data"),
     Input("graph-image", "clickData"),
+    prevent_initial_call=True,
 )
 def update_signal_position(clickData):
     if clickData is not None:
@@ -235,14 +157,11 @@ def update_image(signal_idx):
     global signals_all
 
     if signal_idx is not None:
-        active_signal = signals_all[signal_idx].transformed_data
+        key_frame = signals_all[signal_idx].get_keyframe()
     else:
-        active_signal = np.zeros((128, 128, 128))
+        key_frame = np.zeros((128, 128))
 
-    # Take the middle as the key frame for now
-    key_frame_idx = len(active_signal) // 2
-
-    fig = px.imshow(active_signal[key_frame_idx], binary_string=True)
+    fig = px.imshow(key_frame, binary_string=True)
     fig.update_layout(
         showlegend=False,
         xaxis=dict(visible=False),
@@ -257,14 +176,21 @@ def update_image(signal_idx):
     Output("graph-signal", "figure"),
     Input("signal-position", "data"),
     Input("active-file-idx", "data"),
+    Input("refresh-dummy", "data"),
+    prevent_initial_call=True
 )
-def display_click_data(signal_position, signal_idx):
+def display_signal_data(signal_position, signal_idx, _):
 
     signal_position = json.loads(signal_position)
     x = signal_position["x"]
     y = signal_position["y"]
 
-    active_signal = signals_all[signal_idx].transformed_data
+    if signal_idx is not None:
+
+        active_signal = signals_all[signal_idx].get_curr_signal()
+
+    else:
+        active_signal = np.ones((128, 128, 128))
 
     fig = px.line(active_signal[10:, x, y])
     # fig.add_vline(x=frame_idx)
@@ -274,75 +200,90 @@ def display_click_data(signal_position, signal_idx):
     return fig
 
 
-# @callback(
-#     Output("modal", "is_open"),
-#     Output("modal-header", "children"),
-#     Output("input-sigma", "value"),
-#     Output("input-radius", "value"),
-#     Input("time-avg-button", "n_clicks"),
-#     Input("spatial-avg-button", "n_clicks"),
-#     Input("perform-avg-button", "n_clicks"),
-#     Input("modal-header", "children"),
-#     Input("input-sigma", "value"),
-#     Input("input-radius", "value"),
-#     State("modal", "is_open"),
-# )
-# def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
-#     # open modal with spatial
-#     if "spatial-avg-button" == ctx.triggered_id:
-#         return True, "Spatial Averaging", 8, 6
+# TODO: Clean this chunk up
 
-#     # open modal with time
-#     elif "time-avg-button" == ctx.triggered_id:
-#         return True, "Time Averaging", 4, 3
+@callback(
+    Output("modal", "is_open"),
+    Output("modal-header", "children"),
+    Output("input-sigma", "value"),
+    Output("input-radius", "value"),
+    Input("time-avg-button", "n_clicks"),
+    Input("spatial-avg-button", "n_clicks"),
+    Input("perform-avg-button", "n_clicks"),
+    Input("modal-header", "children"),
+    Input("input-sigma", "value"),
+    Input("input-radius", "value"),
+    State("modal", "is_open"),
+)
+def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
 
-#     # close modal and perform averaging
-#     elif "perform-avg-button" == ctx.triggered_id:
-#         return False, avgType, sigIn, radIn
+    # open modal with spatial
+    if "spatial-avg-button" == ctx.triggered_id:
+        return True, "Spatial Averaging", 8, 6
 
-#     # ignore updates to inputs
-#     elif "input-sigma" == ctx.triggered_id or "input-radius" == ctx.triggered_id:
-#         return True, avgType, sigIn, radIn
+    # open modal with time
+    elif "time-avg-button" == ctx.triggered_id:
+        return True, "Time Averaging", 4, 3
 
-#     # initial call
-#     # if you see "header" in modal, something went wrong
-#     return is_open, "HEADER", 0, 0
+    # close modal and perform averaging
+    elif "perform-avg-button" == ctx.triggered_id:
+        return False, avgType, sigIn, radIn
+
+    # ignore updates to inputs
+    elif "input-sigma" == ctx.triggered_id or "input-radius" == ctx.triggered_id:
+        return True, avgType, sigIn, radIn
+
+    # initial call
+    # if you see "header" in modal, something went wrong
+    return is_open, "HEADER", 0, 0
 
 
-# @callback(
-#     Output("reset-data-pressed", "children", allow_duplicate=True),
-#     Output("time-button-pressed", "children", allow_duplicate=True),
-#     Output("spatial-button-pressed", "children", allow_duplicate=True),
-#     Input("modal-header", "children"),
-#     Input("input-sigma", "value"),
-#     Input("input-radius", "value"),
-#     Input("perform-avg-button", "n_clicks"),
-#     prevent_initial_call=True,
-# )
-# def performAverage(header, sig, rad, n):
-#     empty = ""
-#     # if the modal was closed by the 'perform average' button
-#     if "perform-avg-button" == ctx.triggered_id:
-#         # if bad inputs (str, negative nums, etc.)
-#         if sig is None or sig < 0:
-#             sig = 0
-#         if rad is None or rad < 0:
-#             rad = 0
-#         # Time averaging
-#         if header.split()[0] == "Time":
-#             msg = performTimeAverage(sig, rad)
-#             return empty, msg, empty
-#         # Spatial Averaging
-#         elif header.split()[0] == "Spatial":
-#             msg = performSpatialAverage(sig, rad)
-#             return empty, empty, msg
-#         else:
-#             return "Error app.py in performAverage()", header.split()[0], empty
-#     else:
-#         return empty, empty, empty
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("modal-header", "children"),
+    Input("input-sigma", "value"),
+    Input("input-radius", "value"),
+    Input("perform-avg-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True,
+)
+def performAverage(header, sig, rad, n, signal_idx):
+    
+    refresh_dummy_var = np.random.random()
 
+    # if the modal was closed by the 'perform average' button
+    if "perform-avg-button" == ctx.triggered_id:
+        # if bad inputs (str, negative nums, etc.)
+        if sig is None or sig < 0:
+            sig = 0
+        if rad is None or rad < 0:
+            rad = 0
+        # Time averaging
+        if header.split()[0] == "Time":
+            signals_all[signal_idx].perform_average("time", sig, rad)
+            return refresh_dummy_var
+        # Spatial Averaging
+        elif header.split()[0] == "Spatial":
+            signals_all[signal_idx].perform_average("spatial", sig, rad)
+            return refresh_dummy_var
+    else:
+        return refresh_dummy_var
+
+
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("reset-data-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True,
+)
+def reset_data(_, signal_idx):
+    refresh_dummy_var = np.random.random()
+
+    signals_all[signal_idx].reset_data()
+
+    return refresh_dummy_var
 
 # ===========================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=8051)
