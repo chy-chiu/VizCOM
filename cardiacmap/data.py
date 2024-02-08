@@ -8,7 +8,7 @@ import numpy as np
 
 from typing import List
 
-from cardiacmap.transforms import TimeAverage, SpatialAverage
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal
 
 class CascadeDataVoltage:
 
@@ -59,6 +59,9 @@ class CascadeDataVoltage:
             self.transformed_data = SpatialAverage(self.transformed_data, sig, rad)
         return
     
+    def invert_data(self):
+        self.transformed_data = InvertSignal(self.transformed_data)
+
     def reset_data(self):
         self.transformed_data = self.base_data
     

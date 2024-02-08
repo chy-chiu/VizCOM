@@ -10,7 +10,7 @@ import json
 
 import numpy as np
 
-from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table
+from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table, navbar
 
 import os
 
@@ -52,42 +52,9 @@ app.layout = html.Div(
             ]
         ),
         ## Modal stuff for transforms
-        html.Div(
-            [
-                dbc.Modal(
-                    [
-                        dbc.ModalHeader("HEADER", id="modal-header"),
-                        dbc.ModalBody(
-                            [
-                                html.P("Sigma:"),
-                                dbc.Input(
-                                    id="input-sigma", type="number", min=0, value=0
-                                ),
-                                html.P("Radius:"),
-                                dbc.Input(
-                                    id="input-radius",
-                                    type="number",
-                                    min=0,
-                                    step=1,
-                                    value=0,
-                                ),
-                            ]
-                        ),
-                        dbc.ModalFooter(
-                            dbc.Button(
-                                "Perform Averaging",
-                                id="perform-avg-button",
-                                className="ml-auto",
-                            )
-                        ),
-                    ],
-                    id="modal",
-                )
-            ]
-        ),
-        html.Button("Time Averaging", id="time-avg-button"),
-        html.Button("Spatial Averaging", id="spatial-avg-button"),
-        html.Button("Reset", id="reset-data-button"),
+        input_modal(),
+        buttons_table(),
+        # html.Button("Reset", id="reset-data-button"),
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
@@ -248,8 +215,6 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
 )
 def performAverage(header, sig, rad, n, signal_idx):
     
-    refresh_dummy_var = np.random.random()
-
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
@@ -260,13 +225,26 @@ def performAverage(header, sig, rad, n, signal_idx):
         # Time averaging
         if header.split()[0] == "Time":
             signals_all[signal_idx].perform_average("time", sig, rad)
-            return refresh_dummy_var
+            return  np.random.random()
         # Spatial Averaging
         elif header.split()[0] == "Spatial":
             signals_all[signal_idx].perform_average("spatial", sig, rad)
-            return refresh_dummy_var
+            return  np.random.random()
     else:
-        return refresh_dummy_var
+        return  np.random.random()
+    
+    
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("invert-signal-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True,
+)
+def performAverage(header, sig, rad, n, signal_idx):
+    
+    signals_all[signal_idx].invert_data()
+
+    return np.random.random()
 
 
 @callback(
@@ -276,11 +254,10 @@ def performAverage(header, sig, rad, n, signal_idx):
     prevent_initial_call=True,
 )
 def reset_data(_, signal_idx):
-    refresh_dummy_var = np.random.random()
 
     signals_all[signal_idx].reset_data()
 
-    return refresh_dummy_var
+    return np.random.random()
 
 # ===========================
 
