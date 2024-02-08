@@ -1,8 +1,10 @@
+from operator import call
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
+<<<<<<< HEAD
 from cardiacmap.data import cascade_import, CascadeDataVoltage
 from cardiacmap.transforms import TimeAverage, SpatialAverage
 import json
@@ -12,6 +14,13 @@ import numpy as np
 from cardiacmap.components import image_viewport, signal_viewport, navbar
 
 import os
+=======
+from cardiacmap.data import cascade_import
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal
+import json
+
+from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table
+>>>>>>> main
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -50,6 +59,7 @@ app.layout = html.Div(
                 ),
             ]
         ),
+<<<<<<< HEAD
         ## Modal stuff for transforms
         html.Div(
             [
@@ -201,6 +211,29 @@ def display_signal_data(signal_position, signal_idx, _):
 
 
 # TODO: Clean this chunk up
+=======
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+            style={
+                "width": "100%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
+                "borderRadius": "5px",
+                "textAlign": "center",
+                "margin": "10px",
+            },
+            multiple=False,
+        ),
+        html.Div([input_modal()]),
+        html.Div([buttons_table()], style={"textAlign": "center",}),
+        
+        dcc.Store(id='frame-index', storage_type="session"),
+        dcc.Store(id='signal-position', storage_type="session"),
+    ])
+>>>>>>> main
 
 @callback(
     Output("modal", "is_open"),
@@ -215,13 +248,18 @@ def display_signal_data(signal_position, signal_idx, _):
     Input("input-radius", "value"),
     State("modal", "is_open"),
 )
+
 def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
+<<<<<<< HEAD
 
     # open modal with spatial
+=======
+    # open modal with spatial, 8 and 6 are defaults
+>>>>>>> main
     if "spatial-avg-button" == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
 
-    # open modal with time
+    # open modal with time, 4 and 3 are defaults
     elif "time-avg-button" == ctx.triggered_id:
         return True, "Time Averaging", 4, 3
 
@@ -247,10 +285,16 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
+<<<<<<< HEAD
 def performAverage(header, sig, rad, n, signal_idx):
     
     refresh_dummy_var = np.random.random()
 
+=======
+def performAverage(header, sig, rad, n):
+    empty = ""
+    msg="err"
+>>>>>>> main
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
@@ -264,20 +308,58 @@ def performAverage(header, sig, rad, n, signal_idx):
             return refresh_dummy_var
         # Spatial Averaging
         elif header.split()[0] == "Spatial":
+<<<<<<< HEAD
             signals_all[signal_idx].perform_average("spatial", sig, rad)
             return refresh_dummy_var
+=======
+            msg = performSpatialAverage(sig, rad)
+            return empty, empty, msg
+        
+        # keep this else statement for debugging future functionality
+        else:
+            return "Error app.py in performAverage()", header.split()[0], empty
+>>>>>>> main
     else:
         return refresh_dummy_var
 
+@callback(
+        Output('reset-data-pressed', 'children', allow_duplicate=True),
+        Output('invert-button-pressed', 'children', allow_duplicate=True),
+        Input('invert-signal-button', 'n_clicks'),
+        prevent_initial_call=True)
+def invertSignal(n):
+    msg = "Signal Inverted"
+    empty = ""
+    
+    global im_edited
+    im_edited = InvertSignal(im_edited)
+    return empty, msg
+
 
 @callback(
+<<<<<<< HEAD
     Output("refresh-dummy", "data", allow_duplicate=True),
+=======
+    Output("reset-data-pressed", "children", allow_duplicate=True),
+    Output("time-button-pressed", "children", allow_duplicate=True),
+    Output("spatial-button-pressed", "children", allow_duplicate=True),
+    Output("invert-button-pressed", "children", allow_duplicate=True),
+>>>>>>> main
     Input("reset-data-button", "n_clicks"),
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
+<<<<<<< HEAD
 def reset_data(_, signal_idx):
     refresh_dummy_var = np.random.random()
+=======
+def resetData(n_clicks):
+    global im_edited, im_raw
+    im_edited = im_raw.copy()
+    msg = "Data reset."
+    empty = ""
+    return msg, empty, empty, empty
+>>>>>>> main
 
     signals_all[signal_idx].reset_data()
 
