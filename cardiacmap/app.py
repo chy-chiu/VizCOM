@@ -14,6 +14,9 @@ from cardiacmap.components import image_viewport, signal_viewport, input_modal, 
 
 import os
 
+import webbrowser
+from threading import Timer
+
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 # server = app.server
@@ -261,5 +264,9 @@ def reset_data(_, signal_idx):
 
 # ===========================
 
+def open_browser():
+	webbrowser.open_new("http://localhost:{}".format(8051))
+
 if __name__ == "__main__":
+    Timer(1, open_browser).start()
     app.run(debug=True, port=8051)
