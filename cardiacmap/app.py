@@ -4,41 +4,45 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
-from cardiacmap.data import cascade_import
-from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal
+from cardiacmap.data import cascade_import, CascadeDataVoltage
+from cardiacmap.transforms import TimeAverage, SpatialAverage
 import json
 
-from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table
+import numpy as np
+
+from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table, navbar
+
+import os
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-im_raw = cascade_import("2012-02-13_Exp000_Rec005_Cam3-Blue.dat")
-im_edited = im_raw.copy()
+# server = app.server
+# CACHE_CONFIG = {
+#     "DEBUG": True,
+#     "CACHE_TYPE": "SimpleCache",
+#     "CACHE_DEFAULT_TIMEOUT": 7200,
+# }
 
-navbar = dbc.NavbarSimple(
-    children=[
-        dbc.DropdownMenu(
-            children=[
-                dbc.DropdownMenuItem("Upload", header=True),
-                dbc.DropdownMenuItem("Upload", href="#"),
-                dbc.DropdownMenuItem("Upload", href="#"),
-            ],
-            nav=True,
-            in_navbar=True,
-            label="More",
-        ),
-    ],
-    brand="CardiacOpticalMapper",
-    brand_href="#",
-    color="primary",
-    dark=True,
-)
+"""This dict stores ALL the signals that has been uploaded. 
+Currently it is stored as a unsafe, global variable. 
+To explore using caching e.g. flask-cache to make it more stable / safe?
+Or that might not be necessary since this app is meant to be a one
+and done deal."""
+signals_all = {}
 
 app.layout = html.Div(
     [
         html.Div(
             [
-                dbc.Row(navbar),
+                dbc.Row(navbar()),
+                dbc.Row(
+                    dcc.Dropdown(
+                        options=list(os.listdir('data')),
+                        value="",
+                        id="file-list-dropdown",
+                        searchable=False,
+                    ),
+                ),
                 dbc.Row(
                     [
                         image_viewport(),
@@ -47,28 +51,124 @@ app.layout = html.Div(
                 ),
             ]
         ),
-        dcc.Upload(
-            id="upload-data",
-            children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
-            style={
-                "width": "100%",
-                "height": "60px",
-                "lineHeight": "60px",
-                "borderWidth": "1px",
-                "borderStyle": "dashed",
-                "borderRadius": "5px",
-                "textAlign": "center",
-                "margin": "10px",
-            },
-            multiple=False,
-        ),
-        html.Div([input_modal()]),
-        html.Div([buttons_table()], style={"textAlign": "center",}),
-        
-        dcc.Store(id='frame-index', storage_type="session"),
-        dcc.Store(id='signal-position', storage_type="session"),
-    ])
+        ## Modal stuff for transforms
+        input_modal(),
+        buttons_table(),
+        # html.Button("Reset", id="reset-data-button"),
+        # Dash store components
+        # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
+        dcc.Store(id="signal-position", storage_type="session"),
+        dcc.Store(id="active-file-idx", storage_type="session"),  # Current file when there are multiple files
+        dcc.Store(id="refresh-dummy", storage_type="session")
+    ]
+)
 
+@callback(
+    Output("active-file-idx", "data"),
+    Input("file-list-dropdown", "value"),
+    prevent_initial_call=True
+)
+def load_file(value):
+
+    global signals_all
+
+    if value is not None and value not in signals_all.keys():
+        signals_all[value] = CascadeDataVoltage.from_dat(value)
+
+    return value
+
+# ================
+
+# @callback(
+#     Output("frame-index", "data"),
+#     Input("frame-slider", "value"),
+# )
+# def update_frame_idx(frame_idx):
+#     return frame_idx
+
+
+# @callback(
+#     Output("frame-slider", "value"),
+#     Input("graph-signal", "clickData"),
+#     prevent_initial_call=True,
+# )
+# def update_frame_slider_idx(clickData):
+#     if clickData is not None:
+#         frame_idx = clickData["points"][0]["pointIndex"]
+#     return frame_idx
+
+
+@callback(
+    Output("signal-position", "data"),
+    Input("graph-image", "clickData"),
+    prevent_initial_call=True,
+)
+def update_signal_position(clickData):
+    if clickData is not None:
+        x = clickData["points"][0]["x"]
+        y = clickData["points"][0]["y"]
+    else:
+        # Default to middle for now
+        x = 64
+        y = 64
+    return json.dumps({"x": x, "y": y})
+
+
+# This should only be called upon changing the signal
+# Movie mode to come later
+@callback(
+    Output("graph-image", "figure"),
+    Input("active-file-idx", "data"),
+)
+def update_image(signal_idx):
+
+    global signals_all
+
+    if signal_idx is not None:
+        key_frame = signals_all[signal_idx].get_keyframe()
+    else:
+        key_frame = np.zeros((128, 128))
+
+    fig = px.imshow(key_frame, binary_string=True)
+    fig.update_layout(
+        showlegend=False,
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        margin=dict(l=5, r=5, t=5, b=5),
+    )
+
+    return fig
+
+
+@callback(
+    Output("graph-signal", "figure"),
+    Input("signal-position", "data"),
+    Input("active-file-idx", "data"),
+    Input("refresh-dummy", "data"),
+    prevent_initial_call=True
+)
+def display_signal_data(signal_position, signal_idx, _):
+
+    signal_position = json.loads(signal_position)
+    x = signal_position["x"]
+    y = signal_position["y"]
+
+    if signal_idx is not None:
+
+        active_signal = signals_all[signal_idx].get_curr_signal()
+
+    else:
+        active_signal = np.ones((128, 128, 128))
+
+    fig = px.line(active_signal[10:, x, y])
+    # fig.add_vline(x=frame_idx)
+    fig.update_yaxes(fixedrange=True)
+    fig.update_layout(showlegend=False)
+
+    return fig
+
+
+# TODO: Make this clean (?)
 @callback(
     Output("modal", "is_open"),
     Output("modal-header", "children"),
@@ -82,13 +182,12 @@ app.layout = html.Div(
     Input("input-radius", "value"),
     State("modal", "is_open"),
 )
-
 def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
-    # open modal with spatial, 8 and 6 are defaults
+    # open modal with spatial
     if "spatial-avg-button" == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
 
-    # open modal with time, 4 and 3 are defaults
+    # open modal with time
     elif "time-avg-button" == ctx.triggered_id:
         return True, "Time Averaging", 4, 3
 
@@ -106,18 +205,16 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
 
 
 @callback(
-    Output("reset-data-pressed", "children", allow_duplicate=True),
-    Output("time-button-pressed", "children", allow_duplicate=True),
-    Output("spatial-button-pressed", "children", allow_duplicate=True),
+    Output("refresh-dummy", "data", allow_duplicate=True),
     Input("modal-header", "children"),
     Input("input-sigma", "value"),
     Input("input-radius", "value"),
     Input("perform-avg-button", "n_clicks"),
+    State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performAverage(header, sig, rad, n):
-    empty = ""
-    msg="err"
+def performAverage(header, sig, rad, n, signal_idx):
+    
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
@@ -127,135 +224,42 @@ def performAverage(header, sig, rad, n):
             rad = 0
         # Time averaging
         if header.split()[0] == "Time":
-            msg = performTimeAverage(sig, rad)
-            return empty, msg, empty
+            signals_all[signal_idx].perform_average("time", sig, rad)
+            return  np.random.random()
         # Spatial Averaging
         elif header.split()[0] == "Spatial":
-            msg = performSpatialAverage(sig, rad)
-            return empty, empty, msg
-        
-        # keep this else statement for debugging future functionality
-        else:
-            return "Error app.py in performAverage()", header.split()[0], empty
+            signals_all[signal_idx].perform_average("spatial", sig, rad)
+            return  np.random.random()
     else:
-        return empty, empty, empty
-
-
-def performTimeAverage(sig, rad):
-    global im_edited
-    im_edited = TimeAverage(im_edited, sig, rad)
-    msg = "Time Average completed."
-    return msg
-
-
-def performSpatialAverage(sig, rad):
-    global im_edited
-    im_edited = SpatialAverage(im_edited, sig, rad)
-    msg = "Spatial Averaging Completed."
-    return msg
-
-@callback(
-        Output('reset-data-pressed', 'children', allow_duplicate=True),
-        Output('invert-button-pressed', 'children', allow_duplicate=True),
-        Input('invert-signal-button', 'n_clicks'),
-        prevent_initial_call=True)
-def invertSignal(n):
-    msg = "Signal Inverted"
-    empty = ""
+        return  np.random.random()
     
-    global im_edited
-    im_edited = InvertSignal(im_edited)
-    return empty, msg
-
-
+    
 @callback(
-    Output("reset-data-pressed", "children", allow_duplicate=True),
-    Output("time-button-pressed", "children", allow_duplicate=True),
-    Output("spatial-button-pressed", "children", allow_duplicate=True),
-    Output("invert-button-pressed", "children", allow_duplicate=True),
-    Input("reset-data-button", "n_clicks"),
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("invert-signal-button", "n_clicks"),
+    State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def resetData(n_clicks):
-    global im_edited, im_raw
-    im_edited = im_raw.copy()
-    msg = "Data reset."
-    empty = ""
-    return msg, empty, empty, empty
+def performAverage(header, sig, rad, n, signal_idx):
+    
+    signals_all[signal_idx].invert_data()
+
+    return np.random.random()
 
 
 @callback(
-    Output("frame-index", "data"),
-    Input("frame-slider", "value"),
-)
-def update_frame_idx(frame_idx):
-    return frame_idx
-
-
-@callback(
-    Output("frame-slider", "value"),
-    Input("graph-signal", "clickData"),
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("reset-data-button", "n_clicks"),
+    State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def update_frame_slider_idx(clickData):
-    if clickData is not None:
-        frame_idx = clickData["points"][0]["pointIndex"]
-    return frame_idx
+def reset_data(_, signal_idx):
 
+    signals_all[signal_idx].reset_data()
 
-@callback(
-    Output("signal-position", "data"),
-    Input("graph-image", "clickData"),
-)
-def update_signal_position(clickData):
-    if clickData is not None:
-        x = clickData["points"][0]["x"]
-        y = clickData["points"][0]["y"]
-    else:
-        x = 64
-        y = 64
-    return json.dumps({"x": x, "y": y})
+    return np.random.random()
 
-
-@callback(
-    Output("graph-image", "figure"),
-    Input("frame-index", "data"),
-    Input("reset-data-button", "n_clicks"),
-    State("frame-index", "data"),
-)
-def update_figure(_, b, frame_idx):
-    fig = px.imshow(im_raw[frame_idx], binary_string=True)
-    fig.update_layout(
-        showlegend=False,
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        margin=dict(l=5, r=5, t=5, b=5),
-    )
-
-    return fig
-
-
-@callback(
-    Output("graph-signal", "figure"),
-    Input("signal-position", "data"),
-    Input("frame-index", "data"),
-    Input("reset-data-button", "n_clicks"),
-    State("signal-position", "data"),
-    State("frame-index", "data"),
-)
-def display_click_data(_a, _b, _c, signal_position, frame_idx):
-    
-    signal_position = json.loads(signal_position)
-    x = signal_position["x"]
-    y = signal_position["y"]
-
-    fig = px.line(im_edited[10:, x, y])
-    fig.add_vline(x=frame_idx)
-    fig.update_yaxes(fixedrange=True)
-    fig.update_layout(showlegend=False)
-
-    return fig
-
+# ===========================
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=8051)
