@@ -213,7 +213,7 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performAverage(header, sig, rad, n, signal_idx):
+def performAverage(header, sig, rad, _, signal_idx):
     
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
@@ -240,7 +240,7 @@ def performAverage(header, sig, rad, n, signal_idx):
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performAverage(header, sig, rad, n, signal_idx):
+def performInvert(_, signal_idx):
     
     signals_all[signal_idx].invert_data()
 
