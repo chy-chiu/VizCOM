@@ -1,13 +1,14 @@
+from operator import call
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
 
 from cardiacmap.data import cascade_import
-from cardiacmap.transforms import TimeAverage, SpatialAverage
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal
 import json
 
-from cardiacmap.components import image_viewport, signal_viewport
+from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
@@ -61,50 +62,12 @@ app.layout = html.Div(
             },
             multiple=False,
         ),
-        html.Div(
-            [
-                dbc.Modal(
-                    [
-                        dbc.ModalHeader("HEADER", id="modal-header"),
-                        dbc.ModalBody(
-                            [
-                                html.P("Sigma:"),
-                                dbc.Input(
-                                    id="input-sigma", type="number", min=0, value=0
-                                ),
-                                html.P("Radius:"),
-                                dbc.Input(
-                                    id="input-radius",
-                                    type="number",
-                                    min=0,
-                                    step=1,
-                                    value=0,
-                                ),
-                            ]
-                        ),
-                        dbc.ModalFooter(
-                            dbc.Button(
-                                "Perform Averaging",
-                                id="perform-avg-button",
-                                className="ml-auto",
-                            )
-                        ),
-                    ],
-                    id="modal",
-                )
-            ]
-        ),
-        html.Button("Reset", id="reset-data-button"),
-        html.Div(id="reset-data-pressed"),
-        html.Button("Time Averaging", id="time-avg-button"),
-        html.Div(id="time-button-pressed"),
-        html.Button("Spatial Averaging", id="spatial-avg-button"),
-        html.Div(id="spatial-button-pressed"),
-        dcc.Store(id="frame-index", storage_type="session"),
-        dcc.Store(id="signal-position", storage_type="session"),
-    ]
-)
-
+        html.Div([input_modal()]),
+        html.Div([buttons_table()], style={"textAlign": "center",}),
+        
+        dcc.Store(id='frame-index', storage_type="session"),
+        dcc.Store(id='signal-position', storage_type="session"),
+    ])
 
 @callback(
     Output("modal", "is_open"),
@@ -119,12 +82,13 @@ app.layout = html.Div(
     Input("input-radius", "value"),
     State("modal", "is_open"),
 )
+
 def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
-    # open modal with spatial
+    # open modal with spatial, 8 and 6 are defaults
     if "spatial-avg-button" == ctx.triggered_id:
         return True, "Spatial Averaging", 8, 6
 
-    # open modal with time
+    # open modal with time, 4 and 3 are defaults
     elif "time-avg-button" == ctx.triggered_id:
         return True, "Time Averaging", 4, 3
 
@@ -153,6 +117,7 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
 )
 def performAverage(header, sig, rad, n):
     empty = ""
+    msg="err"
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
@@ -168,6 +133,8 @@ def performAverage(header, sig, rad, n):
         elif header.split()[0] == "Spatial":
             msg = performSpatialAverage(sig, rad)
             return empty, empty, msg
+        
+        # keep this else statement for debugging future functionality
         else:
             return "Error app.py in performAverage()", header.split()[0], empty
     else:
@@ -187,11 +154,25 @@ def performSpatialAverage(sig, rad):
     msg = "Spatial Averaging Completed."
     return msg
 
+@callback(
+        Output('reset-data-pressed', 'children', allow_duplicate=True),
+        Output('invert-button-pressed', 'children', allow_duplicate=True),
+        Input('invert-signal-button', 'n_clicks'),
+        prevent_initial_call=True)
+def invertSignal(n):
+    msg = "Signal Inverted"
+    empty = ""
+    
+    global im_edited
+    im_edited = InvertSignal(im_edited)
+    return empty, msg
+
 
 @callback(
     Output("reset-data-pressed", "children", allow_duplicate=True),
     Output("time-button-pressed", "children", allow_duplicate=True),
     Output("spatial-button-pressed", "children", allow_duplicate=True),
+    Output("invert-button-pressed", "children", allow_duplicate=True),
     Input("reset-data-button", "n_clicks"),
     prevent_initial_call=True,
 )
@@ -200,7 +181,7 @@ def resetData(n_clicks):
     im_edited = im_raw.copy()
     msg = "Data reset."
     empty = ""
-    return msg, empty, empty
+    return msg, empty, empty, empty
 
 
 @callback(
