@@ -10,7 +10,14 @@ import json
 
 import numpy as np
 
-from cardiacmap.components import image_viewport, signal_viewport, input_modal, buttons_table, navbar
+from cardiacmap.components import (
+    image_viewport,
+    signal_viewport,
+    input_modal,
+    buttons_table,
+    navbar,
+    file_directory,
+)
 
 import os
 
@@ -38,21 +45,19 @@ app.layout = html.Div(
         html.Div(
             [
                 dbc.Row(navbar()),
-                dbc.Row(
-                    dcc.Dropdown(
-                        options=list(os.listdir('data')),
-                        value="",
-                        id="file-list-dropdown",
-                        searchable=False,
-                    ),
-                ),
+                dbc.Row(file_directory()),
                 dbc.Row(
                     [
                         image_viewport(),
                         signal_viewport(),
-                    ]
+                    ],
+                    style={
+                        "display": "flex",
+                        "align-items": "center",
+                        "justify-content": "center",
+                    },
                 ),
-            ]
+            ],
         ),
         ## Modal stuff for transforms
         input_modal(),
@@ -61,15 +66,18 @@ app.layout = html.Div(
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
-        dcc.Store(id="active-file-idx", storage_type="session"),  # Current file when there are multiple files
-        dcc.Store(id="refresh-dummy", storage_type="session")
+        dcc.Store(
+            id="active-file-idx", storage_type="session"
+        ),  # Current file when there are multiple files
+        dcc.Store(id="refresh-dummy", storage_type="session"),
     ]
 )
 
+
 @callback(
     Output("active-file-idx", "data"),
-    Input("file-list-dropdown", "value"),
-    prevent_initial_call=True
+    Input("file-directory-dropdown", "value"),
+    prevent_initial_call=True,
 )
 def load_file(value):
 
@@ -79,6 +87,7 @@ def load_file(value):
         signals_all[value] = CascadeDataVoltage.from_dat(value)
 
     return value
+
 
 # ================
 
@@ -148,7 +157,7 @@ def update_image(signal_idx):
     Input("signal-position", "data"),
     Input("active-file-idx", "data"),
     Input("refresh-dummy", "data"),
-    prevent_initial_call=True
+    prevent_initial_call=True,
 )
 def display_signal_data(signal_position, signal_idx, _):
 
@@ -206,6 +215,14 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     # if you see "header" in modal, something went wrong
     return is_open, "HEADER", 0, 0
 
+@callback(
+    Output("file-directory-dropdown", "options"),
+    Input("refresh-folder-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def update_file_directory(_):
+
+    return os.listdir('./data')
 
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
@@ -217,7 +234,7 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
     prevent_initial_call=True,
 )
 def performAverage(header, sig, rad, _, signal_idx):
-    
+
     # if the modal was closed by the 'perform average' button
     if "perform-avg-button" == ctx.triggered_id:
         # if bad inputs (str, negative nums, etc.)
@@ -228,15 +245,15 @@ def performAverage(header, sig, rad, _, signal_idx):
         # Time averaging
         if header.split()[0] == "Time":
             signals_all[signal_idx].perform_average("time", sig, rad)
-            return  np.random.random()
+            return np.random.random()
         # Spatial Averaging
         elif header.split()[0] == "Spatial":
             signals_all[signal_idx].perform_average("spatial", sig, rad)
-            return  np.random.random()
+            return np.random.random()
     else:
-        return  np.random.random()
-    
-    
+        return np.random.random()
+
+
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
     Input("invert-signal-button", "n_clicks"),
@@ -244,7 +261,7 @@ def performAverage(header, sig, rad, _, signal_idx):
     prevent_initial_call=True,
 )
 def performInvert(_, signal_idx):
-    
+
     signals_all[signal_idx].invert_data()
 
     return np.random.random()
@@ -262,11 +279,14 @@ def reset_data(_, signal_idx):
 
     return np.random.random()
 
+
 # ===========================
 
+
 def open_browser():
-	webbrowser.open_new("http://localhost:{}".format(8051))
+    webbrowser.open_new("http://localhost:{}".format(8051))
+
 
 if __name__ == "__main__":
-    Timer(1, open_browser).start()
+    # Timer(1, open_browser).start()
     app.run(debug=True, port=8051)
