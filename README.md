@@ -24,9 +24,13 @@ This software is mostly built upon Plotly Dash, a Python framework for interacti
 
 1. Run `python app.py` in the root folder, then open the webapp on `127.0.0.1:8051`
 
-## To add files
+## To load files
 
 1. Put any voltage .dat data into `./data` folder and it would show up in the app 
+
+## To compile to executable
+
+Compilation uses [PyInstaller](https://pyinstaller.org/en/stable/). To compile, run it on app.py as per the instructions. Remember to set the debug flag as false. 
 
 ## Development guidelines
 Employ standard software practices
