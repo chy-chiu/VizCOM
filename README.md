@@ -6,7 +6,7 @@ This is a rewrite of the cardiac optical mapping software for better performance
 
 This software is mostly built upon Plotly Dash, a Python framework for interactive data visualization
 
-## Installation
+## Development
 1. Git clone this repo
 2. Set up virtual environment
 
@@ -16,15 +16,19 @@ This software is mostly built upon Plotly Dash, a Python framework for interacti
 
 `conda activate cardiacmap`
 
+4. Install cardiacmap as a module
+
+`pip install -e .`
 
 ## To run the app
-Currently you will need a file named `2012-02-13_Exp000_Rec005_Cam3-Blue.dat` for the script to work (as a placeholder file until we sort out upload function)
 
-Put the file as the same folder as `app.py`. The file can be downloaded here:
-https://www.dropbox.com/scl/fi/9yowq5d9jtd4mo451f4f5/2012-02-13_Exp000_Rec005_Cam3-Blue.dat?rlkey=tlrtc7vutewgy6hchdmjwfp77&dl=0
+1. Run `python app.py` in the root folder, then open the webapp on `127.0.0.1:8051`
 
-Run `python app.py` in the root folder, then open the webapp on `127.0.0.1:8050`
+## To add files
 
-## Development
-To write: 
-Standard software practices with pull requests etc
+1. Put any voltage .dat data into `./data` folder and it would show up in the app 
+
+## Development guidelines
+Employ standard software practices
+Small / bug fixes can be committed to main
+Large / breaking changes please create a separate branch to avoid conflicts + code review from other team members as needed
