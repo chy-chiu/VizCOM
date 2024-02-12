@@ -37,7 +37,7 @@ def file_directory():
         [
             html.Div(
                 dcc.Dropdown(
-                    options=list(os.listdir("./data")),
+                    options=[],
                     value="",
                     id="file-directory-dropdown",
                     searchable=False,

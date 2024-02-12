@@ -1,4 +1,3 @@
-from operator import call
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
@@ -18,6 +17,11 @@ from cardiacmap.components import (
     navbar,
     file_directory,
 )
+
+DEFAULT_POSITION = 64
+EMPTY_IMG = np.zeros((128, 128))
+DASH_APP_PORT = 8051
+DUMMY_FILENAME = "put .dat files here"
 
 import os
 
@@ -62,7 +66,7 @@ app.layout = html.Div(
         ## Modal stuff for transforms
         input_modal(),
         buttons_table(),
-        # html.Button("Reset", id="reset-data-button"),
+        
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
@@ -121,8 +125,8 @@ def update_signal_position(clickData):
         y = clickData["points"][0]["y"]
     else:
         # Default to middle for now
-        x = 64
-        y = 64
+        x = DEFAULT_POSITION
+        y = DEFAULT_POSITION
     return json.dumps({"x": x, "y": y})
 
 
@@ -139,7 +143,7 @@ def update_image(signal_idx):
     if signal_idx is not None:
         key_frame = signals_all[signal_idx].get_keyframe()
     else:
-        key_frame = np.zeros((128, 128))
+        key_frame = EMPTY_IMG
 
     fig = px.imshow(key_frame, binary_string=True)
     fig.update_layout(
@@ -161,9 +165,13 @@ def update_image(signal_idx):
 )
 def display_signal_data(signal_position, signal_idx, _):
 
-    signal_position = json.loads(signal_position)
-    x = signal_position["x"]
-    y = signal_position["y"]
+    if signal_position is not None:
+        signal_position = json.loads(signal_position)
+        x = signal_position["x"]
+        y = signal_position["y"]
+    else:
+        x = 64
+        y = 64
 
     if signal_idx is not None:
 
@@ -218,11 +226,15 @@ def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
 @callback(
     Output("file-directory-dropdown", "options"),
     Input("refresh-folder-button", "n_clicks"),
-    prevent_initial_call=True,
 )
 def update_file_directory(_):
 
-    return os.listdir('./data')
+    file_list = os.listdir('./data')
+
+    if DUMMY_FILENAME in file_list:
+        file_list.pop(file_list.index(DUMMY_FILENAME))
+
+    return file_list
 
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
@@ -284,9 +296,14 @@ def reset_data(_, signal_idx):
 
 
 def open_browser():
-    webbrowser.open_new("http://localhost:{}".format(8051))
+    webbrowser.open_new("http://localhost:{}".format(DASH_APP_PORT))
 
+
+DEBUG = True
 
 if __name__ == "__main__":
-    # Timer(1, open_browser).start()
-    app.run(debug=True, port=8051)
+    
+    if not DEBUG: 
+        Timer(1, open_browser).start()
+
+    app.run(debug=DEBUG, port=DASH_APP_PORT)
