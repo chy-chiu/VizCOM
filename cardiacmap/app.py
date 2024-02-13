@@ -192,36 +192,45 @@ def display_signal_data(signal_position, signal_idx, _):
 @callback(
     Output("modal", "is_open"),
     Output("modal-header", "children"),
-    Output("input-sigma", "value"),
-    Output("input-radius", "value"),
+    Output("input-one", "value"),
+    Output("input-one-prompt", "children"),
+    Output("input-two", "value"),
+    Output("input-two-prompt", "children"),
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
-    Input("perform-avg-button", "n_clicks"),
+    Input("trim-signal-button", "n_clicks"),
+    Input("confirm-button", "n_clicks"),
     Input("modal-header", "children"),
-    Input("input-sigma", "value"),
-    Input("input-radius", "value"),
+    Input("input-one", "value"),
+    Input("input-one-prompt", "children"),
+    Input("input-two", "value"),
+    Input("input-two-prompt", "children"),
     State("modal", "is_open"),
 )
-def toggle_modal(n1, n2, n3, avgType, sigIn, radIn, is_open):
+def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
     # open modal with spatial
     if "spatial-avg-button" == ctx.triggered_id:
-        return True, "Spatial Averaging", 8, 6
+        return True, "Spatial Averaging", "Sigma:", 8, "Radius:", 6
 
     # open modal with time
     elif "time-avg-button" == ctx.triggered_id:
-        return True, "Time Averaging", 4, 3
+        return True, "Time Averaging", "Sigma:", 4, "Radius:", 3
+    
+    # open modal with trim
+    elif "trim-signal-button" == ctx.triggered_id:
+        return True, "Trim Signal", "Trim Left:", 10, "Trim Right:", 10
 
-    # close modal and perform averaging
-    elif "perform-avg-button" == ctx.triggered_id:
-        return False, avgType, sigIn, radIn
+    # close modal and perform selected operation
+    elif "confirm-button" == ctx.triggered_id:
+        return False, operation, in1P, in1, in2P, in2
 
     # ignore updates to inputs
-    elif "input-sigma" == ctx.triggered_id or "input-radius" == ctx.triggered_id:
-        return True, avgType, sigIn, radIn
+    elif "input-one" == ctx.triggered_id or "input-two" == ctx.triggered_id:
+        return True, operation, in1P, in1, in2P, in2
 
     # initial call
     # if you see "header" in modal, something went wrong
-    return is_open, "HEADER", 0, 0
+    return is_open, "HEADER", "In1:", 0, "In2:", 0
 
 @callback(
     Output("file-directory-dropdown", "options"),
@@ -239,28 +248,35 @@ def update_file_directory(_):
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
     Input("modal-header", "children"),
-    Input("input-sigma", "value"),
-    Input("input-radius", "value"),
-    Input("perform-avg-button", "n_clicks"),
+    Input("input-one", "value"),
+    Input("input-two", "value"),
+    Input("confirm-button", "n_clicks"),
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performAverage(header, sig, rad, _, signal_idx):
+def performOperation(header, in1, in2, _, signal_idx):
 
     # if the modal was closed by the 'perform average' button
-    if "perform-avg-button" == ctx.triggered_id:
-        # if bad inputs (str, negative nums, etc.)
-        if sig is None or sig < 0:
-            sig = 0
-        if rad is None or rad < 0:
-            rad = 0
+    if "confirm-button" == ctx.triggered_id:
+        # if bad inputs
+            # should we give a warning?
+        if in1 is None or in1 < 0:
+            in1 = 0
+        if in2 is None or in2 < 0:
+            in2 = 0
+        
+        operation = header.split()[0]
         # Time averaging
-        if header.split()[0] == "Time":
-            signals_all[signal_idx].perform_average("time", sig, rad)
+        if operation == "Time":
+            signals_all[signal_idx].perform_average("time", in1, in2)
             return np.random.random()
         # Spatial Averaging
-        elif header.split()[0] == "Spatial":
-            signals_all[signal_idx].perform_average("spatial", sig, rad)
+        elif operation == "Spatial":
+            signals_all[signal_idx].perform_average("spatial", in1, in2)
+            return np.random.random()
+        # Trim Signal
+        elif operation == "Trim":
+            signals_all[signal_idx].trim_data(in1, in2)
             return np.random.random()
     else:
         return np.random.random()

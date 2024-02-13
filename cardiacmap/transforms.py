@@ -37,7 +37,6 @@ def SpatialAverage(arr, sigma, radius):
     # convert sigma to sqrt(sigma/2)
     # replicates Java version functionality
     newSigma = np.sqrt(sigma/2)
-    
     return gaussian_filter(arr, newSigma, radius=radius, axes = (1, 2))
 
 def InvertSignal(arr):
@@ -49,4 +48,21 @@ def InvertSignal(arr):
                                                     i.e. np.invert([6, 0]) -> [-7, -1]
     """   
     newArr = np.invert(arr)
+    return newArr
+
+def TrimSignal(arr, trimStart, trimEnd):
+    """Function to trim array
+    Args:
+        arr (array): data
+        trimStart: int, number of frames to delete from start
+        trimEnd: int, number of frames to delete from end
+    Returns:
+        newArr: results, size = arrLength - trimStart - trimEnd
+    """   
+    arrLen = len(arr)
+    
+    start = np.arange(trimStart)
+    end = np.arange(arrLen-trimEnd-1, arrLen)
+    trimIndices = np.concatenate((start, end))
+    newArr = np.delete(arr, trimIndices, axis=0)
     return newArr
