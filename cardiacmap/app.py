@@ -192,19 +192,19 @@ def display_signal_data(signal_position, signal_idx, _):
 @callback(
     Output("modal", "is_open"),
     Output("modal-header", "children"),
-    Output("input-one", "value"),
     Output("input-one-prompt", "children"),
-    Output("input-two", "value"),
+    Output("input-one", "value"),
     Output("input-two-prompt", "children"),
+    Output("input-two", "value"),
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
     Input("trim-signal-button", "n_clicks"),
     Input("confirm-button", "n_clicks"),
     Input("modal-header", "children"),
-    Input("input-one", "value"),
     Input("input-one-prompt", "children"),
-    Input("input-two", "value"),
+    Input("input-one", "value"),
     Input("input-two-prompt", "children"),
+    Input("input-two", "value"),
     State("modal", "is_open"),
 )
 def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
