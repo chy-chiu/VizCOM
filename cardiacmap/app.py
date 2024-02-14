@@ -1,3 +1,4 @@
+from multiprocessing import Value
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
@@ -218,7 +219,7 @@ def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
     
     # open modal with trim
     elif "trim-signal-button" == ctx.triggered_id:
-        return True, "Trim Signal", "Trim Left:", 10, "Trim Right:", 10
+        return True, "Trim Signal", "Trim Left:", 100, "Trim Right:", 100
 
     # close modal and perform selected operation
     elif "confirm-button" == ctx.triggered_id:
@@ -248,13 +249,14 @@ def update_file_directory(_):
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
     Input("modal-header", "children"),
+    Input("avg-mode-dropdown", "value"),
     Input("input-one", "value"),
     Input("input-two", "value"),
     Input("confirm-button", "n_clicks"),
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performOperation(header, in1, in2, _, signal_idx):
+def performOperation(header, mode, in1, in2, _, signal_idx):
 
     # if the modal was closed by the 'perform average' button
     if "confirm-button" == ctx.triggered_id:
@@ -268,11 +270,11 @@ def performOperation(header, in1, in2, _, signal_idx):
         operation = header.split()[0]
         # Time averaging
         if operation == "Time":
-            signals_all[signal_idx].perform_average("time", in1, in2)
+            signals_all[signal_idx].perform_average("time", in1, in2, mode=mode)
             return np.random.random()
         # Spatial Averaging
         elif operation == "Spatial":
-            signals_all[signal_idx].perform_average("spatial", in1, in2)
+            signals_all[signal_idx].perform_average("spatial", in1, in2, mode=mode)
             return np.random.random()
         # Trim Signal
         elif operation == "Trim":

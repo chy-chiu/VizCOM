@@ -90,6 +90,7 @@ def input_modal():
             dbc.ModalHeader("HEADER", id="modal-header"),
             dbc.ModalBody(
                 [
+                    dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
                     html.P("In 1:", id="input-one-prompt"),
                     dbc.Input(id="input-one", type="number", min=0, value=0),
                     html.P("In 2:", id="input-two-prompt"),

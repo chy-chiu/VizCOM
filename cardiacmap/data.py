@@ -52,11 +52,11 @@ class CascadeDataVoltage:
     def __repr__(self):
         return f"CascadeDataVoltage - {self.filename}"
 
-    def perform_average(self, type, sig, rad, mask=None):
+    def perform_average(self, type, sig, rad, mask=None, mode='Gaussian'):
         if type == "time":
-            self.transformed_data = TimeAverage(self.transformed_data, sig, rad, mask)
+            self.transformed_data = TimeAverage(self.transformed_data, sig, rad, mask, mode)
         elif type == "spatial":
-            self.transformed_data = SpatialAverage(self.transformed_data, sig, rad, mask)
+            self.transformed_data = SpatialAverage(self.transformed_data, sig, rad, mask, mode)
         return
     
     def invert_data(self):
