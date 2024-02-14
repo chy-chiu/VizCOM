@@ -1,14 +1,16 @@
+from types import NoneType
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
 ### TODO: ? make this a class instead and include to data.py
 
-def TimeAverage(arr, sigma, radius):
+def TimeAverage(arr, sigma, radius, mask=None):
     """Function to apply a gaussian filter to a data array along Time Axis
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
         radius (int): radius of averaging, kernel width = 2 * radius + 1
+        mask (array): 2d array with same dimensions as arr[0] (128 x 128)
         
     Returns:
         ndarray: result of averaging along time axis
@@ -17,14 +19,26 @@ def TimeAverage(arr, sigma, radius):
         raise ValueError("sigma must be non-negative")
     if(radius < 0):
         raise ValueError("radius must be non-negative")
-    return gaussian_filter(arr, sigma, radius=radius, axes = 0)
+    
+    if isinstance(mask, NoneType):
+        return gaussian_filter(arr, sigma, radius=radius, axes=0)
+    else:
+        if(np.array(mask).shape != np.array(arr[0]).shape):
+            raise IndexError("mask must have same shape as a single frame")
+        
+        data = gaussian_filter(arr, sigma, radius=radius, axes=0)
 
-def SpatialAverage(arr, sigma, radius):
+        # set masked points back to original value (TODO: is this needed?)
+        data = np.where(mask == 0, arr, data)
+        return data.astype('int')
+
+def SpatialAverage(arr, sigma, radius, mask=None):
     """Function to apply a gaussian filter to a data array along Spatial Axes
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
         radius (int): radius of averaging, kernel width = 2 * radius + 1
+        mask (array): 2d array with same dimensions as arr[0] (128 x 128)
         
     Returns:
         ndarray: result of averaging along spatial axes
@@ -37,7 +51,21 @@ def SpatialAverage(arr, sigma, radius):
     # convert sigma to sqrt(sigma/2)
     # replicates Java version functionality
     newSigma = np.sqrt(sigma/2)
-    return gaussian_filter(arr, newSigma, radius=radius, axes = (1, 2))
+    if isinstance(mask, NoneType):
+        return gaussian_filter(arr, newSigma, radius=radius, axes=(1,2))
+    else:
+        if(np.array(mask).shape != np.array(arr[0]).shape):
+            raise IndexError("mask must have same shape as a single frame")
+        
+        maskedData = gaussian_filter(arr * mask, newSigma, radius=radius, axes=(1, 2))
+        maskWeights = gaussian_filter(mask, newSigma, radius=radius) # axes = (0, 1)
+
+        # normalize data by relative mask weights
+        data = maskedData / maskWeights
+
+        # set masked points back to original value (TODO: is this needed?)
+        data = np.where(mask == 0, arr, data)
+        return data.astype('int')
 
 def InvertSignal(arr):
     """Function to invert array values
