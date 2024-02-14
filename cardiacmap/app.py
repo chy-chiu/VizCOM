@@ -1,4 +1,3 @@
-from multiprocessing import Value
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
@@ -193,19 +192,15 @@ def display_signal_data(signal_position, signal_idx, _):
 @callback(
     Output("modal", "is_open"),
     Output("modal-header", "children"),
-    Output("input-one-prompt", "children"),
-    Output("input-one", "value"),
-    Output("input-two-prompt", "children"),
-    Output("input-two", "value"),
+    Output("input-one-prompt", "children"), Output("input-one", "value"), # input 1: Sigma/Trim Left
+    Output("input-two-prompt", "children"), Output("input-two", "value"), # input 2: Radius/Trim Right
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
     Input("trim-signal-button", "n_clicks"),
     Input("confirm-button", "n_clicks"),
-    Input("modal-header", "children"),
-    Input("input-one-prompt", "children"),
-    Input("input-one", "value"),
-    Input("input-two-prompt", "children"),
-    Input("input-two", "value"),
+    Input("modal-header", "children"),                                    # For passing values to closed modal
+    Input("input-one-prompt", "children"),Input("input-one", "value"),    # For passing values to closed modal
+    Input("input-two-prompt", "children"), Input("input-two", "value"),   # For passing values to closed modal
     State("modal", "is_open"),
 )
 def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
@@ -234,6 +229,42 @@ def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
     return is_open, "HEADER", "In1:", 0, "In2:", 0
 
 @callback(
+    Output("mode-select-parent", "hidden"),
+    Output("input-one-parent", "hidden"),
+    Output("input-two-parent", "hidden"),
+    Input("avg-mode-select", "value"),
+    Input("time-avg-button", "n_clicks"),
+    Input("spatial-avg-button", "n_clicks"),
+    Input("trim-signal-button", "n_clicks"),
+)
+def hide_modal_components(ddVal, n1, n2, n3):
+    # Return Elements correspond to hiding:
+    # Dropdown Menu, in1 (sigma/trim_left), in2(radius/trim_right)
+
+    # when modal is opened with spatial or time, or on change of mode
+    if ("spatial-avg-button" == ctx.triggered_id 
+        or "time-avg-button" == ctx.triggered_id 
+        or "avg-mode-select" == ctx.triggered_id):
+        # show dropdown, in1 (sigma), in2 (radius)
+        if ddVal == 'Gaussian':
+            return False, False, False
+        # show dropdown, in2 (radius)
+        elif ddVal == 'Uniform':
+            return False, True, False
+        # nothing is selected for dropdown, show everything
+        elif ddVal is None:
+            return False, False, False
+
+    # when modal is opened with trim
+    elif "trim-signal-button" == ctx.triggered_id:
+        # show in1 (Trim Left), in2 (Trim Right)
+        return True, False, False
+    
+    # Show everything
+    else:
+        return False, False, False
+
+@callback(
     Output("file-directory-dropdown", "options"),
     Input("refresh-folder-button", "n_clicks"),
 )
@@ -249,7 +280,7 @@ def update_file_directory(_):
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
     Input("modal-header", "children"),
-    Input("avg-mode-dropdown", "value"),
+    Input("avg-mode-select", "value"),
     Input("input-one", "value"),
     Input("input-two", "value"),
     Input("confirm-button", "n_clicks"),
@@ -308,7 +339,6 @@ def reset_data(_, signal_idx):
     signals_all[signal_idx].reset_data()
 
     return np.random.random()
-
 
 # ===========================
 

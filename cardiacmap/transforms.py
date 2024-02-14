@@ -35,7 +35,7 @@ def TimeAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
         
         data = avgFunc(arr, sigma, radius=radius, axes=0)
 
-        # set masked points back to original value (TODO: is this needed?)
+        # set masked points back to original value
         data = np.where(mask == 0, arr, data)
         return data.astype('int')
 
@@ -76,7 +76,7 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
         # normalize data by relative mask weights
         data = maskedData / maskWeights
 
-        # set masked points back to original value (TODO: is this needed?)
+        # set masked points back to original value
         data = np.where(mask == 0, arr, data)
         return data.astype('int')
 
@@ -110,6 +110,7 @@ def TrimSignal(arr, trimStart, trimEnd):
 
 def useUniform(arr, sig, radius=1, axes=-1):
     """Function to convert gaussian_filter inputs for a uniform_filter
+       Doing it this way avoids 4 if statements in Spatial/TimeAverage()
     Args:
         arr (array): data
         sig (int): gaussian_filter takes this input, uniform does not, THIS PARAM IS IGNORED IN THIS FUNCTION

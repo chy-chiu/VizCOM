@@ -90,11 +90,36 @@ def input_modal():
             dbc.ModalHeader("HEADER", id="modal-header"),
             dbc.ModalBody(
                 [
-                    dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
-                    html.P("In 1:", id="input-one-prompt"),
-                    dbc.Input(id="input-one", type="number", min=0, value=0),
-                    html.P("In 2:", id="input-two-prompt"),
-                    dbc.Input(id="input-two", type="number", min=0, value=0),
+                    html.Div(
+                        # dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
+                        [
+                            dbc.Label("Choose Averaging Method:"),
+                            dbc.RadioItems(
+                                options=[
+                                    {"label": "Gaussian", "value": "Gaussian"},
+                                    {"label": "Uniform", "value": "Uniform"},
+                                ],
+                                value="Gaussian",
+                                id="avg-mode-select",
+                                inline=True
+                            ),
+                        ],
+                        id="mode-select-parent"
+                    ),
+                    html.Div(
+                        [
+                            html.P("In 1:", id="input-one-prompt"),
+                            dbc.Input(id="input-one", type="number", min=0, value=0),
+                        ],
+                        id="input-one-parent"
+                    ),
+                    html.Div(
+                        [
+                            html.P("In 2:", id="input-two-prompt"),
+                            dbc.Input(id="input-two", type="number", min=0, value=0),
+                        ],
+                        id="input-two-parent"
+                    ),
                 ]
             ),
             dbc.ModalFooter(dbc.Button("Confirm", id="confirm-button")),
