@@ -90,13 +90,39 @@ def input_modal():
             dbc.ModalHeader("HEADER", id="modal-header"),
             dbc.ModalBody(
                 [
-                    html.P("Sigma:"),
-                    dbc.Input(id="input-sigma", type="number", min=0, value=0),
-                    html.P("Radius:"),
-                    dbc.Input(id="input-radius", type="number", min=0, step=1, value=0),
+                    html.Div(
+                        # dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
+                        [
+                            dbc.Label("Choose Averaging Method:"),
+                            dbc.RadioItems(
+                                options=[
+                                    {"label": "Gaussian", "value": "Gaussian"},
+                                    {"label": "Uniform", "value": "Uniform"},
+                                ],
+                                value="Gaussian",
+                                id="avg-mode-select",
+                                inline=True
+                            ),
+                        ],
+                        id="mode-select-parent"
+                    ),
+                    html.Div(
+                        [
+                            html.P("In 1:", id="input-one-prompt"),
+                            dbc.Input(id="input-one", type="number", min=0, value=0),
+                        ],
+                        id="input-one-parent"
+                    ),
+                    html.Div(
+                        [
+                            html.P("In 2:", id="input-two-prompt"),
+                            dbc.Input(id="input-two", type="number", min=0, value=0),
+                        ],
+                        id="input-two-parent"
+                    ),
                 ]
             ),
-            dbc.ModalFooter(dbc.Button("Perform Averaging", id="perform-avg-button")),
+            dbc.ModalFooter(dbc.Button("Confirm", id="confirm-button")),
         ],
         id="modal",
     )
@@ -130,6 +156,13 @@ def buttons_table():
                 [
                     dbc.Button("Invert Signal", id="invert-signal-button"),
                     html.Div(id="invert-button-pressed"),
+                ],
+                width=1,
+            ),
+            dbc.Col(
+                [
+                    dbc.Button("Trim Signal", id="trim-signal-button"),
+                    html.Div(id="trim-button-pressed"),
                 ],
                 width=1,
             ),
