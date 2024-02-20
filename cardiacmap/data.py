@@ -129,22 +129,11 @@ class CascadeDataVoltage:
 
             skip_bytes = 8
 
-        bstream = file.read()
+        
+        imarray = np.frombuffer(file.read(), dtype='uint16')
+        skip = skip_bytes // 2
 
-        len_file = len(bstream)
-        raw_image_data = list(struct.unpack("H" * (len_file // 2), bstream))
-
-        skip = skip_bytes / 2  # Because each long integer is 2 bytes)
-        imarray = []
-        for t in range(span_T):
-
-            position = int(t * (span_X * span_Y + skip))
-
-            im_raw = raw_image_data[position : position + span_X * span_Y]
-
-            imarray.append(im_raw)
-
-        imarray = np.array(imarray).reshape((span_T, span_X, span_Y))
+        imarray = imarray.reshape(span_T, -1)[:, :-skip].reshape(span_T, span_X, span_Y)
 
         file.close()
 

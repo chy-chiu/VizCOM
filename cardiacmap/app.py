@@ -70,6 +70,7 @@ app.layout = html.Div(
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
+        dcc.Store(id="signal-position-lock", data=False, storage_type="session"),
         dcc.Store(
             id="active-file-idx", storage_type="session"
         ),  # Current file when there are multiple files
@@ -116,19 +117,35 @@ def load_file(value):
 
 @callback(
     Output("signal-position", "data"),
-    Input("graph-image", "clickData"),
+    Input("graph-image", "hoverData"),
+    State("signal-position-lock", "data"),
+    State("signal-position", "data"),
     prevent_initial_call=True,
 )
-def update_signal_position(clickData):
-    if clickData is not None:
-        x = clickData["points"][0]["x"]
-        y = clickData["points"][0]["y"]
-    else:
-        # Default to middle for now
-        x = DEFAULT_POSITION
-        y = DEFAULT_POSITION
-    return json.dumps({"x": x, "y": y})
+def update_signal_position(hoverData, signal_lock, signal_position):
+    if signal_lock:
+        return signal_position
+    else:    
+        if hoverData is not None:
+            x = hoverData["points"][0]["x"]
+            y = hoverData["points"][0]["y"]
+        else:
+            # Default to middle for now
+            x = DEFAULT_POSITION
+            y = DEFAULT_POSITION
+        return json.dumps({"x": x, "y": y})
 
+@callback(
+    Output("signal-position-lock", "data"),
+    Input("graph-image", "clickData"),
+    State("signal-position-lock", "data"),
+    prevent_initial_call=True,
+)    
+def update_signal_lock(_, signal_lock):
+    if signal_lock:
+        return False
+    else:
+        return True
 
 # This should only be called upon changing the signal
 # Movie mode to come later
@@ -182,7 +199,6 @@ def display_signal_data(signal_position, signal_idx, _):
 
     fig = px.line(active_signal[10:, x, y])
     # fig.add_vline(x=frame_idx)
-    fig.update_yaxes(fixedrange=True)
     fig.update_layout(showlegend=False)
 
     return fig
