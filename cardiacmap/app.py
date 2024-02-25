@@ -2,18 +2,17 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback
 import plotly.express as px
-
 from cardiacmap.data import cascade_import, CascadeDataVoltage
 from cardiacmap.transforms import TimeAverage, SpatialAverage
 import json
-
 import numpy as np
-
+import os
+import webbrowser
+from threading import Timer
 from cardiacmap.components import (
     image_viewport,
     signal_viewport,
     input_modal,
-    buttons_table,
     navbar,
     file_directory,
 )
@@ -23,12 +22,8 @@ EMPTY_IMG = np.zeros((128, 128))
 DASH_APP_PORT = 8051
 DUMMY_FILENAME = "put .dat files here"
 
-import os
 
-import webbrowser
-from threading import Timer
-
-app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP])
 
 # server = app.server
 # CACHE_CONFIG = {
@@ -63,10 +58,10 @@ app.layout = html.Div(
                 ),
             ],
         ),
-        ## Modal stuff for transforms
+
+        # Modal stuff for transforms
         input_modal(),
-        buttons_table(),
-        
+
         # Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         dcc.Store(id="signal-position", storage_type="session"),
@@ -135,6 +130,7 @@ def update_signal_position(hoverData, signal_lock, signal_position):
             y = DEFAULT_POSITION
         return json.dumps({"x": x, "y": y})
 
+
 @callback(
     Output("signal-position-lock", "data"),
     Input("graph-image", "clickData"),
@@ -146,6 +142,7 @@ def update_signal_lock(_, signal_lock):
         return False
     else:
         return True
+
 
 # This should only be called upon changing the signal
 # Movie mode to come later
@@ -244,6 +241,7 @@ def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
     # if you see "header" in modal, something went wrong
     return is_open, "HEADER", "In1:", 0, "In2:", 0
 
+
 @callback(
     Output("mode-select-parent", "hidden"),
     Output("input-one-parent", "hidden"),
@@ -280,6 +278,7 @@ def hide_modal_components(ddVal, n1, n2, n3):
     else:
         return False, False, False
 
+
 @callback(
     Output("file-directory-dropdown", "options"),
     Input("refresh-folder-button", "n_clicks"),
@@ -292,6 +291,7 @@ def update_file_directory(_):
         file_list.pop(file_list.index(DUMMY_FILENAME))
 
     return file_list
+
 
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
