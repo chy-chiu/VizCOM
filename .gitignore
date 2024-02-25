@@ -38,3 +38,11 @@ __pycache__
 build/
 dist/
 *.spec
+
+# PyCharm
+.DS_Store
+.idea/
+
+# Shaswat
+shaswat-*
+coverage-report/
