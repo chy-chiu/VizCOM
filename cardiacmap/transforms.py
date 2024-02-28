@@ -1,6 +1,7 @@
-from random import uniform
+import concurrent.futures as cf
 from types import NoneType
 import numpy as np
+from scipy.signal import argrelmin
 from scipy.ndimage import gaussian_filter, uniform_filter
 
 ### TODO: ? make this a class instead and include to data.py
@@ -118,3 +119,162 @@ def useUniform(arr, sig, radius=1, axes=-1):
         axes (int, tuple): axes of averaging
     """
     return uniform_filter(arr, size=2*radius+1, axes=axes)
+
+def GetMins(t, data, method, methodValue, threads):
+    """Function for calculating the baseline of the data for each xy pair
+    Args:
+        t (array): list of t values from 0 to len(data)
+        data (array): data to process
+        method (string): the method (threshold or period) to use to get mins
+        methodValue (int): threshold value OR period width, depending on method
+        threads (int): the number of threads to use for threshold method (ignored if method = 'period')
+    """
+    yLen = len(data)
+    xLen = len(data[0])
+    tLen = len(data[0][0])
+    baselineX = [0 for j in range(yLen * xLen)]
+    baselineY = baselineX.copy()
+    
+    if(method == 'Threshold'):
+        executor = cf.ThreadPoolExecutor(max_workers=threads)
+        for y in range(yLen):
+            for x in range(xLen):
+                index = y * yLen + x
+                d = data[y][x]
+                executor.submit(getMinsByThresholdThread, methodValue, t, d, baselineX, baselineY, index)
+        executor.shutdown(wait=True)
+        
+    elif(method == 'Period'):
+        if tLen%methodValue == 0:
+            offset = [methodValue * i for i in range(int(tLen/methodValue))]
+        else:
+            offset = [methodValue * i for i in range(int(tLen/methodValue) + 1)]
+        pIdx = np.arange(methodValue, tLen, methodValue)
+        for y in range(yLen):
+            for x in range(xLen):
+                index = y * yLen + x
+                d = data[y][x]
+                getMinsByPeriod(t, d, baselineX, baselineY, index, offset, pIdx)
+        
+    else:
+        raise ValueError("getMins method must be Threshold or Period. Was:", method)
+
+
+    return baselineX, baselineY
+
+def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
+    """Function called by getMins when method = 'threshold'
+    Args:
+        threshold (int): the threshold to make mins invalid
+        t (array): list of t values from 0 to len(data)
+        d (array): data (one signal) to process
+        xOut (array): the output for the baseline X values
+        yOut (array): the output for the baseline Y values
+        outIndex (int): where in the output arrays to store results
+    """
+    # find all relative minima
+    minsIndex = argrelmin(d)[0]
+    minsY = d[minsIndex]
+    
+    # find indices where minima is > threshold
+    badMinsIndex = np.argwhere(minsY > threshold)
+    
+    # all mins are invalid
+    # use beginning and end of signal as baseline
+    if(len(badMinsIndex) == len(minsIndex)):
+        minsIndex = [0, len(d)-1]
+        # set output
+        xOut[outIndex] = t[minsIndex]
+        yOut[outIndex] = d[minsIndex]
+    
+        # return warning
+        return 1
+    # get rid of bad indicies
+    minsIndex = np.delete(minsIndex, badMinsIndex)
+    
+    # set output
+    xOut[outIndex] = t[minsIndex]
+    yOut[outIndex] = d[minsIndex]
+    
+    # return success
+    return 0
+
+def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
+    """Function called by getMins when method = 'period'
+    Args:
+        t (array): list of t values from 0 to len(data)
+        d (array): data (one signal) to process
+        xOut (array): the output for the baseline X values
+        yOut (array): the output for the baseline Y values
+        outIndex (int): where in the output arrays to store results
+        offset (array): the offset to be applied when converting periodic indicies to signal indicies
+        periodIdx (array): indices where split should occur
+    """
+    # split data into periods
+    periods = np.array_split(d, periodIdx)
+
+    # last period is usually not a full period
+    # pop it so periods has homogenous shape
+    lastPeriod = periods.pop(-1)
+    
+    # get argmin of each period and add it to the index list
+    # note: if a period has multiple mins, argmin returns the first found index
+    minsIndex = np.argmin(periods, axis=1)
+
+    # add in last period min back in
+    minsIndex = np.append(minsIndex, np.argmin(lastPeriod))
+    
+    # for each period index, convert to index in d
+    minsIndex = np.add(minsIndex, offset)
+        
+    # set output
+    xOut[outIndex] = t[minsIndex]
+    yOut[outIndex] = d[minsIndex]
+    
+    # return success
+    return 0
+
+def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
+    """Function to remove baseline drift from data
+    Args:
+        t (array): list of t values from 0 to len(data)
+        data (array): data to process
+        baselineXs (array): 2-d arr of the baseline X values for every signal
+        baselineYs (array): 2-d arr of the the baseline Y values for every signal
+        threads (int): the number of threads to use for removing baseline
+    """
+    yLen = len(data)
+    xLen = len(data[0])
+    tLen = len(data[0][0])
+    resData = [0 for j in range(xLen * yLen)]
+    
+    executor = cf.ThreadPoolExecutor(max_workers=threads)
+    for y in range(yLen):
+        for x in range(xLen):
+            index = y * yLen + x
+            d = data[y][x]
+            xs = baselineXs[index]
+            ys = baselineYs[index]
+            executor.submit(baselineDriftThread, t, d, resData, index,  xs, ys)
+  
+    executor.shutdown(wait=True)
+    return np.array(resData).reshape(yLen, xLen, tLen)
+
+def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
+    """Function to remove baseline drift a signal
+    Args:
+        t (array): list of t values from 0 to len(data)
+        d (array): data (one signal) to process
+        output (array): the output array
+        outputIndex (array): the index to store the resulting data within output
+        minsX (array): the baseline x values for d
+        minsY (array): the baseline y values for d
+    """
+    # interpolate baseline
+    interp = np.interp(t, minsX, minsY)
+    # subtract interpolation from data
+    res = np.subtract(d, interp)
+    # store result
+    output[outputIndex] = res
+    # return success
+    return 0

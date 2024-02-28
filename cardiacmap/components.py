@@ -93,16 +93,34 @@ def input_modal():
                     html.Div(
                         # dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
                         [
-                            dbc.Label("Choose Averaging Method:"),
-                            dbc.RadioItems(
-                                options=[
-                                    {"label": "Gaussian", "value": "Gaussian"},
-                                    {"label": "Uniform", "value": "Uniform"},
-                                ],
-                                value="Gaussian",
-                                id="avg-mode-select",
-                                inline=True
-                            ),
+                            html.Div(
+                            [
+                                dbc.Label("Choose Averaging Method:"),
+                                dbc.RadioItems(
+                                    options=[
+                                        {"label": "Gaussian", "value": "Gaussian"},
+                                        {"label": "Uniform", "value": "Uniform"},
+                                    ],
+                                    value="Gaussian",
+                                    id="avg-mode-select",
+                                    inline=True
+                                ),
+                            ], id="avg-mode-parent"),
+                            
+                            html.Div(
+                            [
+                                dbc.Label("Choose Baseline Method:"),
+                                dbc.RadioItems(
+                                    options=[
+                                        {"label": "Period", "value": "Period"},
+                                        {"label": "Threshold", "value": "Threshold", "disabled": True},
+                                    ],
+                                    value="Period",
+                                    id="baseline-mode-select",
+                                    inline=True
+                                ),
+                            ], id="baseline-mode-parent")
+                           
                         ],
                         id="mode-select-parent"
                     ),
@@ -163,6 +181,25 @@ def buttons_table():
                 [
                     dbc.Button("Trim Signal", id="trim-signal-button"),
                     html.Div(id="trim-button-pressed"),
+                ],
+                width=1,
+            ),
+            dbc.Col(
+                [
+                    dbc.Button("Remove Baseline Drift", id="baseline-drift-button"),
+                    html.Div(id="drift-button-pressed"),
+                ],
+                width=1,
+            ),
+            dbc.Col(
+                [
+                    dbc.Button("Confirm Baseline", id = 'confirm-baseline-button')
+                ],
+                width=1,
+            ),
+            dbc.Col(
+                [
+                    dbc.Button("Cancel Baseline", id = 'cancel-baseline-button')
                 ],
                 width=1,
             ),
