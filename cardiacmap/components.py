@@ -10,23 +10,38 @@ import json
 
 import os
 
+
 def navbar():
     return dbc.NavbarSimple(
         children=[
+            html.I(className="bi-sm bi-tools h5", style={"color": "white", "margin-left": "2vw", "margin-top": "1vh"}),
             dbc.DropdownMenu(
                 children=[
-                    dbc.DropdownMenuItem("Test", header=True),
-                    dbc.DropdownMenuItem("Test", href="#"),
-                    dbc.DropdownMenuItem("Test", href="#"),
+                    dbc.DropdownMenuItem([dbc.Button("  Trim", className="bi bi-crop", id="trim-signal-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="trim-button-pressed")]),
+                    dbc.DropdownMenuItem([dbc.Button("  Invert", className="bi bi-caret-down", id="invert-signal-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="invert-button-pressed")]),
+                    dbc.DropdownMenuItem([dbc.Button("  Reset", className="bi-bootstrap-reboot", id="reset-data-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="reset-data-pressed")])
                 ],
-                nav=True,
                 in_navbar=True,
-                label="More",
+                nav=True,
+                style={"margin-right": "2vw"}
             ),
+            html.I(className="bi-sm bi-activity h4", style={"color": "white", "margin-left": "2vw", "margin-top": "1vh"}),
+            dbc.DropdownMenu(
+                children=[
+                   dbc.DropdownMenuItem([dbc.Button("  Time Average", className="bi bi-bar-chart", id="time-avg-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="time-button-pressed")]),
+                   dbc.DropdownMenuItem([dbc.Button("  Spatial Average", className="bi bi-bar-chart", id="spatial-avg-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="spatial-button-pressed")]),
+                   dbc.DropdownMenuItem([dbc.Button("  Remove Baseline Drift", className="bi bi-bar-chart", id="baseline-drift-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Confirm Baseline", className="bi bi-bar-chart", id="confirm-baseline-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Cancel Baseline", className="bi bi-bar-chart", id="cancel-baseline-button", color="light", style={"width": "100%", "font-size": "14px"})])
+                ],
+                in_navbar=True,
+                nav=True
+            )
         ],
+        links_left=True,
         brand="CardiacOpticalMapper",
         brand_href="#",
-        color="primary",
+        color="dark",
         dark=True,
         style={"margin-bottom": "20px"},
     )
@@ -46,7 +61,7 @@ def file_directory():
                 style={"display": "inline-block", "margin-right": "10px"},
             ),
             html.Div(
-                dbc.Button("Refresh", id="refresh-folder-button"),
+                dbc.Button(id="refresh-folder-button", className="bi bi-arrow-clockwise", color="light"),
                 style={"display": "inline-block", "margin-left": "10px"},
             ),
         ],
@@ -143,67 +158,4 @@ def input_modal():
             dbc.ModalFooter(dbc.Button("Confirm", id="confirm-button")),
         ],
         id="modal",
-    )
-
-
-def buttons_table():
-    return dbc.Row(
-        [
-            dbc.Col(
-                [
-                    dbc.Button("Reset", id="reset-data-button"),
-                    html.Div(id="reset-data-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Time Averaging", id="time-avg-button"),
-                    html.Div(id="time-button-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Spatial Averaging", id="spatial-avg-button"),
-                    html.Div(id="spatial-button-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Invert Signal", id="invert-signal-button"),
-                    html.Div(id="invert-button-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Trim Signal", id="trim-signal-button"),
-                    html.Div(id="trim-button-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Remove Baseline Drift", id="baseline-drift-button"),
-                    html.Div(id="drift-button-pressed"),
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Confirm Baseline", id = 'confirm-baseline-button')
-                ],
-                width=1,
-            ),
-            dbc.Col(
-                [
-                    dbc.Button("Cancel Baseline", id = 'cancel-baseline-button')
-                ],
-                width=1,
-            ),
-        ],
-        justify="center",
-        className="g-0",
     )

@@ -5,6 +5,7 @@ import io
 import struct
 import pickle
 import numpy as np
+import os
 
 from typing import List
 
@@ -112,8 +113,9 @@ class CascadeDataVoltage:
     # TODO: Refactor this chunk and optimize it
     @classmethod
     def from_dat(cls, filepath):
-
-        file = open("data/" + filepath, "rb")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        f_path = os.path.join(script_dir, f'data/{filepath}')
+        file = open(f_path, "rb")
 
         endian = "<"
 
