@@ -1,7 +1,7 @@
 import concurrent.futures as cf
 from types import NoneType
 import numpy as np
-from scipy.signal import argrelmin
+from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter, uniform_filter
 
 ### TODO: ? make this a class instead and include to data.py
@@ -172,10 +172,9 @@ def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
         yOut (array): the output for the baseline Y values
         outIndex (int): where in the output arrays to store results
     """
-    # find all relative minima
-    minsIndex = argrelmin(d)[0]
+    # find negative peaks (mins), only detect with index distance >=50
+    minsIndex = find_peaks(-d, distance=50)[0]
     minsY = d[minsIndex]
-    
     # find indices where minima is > threshold
     badMinsIndex = np.argwhere(minsY > threshold)
     
@@ -191,7 +190,7 @@ def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
         return 1
     # get rid of bad indicies
     minsIndex = np.delete(minsIndex, badMinsIndex)
-    
+
     # set output
     xOut[outIndex] = t[minsIndex]
     yOut[outIndex] = d[minsIndex]

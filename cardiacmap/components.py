@@ -129,7 +129,7 @@ def input_modal():
                                 dbc.RadioItems(
                                     options=[
                                         {"label": "Period", "value": "Period"},
-                                        {"label": "Threshold", "value": "Threshold", "disabled": True},
+                                        {"label": "Threshold", "value": "Threshold", "disabled": False},
                                     ],
                                     value="Period",
                                     id="baseline-mode-select",
