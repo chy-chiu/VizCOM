@@ -258,7 +258,8 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
             executor.submit(baselineDriftThread, t, d, resData, index,  xs, ys)
   
     executor.shutdown(wait=True)
-    return np.array(resData).reshape(yLen, xLen, tLen)
+    # reshape results array, then convert to int from float
+    return np.array(resData).reshape(yLen, xLen, tLen).astype(int)
 
 def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     """Function to remove baseline drift a signal
@@ -278,3 +279,28 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     output[outputIndex] = res
     # return success
     return 0
+
+def NormalizeData(data):
+    data = np.moveaxis(data, 0, -1)
+    # constants to normalize data to
+    RES_MIN = 10000
+    RES_RANGE = 20000
+    
+    # get mins and maxes
+    dataMaxes = np.amax(data, axis=2)
+    dataMins = np.amin(data, axis=2)
+    
+    # subtract mins from both data and maxes
+    norm = dataMaxes - dataMins
+    dataMins = np.expand_dims(dataMins, 2)
+    dataMinusMins = np.subtract(data, dataMins)
+    
+    # normalize [0 - 1]
+    res = dataMinusMins / norm[:, :, np.newaxis]
+    
+    # output data array will be in range [RES_MIN, RES_MIN + RES_RANGE]
+    res *= RES_RANGE
+    res += RES_MIN
+    
+    res = np.moveaxis(res, -1, 0)
+    return res.astype(int)

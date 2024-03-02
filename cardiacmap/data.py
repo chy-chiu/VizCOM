@@ -2,6 +2,7 @@
 
 import argparse
 import io
+from locale import normalize
 import struct
 import pickle
 import numpy as np
@@ -9,7 +10,7 @@ import os
 
 from typing import List
 
-from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal, TrimSignal, GetMins, RemoveBaselineDrift
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal, TrimSignal, GetMins, RemoveBaselineDrift, NormalizeData
 
 class CascadeDataVoltage:
 
@@ -94,6 +95,9 @@ class CascadeDataVoltage:
 
     def reset_data(self):
         self.transformed_data = self.base_data
+
+    def normalize(self):
+        self.transformed_data = NormalizeData(self.transformed_data)
     
     def get_curr_signal(self):
         return self.transformed_data

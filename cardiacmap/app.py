@@ -355,14 +355,17 @@ def performOperation(header, avgMode, baseMode, in1, in2, _, signal_idx):
         # Time averaging
         if operation == "Time":
             signals_all[signal_idx].perform_average("time", in1, in2, mode=avgMode)
+            signals_all[signal_idx].normalize()
             return np.random.random()
         # Spatial Averaging
         elif operation == "Spatial":
             signals_all[signal_idx].perform_average("spatial", in1, in2, mode=avgMode)
+            signals_all[signal_idx].normalize()
             return np.random.random()
         # Trim Signal
         elif operation == "Trim":
             signals_all[signal_idx].trim_data(in1, in2)
+            signals_all[signal_idx].normalize()
             return np.random.random()
         # Remove Baseline Drift (Just get the baseline, it will not be removed until user approval)
         elif operation == "Remove":
@@ -388,7 +391,7 @@ def performOperation(header, avgMode, baseMode, in1, in2, _, signal_idx):
 def performInvert(_, signal_idx):
 
     signals_all[signal_idx].invert_data()
-
+    signals_all[signal_idx].normalize()
     return np.random.random()
 
 @callback(
@@ -401,11 +404,20 @@ def performInvert(_, signal_idx):
 def performDriftRemoval(n1, n2, signal_idx):
     if ("confirm-baseline-button" == ctx.triggered_id):
         signals_all[signal_idx].remove_baseline_drift()
+        signals_all[signal_idx].normalize()
     else:
         signals_all[signal_idx].reset_baseline()
     global showBaseline
     showBaseline = False
-
+    
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("normalize-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True
+)
+def performNormalize(_, signal_idx):
+    signals_all[signal_idx].normalize()
 
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
