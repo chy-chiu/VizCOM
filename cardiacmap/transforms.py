@@ -20,8 +20,12 @@ def TimeAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
     # select averaging mode
     if mode=='Gaussian':
         avgFunc = gaussian_filter
+        # ~25% faster to swap axes for gaussian time avg than to not
+        axis = 2
+        arr = np.array(arr).swapaxes(0, -1)
     elif mode=='Uniform':
         avgFunc = useUniform
+        axis = 0
         
     if(sigma < 0):
         raise ValueError("sigma must be non-negative")
@@ -29,15 +33,20 @@ def TimeAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
         raise ValueError("radius must be non-negative")
     
     if isinstance(mask, NoneType):
-        return avgFunc(arr, sigma, radius=radius, axes=0)
+        if(axis != 0):
+            return avgFunc(arr, sigma, radius=radius, axes=axis).swapaxes(-1, 0)
+        return avgFunc(arr, sigma, radius=radius, axes=axis)
     else:
         if(np.array(mask).shape != np.array(arr[0]).shape):
             raise IndexError("mask must have same shape as a single frame")
         
-        data = avgFunc(arr, sigma, radius=radius, axes=0)
-
+        data = avgFunc(arr, sigma, radius=radius, axes=axis)
         # set masked points back to original value
         data = np.where(mask == 0, arr, data)
+        
+        if(axis != 0):
+            data = data.swapaxes(-1, 0)
+            
         return data.astype('int')
 
 def SpatialAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
