@@ -12,13 +12,16 @@ class VoltageCalciumImport(VoltageImport):
         self._mode = mode
 
     def get_even_mode_data(self):
-        return super().load_signal()[::2, :, :]
+        cascade_obj = super().load_signal()
+        signal = cascade_obj.get_curr_signal()
+        cascade_obj.transformed_data = signal[::2, :, :]
+        return cascade_obj
 
     def get_odd_mode_data(self):
-        return super().load_signal()[1::2, :, :]
-
-    def get_dual_mode_data(self):
-        return super().load_signal()
+        cascade_obj = super().load_signal()
+        signal = cascade_obj.get_curr_signal()
+        cascade_obj.transformed_data = signal[1::2, :, :]
+        return cascade_obj
 
     def get_data(self):
         match self._mode:
@@ -26,7 +29,5 @@ class VoltageCalciumImport(VoltageImport):
                 return self.get_even_mode_data()
             case 'o':
                 return self.get_odd_mode_data()
-            case 'd':
-                return self.get_dual_mode_data()
             case _:
                 raise ValueError(f"Invalid value for mode:{self._mode}")
