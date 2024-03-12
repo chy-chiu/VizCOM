@@ -30,9 +30,12 @@ DEFAULT_SIGNAL_SLICE = np.zeros((CACHE_FRAME_LIMIT, 128))
 DASH_APP_PORT = 8051
 DUMMY_FILENAME = "put .dat files here"
 IMG_WIDTH = 128
-PATCH_SIZE = 16
+PATCH_SIZE = 8
 
-event = {"event": "change", "props": ["srcElement.innerText"]}
+event_change = {"event": "drag-change", "props": ["type", "srcElement.innerText"]}
+event_mousedown = {"event": "drag-mousedown", "props": ["type", "srcElement.innerText"]}
+event_mouseup = {"event": "drag-mouseup", "props": ["type", "srcElement.innerText"]}
+
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP])
 
@@ -72,16 +75,35 @@ app.layout = html.Div(
         dcc.Store(id="signal-position", storage_type="session"),
         # Current file when there are multiple files
         dcc.Store(id="active-file-idx", storage_type="session"),
+        dcc.Store(id="active-signal-patch", data=None, storage_type="session"),
         # Dummy variable to trigger a refresh
         dcc.Store(id="refresh-dummy", storage_type="session"),
         EventListener(
             html.Div(
-                "",
+                '{"x":-1, "y": -1}',
                 id="hidden-div",
             ),
-            events=[event],
-            logging=True,
+            events=[event_change, event_mouseup, event_mousedown],
+            logging=False,
             id="drag-event-listener",
+        ),
+        dcc.Interval(
+            id="graph-refresher",
+            interval=25,
+            n_intervals=0,
+            max_intervals=50,
+            disabled=True,
+        ),
+        dcc.Interval(
+            id="position-refresher",
+            interval=500,
+            n_intervals=0,
+            # max_intervals=40,
+            disabled=True,
+        ),
+        html.Div(
+            "",
+            id="hidden-div-2",
         ),
     ]  # + signal_preview_stores # Client-side storage for preview of signal
 )
@@ -93,6 +115,63 @@ app.clientside_callback(
     Output("hidden-div", "children"),
     Input("refresh-dummy", "data"),
 )
+
+app.clientside_callback(
+    ClientsideFunction(namespace="clientside", function_name="update_signal_clientside"),
+    Output("signal-position", "data"),
+    Output("graph-signal", "figure"),
+    # Output("hidden-div-2", "children"),
+    Input("graph-refresher", "n_intervals"),
+    State("active-signal-patch", "data"),
+)
+
+
+@callback(
+    Output("active-signal-patch", "data"),
+    Output("position-refresher", "disabled"),
+    # Output("position-refresher", "n_intervals"),
+    # Output("position-refresher", "max_intervals"),
+    Output("graph-refresher", "disabled"),
+    Output("graph-refresher", "n_intervals"),
+    Output("graph-refresher", "max_intervals"),
+    Input("position-refresher", "n_intervals"),
+    Input("drag-event-listener", "n_events"),
+    State("drag-event-listener", "event"),
+    State("signal-position", "data"),
+    prevent_initial_call=True,
+)
+def update_signal_data(position_refresh, n_events, event, signal_position):
+    
+    disable_refresher = False
+
+    if event is None:
+        signal_position = {"x": IMG_WIDTH // 2, "y": IMG_WIDTH // 2}
+        disable_refresher = True
+
+    else:
+        if event["type"] == "drag-mouseup":
+            disable_refresher = True
+
+    x = signal_position["x"]
+    y = signal_position["y"]
+
+    x_patch = x // PATCH_SIZE
+    y_patch = y // PATCH_SIZE
+
+    patch_idx = x_patch * (IMG_WIDTH // PATCH_SIZE) + y_patch
+
+    curr_signal = cache.get("active-signal-{x}".format(x=patch_idx))
+
+    if curr_signal is None:
+        # Empty patch of signal
+        curr_signal = np.array([np.zeros((PATCH_SIZE, PATCH_SIZE))]*10)
+    else:
+        curr_signal = curr_signal[:, :, :]
+
+    curr_signal = curr_signal.transpose(1,2,0)
+
+    return json.dumps(curr_signal.flatten().tolist()), disable_refresher, disable_refresher, 0, 10
+
 
 
 @callback(
@@ -127,9 +206,24 @@ def cache_active_signal(_, active_file_idx):
 
         N, x, y = curr_signal.shape
 
-        patches = curr_signal.reshape(N, x//PATCH_SIZE, PATCH_SIZE, y//PATCH_SIZE, PATCH_SIZE)
-        patches = patches.transpose(1, 3, 0, 2, 4).reshape((x // PATCH_SIZE) * (y // PATCH_SIZE), N , PATCH_SIZE, PATCH_SIZE)
+        patches = curr_signal.reshape(
+            N, x // PATCH_SIZE, PATCH_SIZE, y // PATCH_SIZE, PATCH_SIZE
+        )
+        patches = patches.transpose(1, 3, 0, 2, 4).reshape(
+            (x // PATCH_SIZE) * (y // PATCH_SIZE), N, PATCH_SIZE, PATCH_SIZE
+        )
         print(len(patches))
+
+        print(active_signal.span_T)
+        
+        x = 119
+        y = 14
+
+        print(curr_signal[:, 119, 14])
+        x_patch = x // PATCH_SIZE
+        y_patch = y // PATCH_SIZE
+
+        patch_idx = x_patch * (IMG_WIDTH // PATCH_SIZE) + y_patch
 
         start = time.time()
 
@@ -452,51 +546,6 @@ def reset_data(_, signal_idx):
 # def update_signal_preview():
 #     return
 
-
-@callback(
-    Output("signal-position", "data"),
-    Output("graph-signal", "figure"),
-    Input("active-file-idx", "data"),
-    Input("refresh-dummy", "data"),
-    Input("drag-event-listener", "n_events"),
-    State("drag-event-listener", "event"),
-    prevent_initial_call=True,
-)
-def update_signal_data(signal_idx, _, n_events, event):
-
-    if event is None:
-        signal_position = {"x": IMG_WIDTH // 2, "y": IMG_WIDTH // 2}
-    else:
-        signal_position = json.loads(event["srcElement.innerText"])
-
-
-    x = signal_position["x"]
-    y = signal_position["y"]
-
-    x_patch = x // PATCH_SIZE
-    x_offset = x % PATCH_SIZE
-    y_patch = y // PATCH_SIZE
-    y_offset = y % PATCH_SIZE
-
-    patch_idx = x_patch * (IMG_WIDTH // PATCH_SIZE) + y_patch
-
-    start = time.time()
-
-    curr_signal = cache.get("active-signal-{x}".format(x=patch_idx))
-    print("fetch", time.time() - start)
-
-    if curr_signal is None:
-        curr_signal = np.zeros(1000)
-    else:
-        curr_signal = curr_signal[:, x_offset, y_offset]
-
-    start = time.time()
-    fig = px.line(curr_signal)
-    # fig.add_vline(x=frame_idx)
-    fig.update_layout(showlegend=False)
-    print("update graph", time.time() - start)
-
-    return json.dumps(signal_position), fig
 
 
 # ===========================
