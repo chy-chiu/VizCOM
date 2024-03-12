@@ -1,3 +1,4 @@
+
 import dash
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, ctx, callback, ALL, MATCH
@@ -47,6 +48,8 @@ CACHE_CONFIG = {
 }
 
 cache = Cache(server, config=CACHE_CONFIG)
+
+showBaseline = False
 
 app.layout = html.Div(
     [
@@ -296,36 +299,26 @@ def update_image(signal_idx):
 
 #     return fig
 
-# Drag event listener - Clientside callback
-# app.clientside_callback(
-#         """
-#         function(n_events, event) {
-#             return event['srcElement.innerText'];
-#         }
-#         """,
-#         Output('signal-position', 'data'),
-#         Input('drag-event-listener', 'n_events'),
-#         State('drag-event-listener', 'event')
-#     )
+    if signal_idx is not None:
+        active_signal = signals_all[signal_idx].get_curr_signal()
+    else:
+        active_signal = np.ones((128, 128, 128))
+        
+    global showBaseline
+    if showBaseline:
+        # baseline is calculated for transposed data
+        baselineIndex = (128 * x) + y
+        # get the current signal's baseline
+        bXs, bYs = signals_all[signal_idx].get_baseline()
+        bX = bXs[baselineIndex]
+        bY = bYs[baselineIndex]
 
-
-# # This will need to be converted to a clientside callback
-# @callback(
-#     Output("graph-signal", "figure"),
-#     Input("signal-position", "data"),
-#     Input("active-file-idx", "data"),
-#     Input("refresh-dummy", "data"),
-#     prevent_initial_call=True,
-# )
-# def display_signal_data(signal_position, signal_idx, _):
-
-#     if signal_position is not None:
-#         signal_position = json.loads(signal_position)
-#         x = signal_position["x"]
-#         y = signal_position["y"]
-#     else:
-#         x = 64
-#         y = 64
+        fig = px.line(active_signal[:, x, y])
+        fig.add_scatter(x=bX, y=bY)
+    else:
+        fig = px.line(active_signal[:, x, y])
+    # fig.add_vline(x=frame_idx)
+    fig.update_layout(showlegend=False)
 
 #     active_signal = cache.get(signal_idx)
 
@@ -354,6 +347,7 @@ def update_image(signal_idx):
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
     Input("trim-signal-button", "n_clicks"),
+    Input("baseline-drift-button", "n_clicks"),
     Input("confirm-button", "n_clicks"),
     Input("modal-header", "children"),  # For passing values to closed modal
     Input("input-one-prompt", "children"),
@@ -362,7 +356,7 @@ def update_image(signal_idx):
     Input("input-two", "value"),  # For passing values to closed modal
     State("modal", "is_open"),
 )
-def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
+def toggle_modal(n1, n2, n3, n4, n5, operation, in1P, in1, in2P, in2, is_open):
     # open modal with spatial
     if "spatial-avg-button" == ctx.triggered_id:
         return True, "Spatial Averaging", "Sigma:", 8, "Radius:", 6
@@ -374,7 +368,11 @@ def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
     # open modal with trim
     elif "trim-signal-button" == ctx.triggered_id:
         return True, "Trim Signal", "Trim Left:", 100, "Trim Right:", 100
-
+    
+    # open modal with 'remove baseline drift'
+    elif "baseline-drift-button" == ctx.triggered_id:
+        return True, "Remove Baseline Drift", "Period:", 0, "Threshold:", 0
+    
     # close modal and perform selected operation
     elif "confirm-button" == ctx.triggered_id:
         return False, operation, in1P, in1, in2P, in2
@@ -390,41 +388,57 @@ def toggle_modal(n1, n2, n3, n4, operation, in1P, in1, in2P, in2, is_open):
 
 @callback(
     Output("mode-select-parent", "hidden"),
+    Output("avg-mode-parent", "hidden"),
+    Output("baseline-mode-parent", "hidden"),
     Output("input-one-parent", "hidden"),
     Output("input-two-parent", "hidden"),
     Input("avg-mode-select", "value"),
+    Input("baseline-mode-select", "value"),
     Input("time-avg-button", "n_clicks"),
     Input("spatial-avg-button", "n_clicks"),
     Input("trim-signal-button", "n_clicks"),
+    Input("baseline-drift-button", "n_clicks"),
 )
-def hide_modal_components(ddVal, n1, n2, n3):
+def hide_modal_components(avgVal, baseVal, n1, n2, n3, n4):
     # Return Elements correspond to hiding:
     # Dropdown Menu, in1 (sigma/trim_left), in2(radius/trim_right)
 
     # when modal is opened with spatial or time, or on change of mode
-    if (
-        "spatial-avg-button" == ctx.triggered_id
-        or "time-avg-button" == ctx.triggered_id
-        or "avg-mode-select" == ctx.triggered_id
-    ):
-        # show dropdown, in1 (sigma), in2 (radius)
-        if ddVal == "Gaussian":
-            return False, False, False
-        # show dropdown, in2 (radius)
-        elif ddVal == "Uniform":
-            return False, True, False
-        # nothing is selected for dropdown, show everything
-        elif ddVal is None:
-            return False, False, False
-
+    if ("spatial-avg-button" == ctx.triggered_id 
+        or "time-avg-button" == ctx.triggered_id 
+        or "avg-mode-select" == ctx.triggered_id):
+        # Hide: baseline mode select
+        if avgVal == 'Gaussian':
+            return False, False, True, False, False
+        # Hide: baseline mode select, in1
+        elif avgVal == 'Uniform':
+            return False, False, True, True, False
+        # nothing is selected for dropdown, show everything except baseline mode select
+        elif avgVal is None:
+            return False, False, True, False, False
+        
+    # when modal is opened with remove baseline drift, or on change of mode
+    elif ("baseline-drift-button" == ctx.triggered_id
+        or "baseline-mode-select" == ctx.triggered_id):
+        # Hide: avg mode select, in1
+        if baseVal == 'Threshold':
+            return False, True, False, True, False
+        # Hide: avg mode select, in2
+        elif baseVal == 'Period':
+            return False, True, False, False, True
+        # nothing is selected for dropdown, show everything except avg mode select
+        elif baseVal is None:
+            return False, True, False, False, False
+        
+        
     # when modal is opened with trim
     elif "trim-signal-button" == ctx.triggered_id:
         # show in1 (Trim Left), in2 (Trim Right)
-        return True, False, False
-
+        return True, True, True, False, False
+    
     # Show everything
     else:
-        return False, False, False
+        return False, False, False, False, False
 
 
 @callback(
@@ -446,13 +460,14 @@ def update_file_directory(_):
     Output("refresh-dummy", "data", allow_duplicate=True),
     Input("modal-header", "children"),
     Input("avg-mode-select", "value"),
+    Input("baseline-mode-select", "value"),
     Input("input-one", "value"),
     Input("input-two", "value"),
     Input("confirm-button", "n_clicks"),
     State("active-file-idx", "data"),
     prevent_initial_call=True,
 )
-def performOperation(header, mode, in1, in2, _, signal_idx):
+def performOperation(header, avgMode, baseMode, in1, in2, _, signal_idx):
 
     if signal_idx is not None:
         active_signal: CascadeDataVoltage = cache.get(signal_idx)
@@ -471,20 +486,32 @@ def performOperation(header, mode, in1, in2, _, signal_idx):
         operation = header.split()[0]
         # Time averaging
         if operation == "Time":
-            active_signal.perform_average("time", in1, in2, mode=mode)
-
+            signals_all[signal_idx].perform_average("time", in1, in2, mode=avgMode)
+            signals_all[signal_idx].normalize()
+            return np.random.random()
         # Spatial Averaging
         elif operation == "Spatial":
-            active_signal.perform_average("time", in1, in2, mode=mode)
-
+            signals_all[signal_idx].perform_average("spatial", in1, in2, mode=avgMode)
+            signals_all[signal_idx].normalize()
+            return np.random.random()
         # Trim Signal
         elif operation == "Trim":
-            active_signal.perform_average("time", in1, in2, mode=mode)
-
-    # After any transformations to the signal, we will need to save the active signal to the cache again
-    cache.set(signal_idx, active_signal)
-
-    return np.random.random()
+            signals_all[signal_idx].trim_data(in1, in2)
+            signals_all[signal_idx].normalize()
+            return np.random.random()
+        # Remove Baseline Drift (Just get the baseline, it will not be removed until user approval)
+        elif operation == "Remove":
+            if baseMode == 'Period':
+                val = in1
+            elif baseMode == 'Threshold':
+                val = in2
+            else:
+                raise Exception("baseline mode must be Period or Threshold")
+            
+            signals_all[signal_idx].calc_baseline(baseMode, val)
+            global showBaseline
+            showBaseline = True
+        return np.random.random()
 
 
 @callback(
@@ -498,11 +525,36 @@ def performInvert(_, signal_idx):
     active_signal: CascadeDataVoltage = cache.get(signal_idx)
 
     active_signal.invert_data()
+    active_signal.normalize()
 
     cache.set(signal_idx, active_signal)
 
     return np.random.random()
 
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("confirm-baseline-button", "n_clicks"),
+    Input("cancel-baseline-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True
+)
+def performDriftRemoval(n1, n2, signal_idx):
+    if ("confirm-baseline-button" == ctx.triggered_id):
+        signals_all[signal_idx].remove_baseline_drift()
+        signals_all[signal_idx].normalize()
+    else:
+        signals_all[signal_idx].reset_baseline()
+    global showBaseline
+    showBaseline = False
+    
+@callback(
+    Output("refresh-dummy", "data", allow_duplicate=True),
+    Input("normalize-button", "n_clicks"),
+    State("active-file-idx", "data"),
+    prevent_initial_call=True
+)
+def performNormalize(_, signal_idx):
+    signals_all[signal_idx].normalize()
 
 @callback(
     Output("refresh-dummy", "data", allow_duplicate=True),
