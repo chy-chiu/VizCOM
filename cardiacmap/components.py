@@ -28,8 +28,12 @@ def navbar():
             html.I(className="bi-sm bi-activity h4", style={"color": "white", "margin-left": "2vw", "margin-top": "1vh"}),
             dbc.DropdownMenu(
                 children=[
-                   dbc.DropdownMenuItem([dbc.Button("  Time Average", className="bi bi-bar-chart", id="time-avg-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="time-button-pressed")]),
-                   dbc.DropdownMenuItem([dbc.Button("  Spatial Average", className="bi bi-bar-chart", id="spatial-avg-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="spatial-button-pressed")])
+                   dbc.DropdownMenuItem([dbc.Button("  Normalize", className="bi bi-bar-chart", id="normalize-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Time Average", className="bi bi-bar-chart", id="time-avg-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Spatial Average", className="bi bi-bar-chart", id="spatial-avg-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Remove Baseline Drift", className="bi bi-bar-chart", id="baseline-drift-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Confirm Baseline", className="bi bi-bar-chart", id="confirm-baseline-button", color="light", style={"width": "100%", "font-size": "14px"})]),
+                   dbc.DropdownMenuItem([dbc.Button("  Cancel Baseline", className="bi bi-bar-chart", id="cancel-baseline-button", color="light", style={"width": "100%", "font-size": "14px"})])
                 ],
                 in_navbar=True,
                 nav=True
@@ -105,16 +109,34 @@ def input_modal():
                     html.Div(
                         # dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
                         [
-                            dbc.Label("Choose Averaging Method:"),
-                            dbc.RadioItems(
-                                options=[
-                                    {"label": "Gaussian", "value": "Gaussian"},
-                                    {"label": "Uniform", "value": "Uniform"},
-                                ],
-                                value="Gaussian",
-                                id="avg-mode-select",
-                                inline=True
-                            ),
+                            html.Div(
+                            [
+                                dbc.Label("Choose Averaging Method:"),
+                                dbc.RadioItems(
+                                    options=[
+                                        {"label": "Gaussian", "value": "Gaussian"},
+                                        {"label": "Uniform", "value": "Uniform"},
+                                    ],
+                                    value="Gaussian",
+                                    id="avg-mode-select",
+                                    inline=True
+                                ),
+                            ], id="avg-mode-parent"),
+                            
+                            html.Div(
+                            [
+                                dbc.Label("Choose Baseline Method:"),
+                                dbc.RadioItems(
+                                    options=[
+                                        {"label": "Period", "value": "Period"},
+                                        {"label": "Threshold", "value": "Threshold", "disabled": False},
+                                    ],
+                                    value="Period",
+                                    id="baseline-mode-select",
+                                    inline=True
+                                ),
+                            ], id="baseline-mode-parent")
+                           
                         ],
                         id="mode-select-parent"
                     ),

@@ -2,6 +2,7 @@
 
 import argparse
 import io
+from locale import normalize
 import struct
 import pickle
 import numpy as np
@@ -9,7 +10,7 @@ import os
 
 from typing import List
 
-from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal, TrimSignal
+from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal, TrimSignal, GetMins, RemoveBaselineDrift, NormalizeData
 
 class CascadeDataVoltage:
 
@@ -46,6 +47,8 @@ class CascadeDataVoltage:
         self.span_Y = span_Y
         self.base_data = voltage_data
         self.transformed_data = voltage_data
+        self.baselineX = []
+        self.baselineY = []
         
         # self.transform_history = [voltage_data]
         # self.curr_index = 0
@@ -60,6 +63,30 @@ class CascadeDataVoltage:
             self.transformed_data = SpatialAverage(self.transformed_data, sig, rad, mask, mode)
         return
     
+    def calc_baseline(self, method, methodValue):
+        data = self.transformed_data
+        t = np.arange(len(data))
+        threads = 8 # this seems to be optimal thread count, needs more testing to confirm
+        
+        # flip data axes so we can look at it signal-wise instead of frame-wise
+        dataSwapped = np.moveaxis(data, 0, -1) # y, x, t
+        self.baselineX, self.baselineY = GetMins(t, dataSwapped, method, methodValue, threads)
+        
+    def remove_baseline_drift(self):
+        data = self.transformed_data
+        baselineXs = self.baselineX
+        baselineYs = self.baselineY
+        t = np.arange(len(data))
+        threads = 8 # this seems to be optimal thread count, needs more testing to confirm
+        
+        # flip data axes so we can look at it signal-wise instead of frame-wise
+        dataSwapped = np.moveaxis(data, 0, -1) # y, x, t
+        
+        dataMinusBaseline = RemoveBaselineDrift(t, dataSwapped, baselineXs, baselineYs, threads)
+        
+        # flip data axes back and store results
+        self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
+    
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)
     
@@ -68,10 +95,19 @@ class CascadeDataVoltage:
 
     def reset_data(self):
         self.transformed_data = self.base_data
+
+    def normalize(self):
+        self.transformed_data = NormalizeData(self.transformed_data)
     
     def get_curr_signal(self):
         return self.transformed_data
         # return self.transform_history[self.curr_index]
+
+    def get_baseline(self):
+        return self.baselineX, self.baselineY
+    
+    def reset_baseline(self):
+        self.baselineX = self.baselineY = []
     
     def get_keyframe(self):
         # Take the middle as the key frame for now
