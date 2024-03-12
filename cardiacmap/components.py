@@ -14,18 +14,24 @@ import os
 def navbar():
     return dbc.NavbarSimple(
         children=[
-            html.I(className="bi-sm bi-tools h5", style={"color": "white", "margin-left": "2vw", "margin-top": "1vh"}),
+            html.I(className="bi-sm bi-tools h5", style={"color": "white", "margin-left": "4vw", "margin-top": "1vh"}),
             dbc.DropdownMenu(
                 children=[
                     dbc.DropdownMenuItem([dbc.Button("  Trim", className="bi bi-crop", id="trim-signal-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="trim-button-pressed")]),
                     dbc.DropdownMenuItem([dbc.Button("  Invert", className="bi bi-caret-down", id="invert-signal-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="invert-button-pressed")]),
-                    dbc.DropdownMenuItem([dbc.Button("  Reset", className="bi-bootstrap-reboot", id="reset-data-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="reset-data-pressed")])
+                    dbc.DropdownMenuItem([dbc.Button("  Reset", className="bi-bootstrap-reboot", id="reset-data-button", color="light", style={"width": "100%", "font-size": "14px"}), html.Div(id="reset-data-pressed")]),
+                    html.Div(dbc.DropdownMenu([
+                        dbc.DropdownMenuItem("Even", style={"font-size": "14px"}, id="calcium-mode-even"),
+                        dbc.DropdownMenuItem("Odd", style={"font-size": "14px"}, id="calcium-mode-odd"),
+                        dbc.DropdownMenuItem("Dual", style={"font-size": "14px"}, id="calcium-mode-dual"),
+                        dbc.DropdownMenuItem("Reset", style={"font-size": "14px"}, id="calcium-mode-reset", disabled=True),
+                    ], label="Calcium Mode", direction="end", id="calcium-mode-menu", color="light", size="sm"), style={"margin-left": "1vw", "margin-top": "1vh", "margin-right": "1vw"})
                 ],
                 in_navbar=True,
                 nav=True,
                 style={"margin-right": "2vw"}
             ),
-            html.I(className="bi-sm bi-activity h4", style={"color": "white", "margin-left": "2vw", "margin-top": "1vh"}),
+            html.I(className="bi-sm bi-activity h4", style={"color": "white", "margin-top": "1vh"}),
             dbc.DropdownMenu(
                 children=[
                    dbc.DropdownMenuItem([dbc.Button("  Normalize", className="bi bi-bar-chart", id="normalize-button", color="light", style={"width": "100%", "font-size": "14px"})]),
@@ -37,7 +43,8 @@ def navbar():
                 ],
                 in_navbar=True,
                 nav=True
-            )
+            ),
+            html.Div(dbc.Badge("calcium mode", color="info", className="me-1", pill=True), hidden=True, id="calcium-mode-badge", style={"margin-top": "1vh", "margin-right": "1vw", "margin-left": "1vw"})
         ],
         links_left=True,
         brand="CardiacOpticalMapper",
@@ -74,19 +81,19 @@ def file_directory():
     )
 
 
-def image_viewport():
+def image_viewport(n):
     return dbc.Col(
         # TODO: add other menu bar items here
-        dcc.Graph(id="graph-image"),
+        dcc.Graph(id=f"graph-image-{n}"),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
-        id="col-image",
+        id=f"col-image-{n}",
     )
 
 
-def signal_viewport():
+def signal_viewport(n):
     return dbc.Col(
-        dcc.Graph(id="graph-signal"),
+        dcc.Graph(id=f"graph-signal-{n}"),
         # html.Div(
         #     [
         #         # dcc.Slider(
@@ -96,7 +103,7 @@ def signal_viewport():
         #     ],
         # ),
         width={"size": 9, "order": 2},
-        id="col-signal",
+        id=f"col-signal-{n}",
     )
 
 
