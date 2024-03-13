@@ -4,49 +4,9 @@ if (!window.dash_clientside) {
 
 window.dash_clientside.clientside = {
     setup_drag_listener: function () {
-        const graphDiv = document.getElementById('graph-image');
+        const graphDiv = document.getElementById('graph-image-1');
         const canvasWidth = 128;
         const canvasHeight = 128;
-
-        let lastPosX = null;
-        let lastPoxY = null;
-
-        // // Function to send position back to Dash
-        // const sendPositionToDash = function (x, y) {
-        //     const roundedX = Math.round(x);
-        //     const roundedY = Math.round(y);
-
-        //     // Check if the rounded position is different from the last sent one
-        //     if (roundedX !== lastPosX || roundedY !== lastPoxY) {
-        //         // Update the last sent positions
-        //         lastPosX = roundedX;
-        //         lastPoxY = roundedY;
-
-        //         const inputElement = document.getElementById('hidden-div');
-
-        //         if (inputElement) {
-        //             inputElement.innerText = JSON.stringify({ x: roundedX, y: roundedY });
-        //             // Trigger a change event to notify Dash of the update
-        //             const event = new Event('drag-change');
-        //             inputElement.dispatchEvent(event);
-        //         }
-        // //     }
-        // // };
-
-        // function throttle(func, limit) {
-        //     let inThrottle = false;
-
-        //     return function () {
-        //         if (!inThrottle) {
-        //             func.apply(this, arguments);
-        //             inThrottle = true;
-
-        //             setTimeout(function () {
-        //                 inThrottle = false;
-        //             }, limit);
-        //         }
-        //     };
-        // }
 
         // Function to handle mouse move
         const handleMouseMove = function (moveEvent) {
@@ -103,7 +63,8 @@ window.dash_clientside.clientside = {
         return '{"x":-1, "y": -1}';
     },
 
-    update_signal_clientside: function (n_intervals, signalPatch) {
+    update_signal_clientside: function (n_intervals, signalPatch, activeFile) {
+
 
         const PATCH_SIZE = 8;
 
@@ -111,22 +72,34 @@ window.dash_clientside.clientside = {
 
         const position = JSON.parse(positionElement.innerText)
 
+
         const x_offset = position.x % PATCH_SIZE;
         const y_offset = position.y % PATCH_SIZE;
 
         var patch_offset = x_offset * PATCH_SIZE + y_offset;
 
+        const fileMetadata = JSON.parse(activeFile)
+
         patchArray = JSON.parse(signalPatch);
 
-        var figure = {
+        var figure_1 = {
             "data": [{
-                "y": patchArray.slice(patch_offset * 5000 + 10, patch_offset * 5000 + 5000),
+                "y": patchArray.signal_0.slice(patch_offset * fileMetadata.frames, patch_offset * fileMetadata.frames + fileMetadata.frames),
                 "type": "line"
             }],
             "layout": {
             }
         };
 
-        return [{"x": position.x, "y": position.y}, figure];
+        var figure_2 = {
+            "data": [{
+                "y": patchArray.signal_1.slice(patch_offset * fileMetadata.frames, patch_offset * fileMetadata.frames + fileMetadata.frames),
+                "type": "line"
+            }],
+            "layout": {
+            }
+        };
+        
+        return [{"x": position.x, "y": position.y}, figure_1, figure_2];
     },
 }

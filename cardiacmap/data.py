@@ -11,7 +11,16 @@ import sys
 
 from typing import List
 
-from cardiacmap.transforms import TimeAverage, SpatialAverage, InvertSignal, TrimSignal, GetMins, RemoveBaselineDrift, NormalizeData
+from cardiacmap.transforms import (
+    TimeAverage,
+    SpatialAverage,
+    InvertSignal,
+    TrimSignal,
+    GetMins,
+    RemoveBaselineDrift,
+    NormalizeData,
+)
+
 
 class CascadeDataVoltage:
 
@@ -22,9 +31,11 @@ class CascadeDataVoltage:
     span_T: int
     span_X: int
     span_Y: int
-    base_data: np.ndarray
+    base_data: List[np.ndarray]
+    transformed_data: List[np.ndarray]
+    dual_mode: bool
 
-    # TODO: To implement history later. For now will include only base and transformed. 
+    # TODO: To implement history later. For now will include only base and transformed.
     # transform_history: List[np.ndarray]
     # curr_index: int
 
@@ -38,6 +49,7 @@ class CascadeDataVoltage:
         span_X,
         span_Y,
         voltage_data,
+        dual_mode,
     ):
         self.filename = filename
         self.datetime = datetime
@@ -47,223 +59,218 @@ class CascadeDataVoltage:
         self.span_X = span_X
         self.span_Y = span_Y
         self.base_data = voltage_data
+        self.dual_mode = dual_mode
         self.transformed_data = voltage_data
         self.baselineX = []
         self.baselineY = []
-        
+
         # self.transform_history = [voltage_data]
         # self.curr_index = 0
+
+    @classmethod
+    def load_data(cls, filepath, calcium_mode=False):
+
+        file_metadata, sigarray = CascadeDataVoltage.from_dat(filepath)
+
+        if calcium_mode:
+            voltage_data = [sigarray[::2, :, :], sigarray[1::2, :, :]]
+            file_metadata["span_T"] = file_metadata["span_T"] // 2
+        else:
+            voltage_data = [sigarray]
+
+        return cls(
+            filename=filepath,
+            voltage_data=voltage_data,
+            dual_mode=calcium_mode,
+            **file_metadata,
+        )
+
+    def switch_modes(self, dual_mode):
+        if dual_mode:
+            self.transformed_data = [
+                self.transformed_data[0][::2, :, :],
+                self.transformed_data[0][1::2, :, :],
+            ]
+            self.base_data = [
+                self.base_data[0][::2, :, :],
+                self.base_data[0][1::2, :, :],
+            ]
+            self.span_T = self.span_T // 2
+            self.dual_mode = True
+        else:
+            new_transformed_data = np.empty((self.span_T * 2, self.span_X, self.span_Y))
+            new_transformed_data[0::2, :, :], new_transformed_data[1::2, :, :] = (
+                self.transformed_data
+            )
+            self.transformed_data = [new_transformed_data]
+
+            new_base_data = np.empty((self.span_T * 2, self.span_X, self.span_Y))
+            new_base_data[0::2, :, :], new_base_data[1::2, :, :] = self.base_data
+            self.base_data = [new_base_data]
+
+            self.span_T = self.span_T * 2
+            self.dual_mode = False
+
+    @staticmethod
+    def from_dat(filepath: str) -> np.ndarray:
+        """Load data from .dat files irrespective of mode
+
+        Args:
+            filepath (str): Input file path
+
+        Returns:
+            file_metadata: dict of metadata
+            imarray: numpy array of size (frame, H, W)
+        """
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        f_path = os.path.join(script_dir, f"data/{filepath}")
+        file = open(f_path, "rb")
+
+        endian = "<"
+
+        file_metadata = {}
+
+        # First byte of the data is the file version
+        file_version = file.read(1).decode()
+
+        if file_version == "d":
+            # TODO: Version D is a WIP.This needs to be tested.
+            header = file.read(1023)
+
+            # In the original code, it reads 17 + 7 bytes of datetime.
+            file_metadata["datetime"] = header.pop(24).decode().rstrip("\x00")
+
+            file.read(8)
+            file_metadata["framerate"] = (
+                struct.unpack(endian + "I", file.read(4))[0] / 100
+            )
+
+            span_T = struct.unpack(endian + "I", file.read(4))[0]
+            span_X = struct.unpack(endian + "I", file.read(4))[0]
+            span_Y = struct.unpack(endian + "I", file.read(4))[0]
+
+            skip_bytes = 0
+
+            file_metadata["metadata"] = ""
+
+        elif file_version == "f" or file_version == "e":
+
+            # First integer is the byte order
+            byte_order = struct.unpack("I", file.read(4))[0]
+
+            if byte_order == 439041101:
+                endian = "<"
+            else:
+                endian = ">"
+
+            # Next three integers are the span
+            span_T = struct.unpack(endian + "I", file.read(4))[0]
+            span_X = struct.unpack(endian + "I", file.read(4))[0]
+            span_Y = struct.unpack(endian + "I", file.read(4))[0]
+
+            # Skip 8 bytes
+            file.read(8)
+            file_metadata["framerate"] = (
+                struct.unpack(endian + "I", file.read(4))[0] / 100
+            )
+            file_metadata["datetime"] = file.read(24).decode().rstrip("\x00")
+            file_metadata["metadata"] = file.read(971).decode().rstrip("\x00")
+
+            skip_bytes = 8
+
+        sigarray = np.frombuffer(file.read(), dtype="uint16")
+        skip = skip_bytes // 2
+
+        sigarray = sigarray.reshape(span_T, -1)[:, :-skip].reshape(
+            span_T, span_X, span_Y
+        )
+
+        file_metadata["span_T"] = span_T
+        file_metadata["span_X"] = span_X
+        file_metadata["span_Y"] = span_Y
+
+        file.close()
+
+        return file_metadata, sigarray
 
     def __repr__(self):
         return f"CascadeDataVoltage - {self.filename}"
 
-    def perform_average(self, type, sig, rad, mask=None, mode='Gaussian'):
+    def perform_average(self, type, sig, rad, mask=None, mode="Gaussian"):
         if type == "time":
-            self.transformed_data = TimeAverage(self.transformed_data, sig, rad, mask, mode)
+            self.transformed_data = [
+                TimeAverage(series, sig, rad, mask, mode)
+                for series in self.transformed_data
+            ]
         elif type == "spatial":
-            self.transformed_data = SpatialAverage(self.transformed_data, sig, rad, mask, mode)
+            self.transformed_data = [
+                SpatialAverage(series, sig, rad, mask, mode)
+                for series in self.transformed_data
+            ]
         return
-    
+
     def calc_baseline(self, method, methodValue):
         data = self.transformed_data
         t = np.arange(len(data))
-        threads = 8 # this seems to be optimal thread count, needs more testing to confirm
-        
+        threads = (
+            8  # this seems to be optimal thread count, needs more testing to confirm
+        )
+
         # flip data axes so we can look at it signal-wise instead of frame-wise
-        dataSwapped = np.moveaxis(data, 0, -1) # y, x, t
-        self.baselineX, self.baselineY = GetMins(t, dataSwapped, method, methodValue, threads)
-        
+        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
+        self.baselineX, self.baselineY = GetMins(
+            t, dataSwapped, method, methodValue, threads
+        )
+
     def remove_baseline_drift(self):
         data = self.transformed_data
         baselineXs = self.baselineX
         baselineYs = self.baselineY
         t = np.arange(len(data))
-        threads = 8 # this seems to be optimal thread count, needs more testing to confirm
-        
+        threads = (
+            8  # this seems to be optimal thread count, needs more testing to confirm
+        )
+
         # flip data axes so we can look at it signal-wise instead of frame-wise
-        dataSwapped = np.moveaxis(data, 0, -1) # y, x, t
-        
-        dataMinusBaseline = RemoveBaselineDrift(t, dataSwapped, baselineXs, baselineYs, threads)
-        
+        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
+
+        dataMinusBaseline = RemoveBaselineDrift(
+            t, dataSwapped, baselineXs, baselineYs, threads
+        )
+
         # flip data axes back and store results
         self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
-    
+
     def invert_data(self):
-        self.transformed_data = InvertSignal(self.transformed_data)
-    
+        self.transformed_data = [
+            InvertSignal(series) for series in self.transformed_data
+        ]
+
     def trim_data(self, startTrim, endTrim):
-        self.transformed_data = TrimSignal(self.transformed_data, startTrim, endTrim)
+        self.transformed_data = [
+            TrimSignal(series, startTrim, endTrim) for series in self.transformed_data
+        ]
 
     def reset_data(self):
         self.transformed_data = self.base_data
 
     def normalize(self):
-        self.transformed_data = NormalizeData(self.transformed_data)
-    
+        self.transformed_data = [
+            NormalizeData(series) for series in self.transformed_data
+        ]
+
     def get_curr_signal(self):
         return self.transformed_data
         # return self.transform_history[self.curr_index]
 
     def get_baseline(self):
         return self.baselineX, self.baselineY
-    
+
     def reset_baseline(self):
         self.baselineX = self.baselineY = []
-    
-    def get_keyframe(self):
+
+    def get_keyframe(self, series=0):
         # Take the middle as the key frame for now
         key_frame_idx = self.span_T // 2
-        return self.base_data[key_frame_idx]
 
-    # TODO: Refactor this chunk and optimize it
-    @classmethod
-    def from_dat(cls, filepath):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        f_path = os.path.join(script_dir, f'data/{filepath}')
-        file = open(f_path, "rb")
-
-        endian = "<"
-
-        # First byte of the data is the file version
-        file_version = file.read(1).decode()
-
-        if file_version == "d":
-            # TODO: Version D is a WIP.This needs to be tested.
-            header = file.read(1023)
-
-            # In the original code, it reads 17 + 7 bytes of datetime.
-            datetime = header.pop(24).decode().rstrip("\x00")
-
-            file.read(8)
-            framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
-
-            span_T = struct.unpack(endian + "I", file.read(4))[0]
-            span_X = struct.unpack(endian + "I", file.read(4))[0]
-            span_Y = struct.unpack(endian + "I", file.read(4))[0]
-
-            skip_bytes = 0
-
-            metadata = ""
-
-        elif file_version == "f" or file_version == "e":
-
-            # First integer is the byte order
-            byte_order = struct.unpack("I", file.read(4))[0]
-
-            if byte_order == 439041101:
-                endian = "<"
-            else:
-                endian = ">"
-
-            # Next three integers are the span
-            span_T = struct.unpack(endian + "I", file.read(4))[0]
-            span_X = struct.unpack(endian + "I", file.read(4))[0]
-            span_Y = struct.unpack(endian + "I", file.read(4))[0]
-
-            # Skip 8 bytes
-            file.read(8)
-            framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
-            datetime = file.read(24).decode().rstrip("\x00")
-            metadata = file.read(971).decode().rstrip("\x00")
-
-            skip_bytes = 8
-
-        
-        imarray = np.frombuffer(file.read(), dtype='uint16')
-        skip = skip_bytes // 2
-
-        imarray = imarray.reshape(span_T, -1)[:, :-skip].reshape(span_T, span_X, span_Y)
-
-        file.close()
-
-        return cls(
-            filename=filepath,
-            datetime=datetime,
-            framerate=framerate,
-            metadata=metadata,
-            span_T=span_T,
-            span_X=span_X,
-            span_Y=span_Y,
-            voltage_data=imarray,
-        )
-
-
-# TODO: Refactor this into a class method
-def cascade_import(filepath: str):
-    """Main function to import cascade .DAT files.
-
-    Args:
-        filepath (str): path to file to be converted
-        format (str): which format to save / return the file in. Can be "binary" or "pickle"
-        save (bool, optional): Whether to save the file locally. Defaults to True.
-    """
-    """Main function to import cascade .DAT files"""
-
-    with open(filepath, "rb") as file:
-
-        endian = "<"
-
-        # First byte of the data is the file version
-        file_version = file.read(1).decode()
-
-        if file_version == "d":
-            # TODO: Version D is a WIP.This needs to be tested.
-            header = file.read(1023)
-
-            # In the original code, it reads 17 + 7 bytes of datetime.
-            datetime = header.pop(24).decode().rstrip("\x00")
-
-            file.read(8)
-            framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
-
-            span_T = struct.unpack(endian + "I", file.read(4))[0]
-            span_X = struct.unpack(endian + "I", file.read(4))[0]
-            span_Y = struct.unpack(endian + "I", file.read(4))[0]
-
-            skip_bytes = 0
-
-            metadata = ""
-
-        elif file_version == "f" or file_version == "e":
-
-            # First integer is the byte order
-            byte_order = struct.unpack("I", file.read(4))[0]
-
-            if byte_order == 439041101:
-                endian = "<"
-            else:
-                endian = ">"
-
-            # Next three integers are the span
-            span_T = struct.unpack(endian + "I", file.read(4))[0]
-            span_X = struct.unpack(endian + "I", file.read(4))[0]
-            span_Y = struct.unpack(endian + "I", file.read(4))[0]
-
-            # Skip 8 bytes
-            file.read(8)
-            framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
-            datetime = file.read(24).decode().rstrip("\x00")
-            metadata = file.read(971).decode().rstrip("\x00")
-
-            skip_bytes = 8
-
-        bstream = file.read()
-
-    # TODO Sort out chunking here and make it more elegant
-
-    len_file = len(bstream)
-    raw_image_data = list(struct.unpack("H" * (len_file // 2), bstream))
-
-    skip = skip_bytes / 2  # Because each long integer is 2 bytes)
-    imarray = []
-    for t in range(span_T):
-
-        position = int(t * (span_X * span_Y + skip))
-
-        im_raw = raw_image_data[position : position + span_X * span_Y]
-
-        imarray.append(im_raw)
-
-    imarray = np.array(imarray)
-
-    return np.array([im.reshape(span_X, span_Y) for im in imarray])
+        return self.base_data[series][key_frame_idx]
