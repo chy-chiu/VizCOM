@@ -5,12 +5,23 @@ from cardiacmap.data import CascadeDataVoltage
 import numpy as np
 from flask_caching import Cache
 import time
+from typing import Union
 
 DUMMY_FILENAME = "put .dat files here"
 PATCH_MAX_FRAME = 5000
 IMG_WIDTH = 128
 PATCH_SIZE = 8
 
+
+def get_active_signal(active_file, cache)->Union[CascadeDataVoltage, None]:
+
+    active_file = json.loads(active_file)
+    
+    if active_file["filename"]:
+        active_signal: CascadeDataVoltage = cache.get(active_file["filename"])
+        return active_signal
+    else: 
+        return None
 
 def file_callbacks(app, cache: Cache):
 
@@ -74,7 +85,6 @@ def file_callbacks(app, cache: Cache):
         )
 
         return file_metadata, not dual_mode, not dual_mode
-
 
 def signal_callbacks(app, cache: Cache):
 
@@ -150,12 +160,7 @@ def signal_callbacks(app, cache: Cache):
     )
     def cache_active_signal(_, active_file):
 
-        active_file = json.loads(active_file)
-        active_signal = None
-
-        if active_file["filename"]:
-
-            active_signal: CascadeDataVoltage = cache.get(active_file["filename"])
+        active_signal = get_active_signal(active_file, cache)
 
         if active_signal:
 
@@ -191,12 +196,35 @@ def signal_callbacks(app, cache: Cache):
     )
     def cache_active_signal(_, active_file):
 
-        active_file = json.loads(active_file)
+        active_signal = get_active_signal(active_file, cache)
+        
+        cache.set(active_file["filename"], active_signal)
 
-        if active_file["filename"]:
+        return np.random.random()
 
-            active_signal: CascadeDataVoltage = cache.get(active_file["filename"])
+def transform_callbacks(app, cache: Cache):
+        
+    ## FIX THIS SHIT
+    @app.callback(
+        Output("refresh-dummy", "data", allow_duplicate=True),
+        Input("invert-signal-button", "n_clicks"),
+        State("active-file", "data"),
+        prevent_initial_call=True,
+    )
+    def performInvert(_, active_file):
+
+        active_signal = get_active_signal(active_file)
+        
+        if active_signal:
+            active_signal.invert_data()
+            active_signal.normalize()
 
             cache.set(active_file["filename"], active_signal)
+
+
+    # def perform_invert(_, signal_idx):
+    #     signals_all[signal_idx].invert_data()
+    #     if DUAL_ODD in signals_all.keys():
+    #         signals_all[DUAL_ODD].invert_data()
 
         return np.random.random()

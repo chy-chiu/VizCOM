@@ -7,7 +7,6 @@ from cardiacmap.data import CascadeDataVoltage
 from cardiacmap.callbacks import file_callbacks, signal_callbacks
 import json
 import numpy as np
-import os
 import webbrowser
 from threading import Timer
 from flask_caching import Cache
@@ -48,6 +47,13 @@ cache = Cache(server, config=CACHE_CONFIG)
 
 showBaseline = False
 
+# TODO: 
+"""
+1. Move more components into components.py
+2. Use CSS instead 
+3. Move callbacks to callbacks.py
+"""
+
 app.layout = html.Div(
     [
         html.Div(
@@ -80,6 +86,7 @@ app.layout = html.Div(
                     id="calcium-dual-mode-window",
                     hidden=False,
                 ),
+                # Another div here for APD / DI graphing, and other tertiary graphs
             ],
         ),
         # Event listener for drag events
@@ -150,7 +157,6 @@ file_callbacks(app, cache)
 signal_callbacks(app, cache)
 
 
-
 # Is this necessary???
 
 
@@ -188,7 +194,6 @@ signal_callbacks(app, cache)
 def update_key_image(active_file):
 
     active_file = json.loads(active_file)
-
 
     if active_file["filename"]:
         active_signal: CascadeDataVoltage = cache.get(active_file["filename"])
@@ -509,30 +514,6 @@ def perform_operation(header, avg_mode, base_mode, in1, in2, _, __, active_file)
             showBaseline = True
         return np.random.random()
 
-
-## FIX THIS SHIT
-@callback(
-    Output("refresh-dummy", "data", allow_duplicate=True),
-    Input("invert-signal-button", "n_clicks"),
-    State("active-file", "data"),
-    prevent_initial_call=True,
-)
-def performInvert(_, signal_idx):
-
-    active_signal: CascadeDataVoltage = cache.get(signal_idx)
-
-    active_signal.invert_data()
-    active_signal.normalize()
-
-    cache.set(signal_idx, active_signal)
-
-
-def perform_invert(_, signal_idx):
-    signals_all[signal_idx].invert_data()
-    if DUAL_ODD in signals_all.keys():
-        signals_all[DUAL_ODD].invert_data()
-
-    return np.random.random()
 
 
 @callback(

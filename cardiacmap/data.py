@@ -31,11 +31,11 @@ class CascadeDataVoltage:
     span_T: int
     span_X: int
     span_Y: int
-    base_data: List[np.ndarray]
+    base_data: List[np.ndarray] # This list can be either one or two signal arrays
     transformed_data: List[np.ndarray]
     dual_mode: bool
 
-    # TODO: To implement history later. For now will include only base and transformed.
+    # TODO: Make signal independent of window / signal selected
     # transform_history: List[np.ndarray]
     # curr_index: int
 
