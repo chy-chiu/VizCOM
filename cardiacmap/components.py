@@ -165,6 +165,34 @@ def button_bar(n):
                 color="light",
                 class_name="button-viewer",
             ),
+            dbc.ButtonGroup(
+                [
+                    dbc.Button(
+                        [
+                            html.I(className="bi bi-bar-chart"),
+                            "  Remove Baseline Drift",
+                        ],
+                        id={"type": "remove-drift-button", "index": n},
+                        color="light",
+                    ),
+                    dbc.Button(
+                        [html.I(className="bi bi-check")],
+                        id={"type": "confirm-baseline-button", "index": n},
+                        className="btn btn-success",
+                        color="light",
+                        disabled=True,
+                    ),
+                    dbc.Button(
+                        [html.I(className="bi bi-x")],
+                        id={"type": "reject-baseline-button", "index": n},
+                        className="btn btn-danger",
+                        color="light",
+                        disabled=True,
+                    ),
+                ],
+                class_name="button-viewer",
+
+            ),
         ],
         id="button-bar-{n}".format(n=n),
         style={
@@ -243,7 +271,9 @@ def signal_viewer(n):
 def image_viewport(n):
     return dbc.Col(
         # TODO: add other menu bar items here
-        dcc.Graph(id=f"graph-image-{n}", ),
+        dcc.Graph(
+            id=f"graph-image-{n}",
+        ),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
         id=f"col-image-{n}",
@@ -266,13 +296,8 @@ def signal_viewport(n):
     )
 
 
-# spatial_modal
-# time_modal
-# trim_modal
-# baseline_modal
-
-
 ### Components for modal
+
 
 def numerical_input_modal(modal_id, modal_text, n, value):
 
@@ -288,21 +313,19 @@ def numerical_input_modal(modal_id, modal_text, n, value):
         ],
     )
 
-def average_method_div(n, avg_type: str):
+
+def radio_input_modal(modal_id, label, options, n, value):
 
     return html.Div(
         [
-            dbc.Label("Choose Averaging Method:"),
+            dbc.Label(label),
             dbc.RadioItems(
-                options=[
-                    {"label": "Gaussian", "value": "Gaussian"},
-                    {"label": "Uniform", "value": "Uniform"},
-                ],
-                value="Gaussian",
-                id={"type": f"{avg_type}-avg-mode", "index": n},
+                options=options,
+                value=value,
+                id={"type": modal_id, "index": n},
                 inline=True,
             ),
-        ],
+        ]
     )
 
 
@@ -313,7 +336,16 @@ def transform_modals(n):
             dbc.ModalHeader("Spatial Averaging"),
             dbc.ModalBody(
                 [
-                    average_method_div(n, "spatial"),
+                    radio_input_modal(
+                        modal_id="spatial-avg-mode",
+                        label="Choose Averaging Method:",
+                        options=[
+                            {"label": "Gaussian", "value": "Gaussian"},
+                            {"label": "Uniform", "value": "Uniform"},
+                        ],
+                        value="Gaussian",
+                        n=n,
+                    ),
                     numerical_input_modal(
                         modal_id="spatial-avg-sigma", modal_text="Sigma", n=n, value=8
                     ),
@@ -335,7 +367,16 @@ def transform_modals(n):
             dbc.ModalHeader("Time Averaging"),
             dbc.ModalBody(
                 [
-                    average_method_div(n, "time"),
+                    radio_input_modal(
+                        modal_id="time-avg-mode",
+                        label="Choose Averaging Method:",
+                        options=[
+                            {"label": "Gaussian", "value": "Gaussian"},
+                            {"label": "Uniform", "value": "Uniform"},
+                        ],
+                        value="Gaussian",
+                        n=n,
+                    ),
                     numerical_input_modal(
                         modal_id="time-avg-sigma", modal_text="Sigma", n=n, value=4
                     ),
@@ -373,7 +414,41 @@ def transform_modals(n):
         is_open=False,
     )
 
-    return html.Div([spatial_modal, time_modal, trim_modal])
+    baseline_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Remove Baseline Drift"),
+            dbc.ModalBody(
+                [
+                    radio_input_modal(
+                        modal_id="baseline-mode",
+                        label="Choose Baseline Method:",
+                        options=[
+                            {"label": "Period", "value": "Period"},
+                            {"label": "Threshold", "value": "Threshold"},
+                        ],
+                        value="Period",
+                        n=n,
+                    ),
+                    numerical_input_modal(
+                        modal_id="baseline-period", modal_text="Period", n=n, value=0
+                    ),
+                    numerical_input_modal(
+                        modal_id="baseline-threshold",
+                        modal_text="Threshold",
+                        n=n,
+                        value=0,
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id={"type": f"baseline-confirm", "index": n})
+            ),
+        ],
+        id={"type": f"baseline-modal", "index": n},
+        is_open=False,
+    )
+
+    return html.Div([spatial_modal, time_modal, trim_modal, baseline_modal])
 
 
 # spatial_modal = dbc.Modal()

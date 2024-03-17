@@ -64,6 +64,7 @@ class CascadeDataVoltage:
         self.transformed_data = voltage_data
         self.baselineX = []
         self.baselineY = []
+        self.show_baseline = False
 
         # self.transform_history = [voltage_data]
         # self.curr_index = 0
@@ -248,8 +249,10 @@ class CascadeDataVoltage:
     def normalize(self, sig_id):
         self.transformed_data[sig_id] = NormalizeData(self.transformed_data[sig_id])
 
-    def calc_baseline(self, method, methodValue):
-        data = self.transformed_data
+    def calc_baseline(self, sig_id, method, methodValue):
+
+        print("Calculating baseline", method, methodValue)
+        data = self.transformed_data[sig_id]
         t = np.arange(len(data))
         threads = (
             8  # this seems to be optimal thread count, needs more testing to confirm
@@ -261,8 +264,8 @@ class CascadeDataVoltage:
             t, dataSwapped, method, methodValue, threads
         )
 
-    def remove_baseline_drift(self):
-        data = self.transformed_data
+    def remove_baseline_drift(self, sig_id):
+        data = self.transformed_data[sig_id]
         baselineXs = self.baselineX
         baselineYs = self.baselineY
         t = np.arange(len(data))
@@ -278,7 +281,7 @@ class CascadeDataVoltage:
         )
 
         # flip data axes back and store results
-        self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
+        self.transformed_data[sig_id] = np.moveaxis(dataMinusBaseline, -1, 0)
 
     def get_baseline(self):
         return self.baselineX, self.baselineY

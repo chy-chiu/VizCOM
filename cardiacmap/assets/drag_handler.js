@@ -10,6 +10,29 @@ window.dash_clientside.clientside = {
         const graphDiv2 = document.getElementById('graph-image-2');
         const canvasWidth = 128;
         const canvasHeight = 128;
+        const dragThrottle = 100;
+
+        const throttleFunction = (func, delay) => {
+ 
+            // Previously called time of the function
+            let prev = 0;
+            return (...args) => {
+                // Current called time of the function
+                let now = new Date().getTime();
+ 
+                if (now - prev > delay) {
+                    prev = now;
+ 
+                    // "..." is the spread
+                    // operator here 
+                    // returning the function with the 
+                    // array of arguments
+                    return func(...args);
+                }
+            }
+        }
+
+        // TODO: I am lazy so I just C+Ped the code twice. I should refactor the below to one chunk handling mutliple in the future.
 
         // Function to handle mouse move
         const handleMouseMove1 = function (moveEvent) {
@@ -27,6 +50,9 @@ window.dash_clientside.clientside = {
             const mappedY = Math.max(Math.min(Math.round((offsetY / minWidth) * canvasHeight), 127), 0);
 
             const inputElement = document.getElementById('hidden-div');
+
+            const event = new Event("drag-change");
+            inputElement.dispatchEvent(event);
 
             if (inputElement) {
                 inputElement.innerText = JSON.stringify({ x: mappedX, y: mappedY });
@@ -50,6 +76,9 @@ window.dash_clientside.clientside = {
 
             const inputElement = document.getElementById('hidden-div');
 
+            const event = new Event("drag-change");
+            inputElement.dispatchEvent(event);
+
             if (inputElement) {
                 inputElement.innerText = JSON.stringify({ x: mappedX, y: mappedY });
             }
@@ -67,8 +96,10 @@ window.dash_clientside.clientside = {
 
                 handleMouseMove1(downEvent);
 
+                const throttledMouseMove = throttleFunction(handleMouseMove1, dragThrottle)
+
                 // Assign mousemove listener
-                document.addEventListener('mousemove', handleMouseMove1);
+                document.addEventListener('mousemove', throttledMouseMove);
 
                 document.onmouseup = function (upEvent) {
                     // On drag end, to remove mousemove listener
@@ -76,7 +107,7 @@ window.dash_clientside.clientside = {
                     const event = new Event('drag-mouseup');
                     inputElement.dispatchEvent(event);
 
-                    document.removeEventListener('mousemove', handleMouseMove1);
+                    document.removeEventListener('mousemove', throttledMouseMove);
                     document.onmouseup = null;
                 };
 
@@ -97,8 +128,10 @@ window.dash_clientside.clientside = {
 
                 handleMouseMove2(downEvent);
 
+                const throttledMouseMove = throttleFunction(handleMouseMove2, dragThrottle)
+
                 // Assign mousemove listener
-                document.addEventListener('mousemove', handleMouseMove2);
+                document.addEventListener('mousemove', throttledMouseMove);
 
                 document.onmouseup = function (upEvent) {
                     // On drag end, to remove mousemove listener
@@ -106,7 +139,7 @@ window.dash_clientside.clientside = {
                     const event = new Event('drag-mouseup');
                     inputElement.dispatchEvent(event);
 
-                    document.removeEventListener('mousemove', handleMouseMove2);
+                    document.removeEventListener('mousemove', throttledMouseMove);
                     document.onmouseup = null;
                 };
 
@@ -116,6 +149,8 @@ window.dash_clientside.clientside = {
                 return false; // Prevent text selection during drag in some browsers
             };
         }
+
+        console.log("Drag handler function set up")
 
         return '{"x":123, "y": 123}';
     },
