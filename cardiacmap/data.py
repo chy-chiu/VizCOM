@@ -8,6 +8,7 @@ import pickle
 import numpy as np
 import os
 import sys
+from copy import deepcopy
 
 from typing import List
 
@@ -31,11 +32,11 @@ class CascadeDataVoltage:
     span_T: int
     span_X: int
     span_Y: int
-    base_data: List[np.ndarray]
+    base_data: List[np.ndarray]  # This list can be either one or two signal arrays
     transformed_data: List[np.ndarray]
     dual_mode: bool
 
-    # TODO: To implement history later. For now will include only base and transformed.
+    # TODO: Make signal independent of window / signal selected
     # transform_history: List[np.ndarray]
     # curr_index: int
 
@@ -58,11 +59,12 @@ class CascadeDataVoltage:
         self.span_T = span_T
         self.span_X = span_X
         self.span_Y = span_Y
-        self.base_data = voltage_data
+        self.base_data = deepcopy(voltage_data)
         self.dual_mode = dual_mode
         self.transformed_data = voltage_data
         self.baselineX = []
         self.baselineY = []
+        self.show_baseline = False
 
         # self.transform_history = [voltage_data]
         # self.curr_index = 0
@@ -98,13 +100,25 @@ class CascadeDataVoltage:
             self.span_T = self.span_T // 2
             self.dual_mode = True
         else:
-            new_transformed_data = np.empty((self.span_T * 2, self.span_X, self.span_Y))
+            new_transformed_data = np.empty(
+                (
+                    len(self.transformed_data[0]) + len(self.transformed_data[1]),
+                    self.span_X,
+                    self.span_Y,
+                )
+            )
             new_transformed_data[0::2, :, :], new_transformed_data[1::2, :, :] = (
                 self.transformed_data
             )
             self.transformed_data = [new_transformed_data]
 
-            new_base_data = np.empty((self.span_T * 2, self.span_X, self.span_Y))
+            new_base_data = np.empty(
+                (
+                    len(self.base_data[0]) + len(self.base_data[1]),
+                    self.span_X,
+                    self.span_Y,
+                )
+            )
             new_base_data[0::2, :, :], new_base_data[1::2, :, :] = self.base_data
             self.base_data = [new_base_data]
 
@@ -196,21 +210,49 @@ class CascadeDataVoltage:
     def __repr__(self):
         return f"CascadeDataVoltage - {self.filename}"
 
-    def perform_average(self, type, sig, rad, mask=None, mode="Gaussian"):
+    def perform_average(
+        self,
+        type,
+        sig,
+        rad,
+        sig_id,
+        mask=None,
+        mode="Gaussian",
+    ):
+        
         if type == "time":
-            self.transformed_data = [
-                TimeAverage(series, sig, rad, mask, mode)
-                for series in self.transformed_data
-            ]
+            self.transformed_data[sig_id] = TimeAverage(
+                self.transformed_data[sig_id], sig, rad, mask, mode
+            )
+
         elif type == "spatial":
-            self.transformed_data = [
-                SpatialAverage(series, sig, rad, mask, mode)
-                for series in self.transformed_data
-            ]
+            self.transformed_data[sig_id] = SpatialAverage(
+                self.transformed_data[sig_id], sig, rad, mask, mode
+            )
+
         return
 
-    def calc_baseline(self, method, methodValue):
-        data = self.transformed_data
+    # TO FIX in a bit
+
+    def invert_data(self, sig_id):
+        self.transformed_data[sig_id] = InvertSignal(self.transformed_data[sig_id])
+
+    def trim_data(self, sig_id, startTrim, endTrim):
+
+        self.transformed_data[sig_id] = TrimSignal(
+            self.transformed_data[sig_id], startTrim, endTrim
+        )
+
+    def reset_data(self, sig_id):
+        self.transformed_data[sig_id] = self.base_data[sig_id]
+
+    def normalize(self, sig_id):
+        self.transformed_data[sig_id] = NormalizeData(self.transformed_data[sig_id])
+
+    def calc_baseline(self, sig_id, method, methodValue):
+
+        print("Calculating baseline", method, methodValue)
+        data = self.transformed_data[sig_id]
         t = np.arange(len(data))
         threads = (
             8  # this seems to be optimal thread count, needs more testing to confirm
@@ -222,8 +264,8 @@ class CascadeDataVoltage:
             t, dataSwapped, method, methodValue, threads
         )
 
-    def remove_baseline_drift(self):
-        data = self.transformed_data
+    def remove_baseline_drift(self, sig_id):
+        data = self.transformed_data[sig_id]
         baselineXs = self.baselineX
         baselineYs = self.baselineY
         t = np.arange(len(data))
@@ -239,29 +281,7 @@ class CascadeDataVoltage:
         )
 
         # flip data axes back and store results
-        self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
-
-    def invert_data(self):
-        self.transformed_data = [
-            InvertSignal(series) for series in self.transformed_data
-        ]
-
-    def trim_data(self, startTrim, endTrim):
-        self.transformed_data = [
-            TrimSignal(series, startTrim, endTrim) for series in self.transformed_data
-        ]
-
-    def reset_data(self):
-        self.transformed_data = self.base_data
-
-    def normalize(self):
-        self.transformed_data = [
-            NormalizeData(series) for series in self.transformed_data
-        ]
-
-    def get_curr_signal(self):
-        return self.transformed_data
-        # return self.transform_history[self.curr_index]
+        self.transformed_data[sig_id] = np.moveaxis(dataMinusBaseline, -1, 0)
 
     def get_baseline(self):
         return self.baselineX, self.baselineY
@@ -274,3 +294,7 @@ class CascadeDataVoltage:
         key_frame_idx = self.span_T // 2
 
         return self.base_data[series][key_frame_idx]
+
+    def get_curr_signal(self):
+        return self.transformed_data
+        # return self.transform_history[self.curr_index]

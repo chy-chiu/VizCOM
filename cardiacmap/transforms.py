@@ -98,6 +98,7 @@ def InvertSignal(arr):
         newArr: results, each data point is equal to: -(value) -1 
                                                     i.e. np.invert([6, 0]) -> [-7, -1]
     """   
+
     newArr = np.invert(arr)
     return newArr
 
@@ -167,7 +168,9 @@ def GetMins(t, data, method, methodValue, threads):
         
     else:
         raise ValueError("getMins method must be Threshold or Period. Was:", method)
-
+    
+    baselineX = np.array(baselineX)
+    baselineY = np.array(baselineY)
 
     return baselineX, baselineY
 
