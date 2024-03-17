@@ -4,18 +4,18 @@ from dash.dependencies import ClientsideFunction
 from dash_extensions import EventListener
 import plotly.express as px
 from cardiacmap.data import CascadeDataVoltage
-from cardiacmap.callbacks import file_callbacks, signal_callbacks
+from cardiacmap.callbacks import file_callbacks, signal_callbacks, transform_callbacks, modal_callbacks
 import json
 import numpy as np
 import webbrowser
 from threading import Timer
 from flask_caching import Cache
 from cardiacmap.components import (
-    image_viewport,
-    signal_viewport,
+    signal_viewer,
     input_modal,
     navbar,
     file_directory,
+    transform_modals,
 )
 import time
 
@@ -60,29 +60,9 @@ app.layout = html.Div(
             [
                 dbc.Row(navbar()),
                 dbc.Row(file_directory()),
-                dbc.Row(
-                    [
-                        image_viewport(1),
-                        signal_viewport(1),
-                    ],
-                    style={
-                        "display": "flex",
-                        "align-items": "center",
-                        "justify-content": "center",
-                    },
-                ),
+                dbc.Card(signal_viewer(1), className="signal-viewer"),
                 html.Div(
-                    dbc.Row(
-                        [
-                            image_viewport(2),
-                            signal_viewport(2),
-                        ],
-                        style={
-                            "display": "flex",
-                            "align-items": "center",
-                            "justify-content": "center",
-                        },
-                    ),
+                    dbc.Card(signal_viewer(2)),
                     id="calcium-dual-mode-window",
                     hidden=False,
                 ),
@@ -92,7 +72,7 @@ app.layout = html.Div(
         # Event listener for drag events
         EventListener(
             html.Div(
-                '{"x":-1, "y": -1}',
+                '{"x": 64, "y": 64}',
                 id="hidden-div",
             ),
             events=[event_change, event_mouseup, event_mousedown],
@@ -101,6 +81,8 @@ app.layout = html.Div(
         ),
         # Modal stuff for transforms
         input_modal(),
+        transform_modals(1),
+        transform_modals(2),
         ###### Dash store components
         # dcc.Store(id="frame-index", storage_type="session"), # TODO: Move this to movie mode later
         # Position of signal
@@ -140,21 +122,26 @@ app.clientside_callback(
     Input("refresh-dummy", "data"),
 )
 
-app.clientside_callback(
-    ClientsideFunction(
-        namespace="clientside", function_name="update_signal_clientside"
-    ),
-    Output("signal-position", "data"),
-    Output("graph-signal-1", "figure"),
-    Output("graph-signal-2", "figure"),
-    # Output("hidden-div-2", "children"),
-    Input("graph-refresher", "n_intervals"),
-    State("active-signal-patch", "data"),
-    State("active-file", "data"),
-)
+# app.clientside_callback(
+#     ClientsideFunction(
+#         namespace="clientside", function_name="update_signal_clientside"
+#     ),
+#     Output("signal-position", "data"),
+#     Output("graph-signal-1", "figure"),
+#     Output("graph-signal-2", "figure"),
+#     Output("graph-image-1", "figure"),
+#     Output("graph-image-2", "figure",),
+#     Input("graph-refresher", "n_intervals"),
+#     State("active-signal-patch", "data"),
+#     State("active-file", "data"),
+#     State("graph-image-1", "figure"),
+#     State("graph-image-2", "figure"),
+# )
 
 file_callbacks(app, cache)
 signal_callbacks(app, cache)
+modal_callbacks(app)
+transform_callbacks(app, cache)
 
 
 # Is this necessary???
@@ -186,8 +173,8 @@ signal_callbacks(app, cache)
 # This should only be called upon changing the active signal
 # Movie mode to come later
 @app.callback(
-    Output("graph-image-1", "figure"),
-    Output("graph-image-2", "figure"),
+    Output("graph-image-1", "figure", allow_duplicate=True),
+    Output("graph-image-2", "figure", allow_duplicate=True),
     Input("active-file", "data"),
     prevent_initial_call=True,
 )
@@ -448,122 +435,7 @@ def hide_modal_components(avgVal, baseVal, n1, n2, n3, n4):
     # Show everything
     else:
         return False, False, False, False, False
-
-
-@callback(
-    Output("refresh-dummy", "data", allow_duplicate=True),
-    Input("modal-header", "children"),
-    Input("avg-mode-select", "value"),
-    Input("baseline-mode-select", "value"),
-    Input("input-one", "value"),
-    Input("input-two", "value"),
-    Input("confirm-button", "n_clicks"),
-    Input("calcium-mode-dual", "active"),
-    State("active-file", "data"),
-    prevent_initial_call=True,
-)
-def perform_operation(header, avg_mode, base_mode, in1, in2, _, __, active_file):
-
-    active_file = json.loads(active_file)
-
-    if active_file["filename"]:
-        active_signal: CascadeDataVoltage = cache.get(active_file["filename"])
-    else:
-        return np.random.random()
-
-    # if the modal was closed by the 'perform average' button
-    if "confirm-button" == ctx.triggered_id:
-        # if bad inputs
-        # should we give a warning?
-        if in1 is None or in1 < 0:
-            in1 = 0
-        if in2 is None or in2 < 0:
-            in2 = 0
-
-        # TODO: FIX THIS PART YO
-        operation = header.split()[0]
-        # Time averaging
-        if operation == "Time":
-            signals_all[signal_idx].perform_average("time", in1, in2, mode=mode)
-            if cmd and DUAL_ODD in signals_all.keys():
-                signals_all[DUAL_ODD].perform_average("time", in1, in2, mode=mode)
-            return np.random.random()
-        # Spatial Averaging
-        elif operation == "Spatial":
-            signals_all[signal_idx].perform_average("spatial", in1, in2, mode=mode)
-            if cmd and DUAL_ODD in signals_all.keys():
-                signals_all[DUAL_ODD].perform_average("spatial", in1, in2, mode=mode)
-            return np.random.random()
-        # Trim Signal
-        elif operation == "Trim":
-            signals_all[signal_idx].trim_data(in1, in2)
-            if cmd and DUAL_ODD in signals_all.keys():
-                signals_all[DUAL_ODD].trim_data(in1, in2)
-            return np.random.random()
-        # Remove Baseline Drift (Just get the baseline, it will not be removed until user approval)
-        elif operation == "Remove":
-            if baseMode == "Period":
-                val = in1
-            elif baseMode == "Threshold":
-                val = in2
-            else:
-                raise Exception("baseline mode must be Period or Threshold")
-
-            signals_all[signal_idx].calc_baseline(baseMode, val)
-            global showBaseline
-            showBaseline = True
-        return np.random.random()
-
-
-
-@callback(
-    Output("refresh-dummy", "data", allow_duplicate=True),
-    Input("confirm-baseline-button", "n_clicks"),
-    Input("cancel-baseline-button", "n_clicks"),
-    State("active-file", "data"),
-    prevent_initial_call=True,
-)
-def performDriftRemoval(n1, n2, signal_idx):
-    if "confirm-baseline-button" == ctx.triggered_id:
-        signals_all[signal_idx].remove_baseline_drift()
-        signals_all[signal_idx].normalize()
-    else:
-        signals_all[signal_idx].reset_baseline()
-    global showBaseline
-    showBaseline = False
-
-
-@callback(
-    Output("refresh-dummy", "data", allow_duplicate=True),
-    Input("normalize-button", "n_clicks"),
-    State("active-file", "data"),
-    prevent_initial_call=True,
-)
-def performNormalize(_, signal_idx):
-    signals_all[signal_idx].normalize()
-
-
-## FIX THIS AS WELL PLEASE
-@callback(
-    Output("refresh-dummy", "data", allow_duplicate=True),
-    Input("reset-data-button", "n_clicks"),
-    State("active-file", "data"),
-    prevent_initial_call=True,
-)
-def reset_data(_, signal_idx):
-
-    active_signal: CascadeDataVoltage = cache.get(signal_idx)
-
-    active_signal.reset_data()
-
-    cache.set(signal_idx, active_signal)
-
-    return np.random.random()
-
-    signals_all[signal_idx].reset_data()
-    if DUAL_ODD in signals_all.keys():
-        signals_all[DUAL_ODD].reset_data()
-    return np.random.random()
+        Input({"type":"invert-signal-button", "index": ALL}, "n_clicks"),
 
 
 # @app.callback(

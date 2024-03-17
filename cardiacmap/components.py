@@ -20,42 +20,6 @@ def navbar():
             ),
             dbc.DropdownMenu(
                 children=[
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Trim",
-                                className="bi bi-crop",
-                                id="trim-signal-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            ),
-                            html.Div(id="trim-button-pressed"),
-                        ]
-                    ),
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Invert",
-                                className="bi bi-caret-down",
-                                id="invert-signal-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            ),
-                            html.Div(id="invert-button-pressed"),
-                        ]
-                    ),
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Reset",
-                                className="bi-bootstrap-reboot",
-                                id="reset-data-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            ),
-                            html.Div(id="reset-data-pressed"),
-                        ]
-                    ),
                     html.Div(
                         dbc.DropdownMenu(
                             [
@@ -104,39 +68,7 @@ def navbar():
             ),
             dbc.DropdownMenu(
                 children=[
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Normalize",
-                                className="bi bi-bar-chart",
-                                id="normalize-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            )
-                        ]
-                    ),
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Time Average",
-                                className="bi bi-bar-chart",
-                                id="time-avg-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            )
-                        ]
-                    ),
-                    dbc.DropdownMenuItem(
-                        [
-                            dbc.Button(
-                                "  Spatial Average",
-                                className="bi bi-bar-chart",
-                                id="spatial-avg-button",
-                                color="light",
-                                style={"width": "100%", "font-size": "14px"},
-                            )
-                        ]
-                    ),
+                    dbc.DropdownMenuItem([]),
                     dbc.DropdownMenuItem(
                         [
                             dbc.Button(
@@ -194,6 +126,55 @@ def navbar():
     )
 
 
+def button_bar(n):
+    return dbc.Row(
+        [
+            dbc.Button(
+                [html.I(className="bi bi-crop"), "  Trim"],
+                id={"type": "trim-signal-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-caret-down"), "  Invert"],
+                id={"type": "invert-signal-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi-bootstrap-reboot"), "  Reset"],
+                id={"type": "reset-data-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-bar-chart"), "  Normalize"],
+                id={"type": "normalize-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-bar-chart"), "  Time Average"],
+                id={"type": "time-avg-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-bar-chart"), "  Spatial Average"],
+                id={"type": "spatial-avg-button", "index": n},
+                color="light",
+                class_name="button-viewer",
+            ),
+        ],
+        id="button-bar-{n}".format(n=n),
+        style={
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+        },
+    )
+
+
 def file_directory():
     return html.Div(
         [
@@ -227,7 +208,7 @@ def file_directory():
             ),
             html.Div(
                 dbc.Button(
-                    " Refresh Folder", 
+                    " Refresh Folder",
                     id="refresh-folder-button",
                     className="bi bi-arrow-clockwise",
                     color="light",
@@ -243,10 +224,26 @@ def file_directory():
     )
 
 
+def signal_viewer(n):
+
+    return dbc.Row(
+        [
+            image_viewport(n),
+            signal_viewport(n),
+        ],
+        style={
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+        },
+        id="signal-viewer-{n}".format(n=n),
+    )
+
+
 def image_viewport(n):
     return dbc.Col(
         # TODO: add other menu bar items here
-        dcc.Graph(id=f"graph-image-{n}"),
+        dcc.Graph(id=f"graph-image-{n}", ),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
         id=f"col-image-{n}",
@@ -255,7 +252,7 @@ def image_viewport(n):
 
 def signal_viewport(n):
     return dbc.Col(
-        dcc.Graph(id=f"graph-signal-{n}"),
+        [button_bar(n), dcc.Graph(id=f"graph-signal-{n}")],
         # html.Div(
         #     [
         #         # dcc.Slider(
@@ -269,6 +266,119 @@ def signal_viewport(n):
     )
 
 
+# spatial_modal
+# time_modal
+# trim_modal
+# baseline_modal
+
+
+### Components for modal
+
+def numerical_input_modal(modal_id, modal_text, n, value):
+
+    return html.Div(
+        [
+            html.P(modal_text),
+            dbc.Input(
+                id={"type": modal_id, "index": n},
+                type="number",
+                min=0,
+                value=value,
+            ),
+        ],
+    )
+
+def average_method_div(n, avg_type: str):
+
+    return html.Div(
+        [
+            dbc.Label("Choose Averaging Method:"),
+            dbc.RadioItems(
+                options=[
+                    {"label": "Gaussian", "value": "Gaussian"},
+                    {"label": "Uniform", "value": "Uniform"},
+                ],
+                value="Gaussian",
+                id={"type": f"{avg_type}-avg-mode", "index": n},
+                inline=True,
+            ),
+        ],
+    )
+
+
+def transform_modals(n):
+
+    spatial_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Spatial Averaging"),
+            dbc.ModalBody(
+                [
+                    average_method_div(n, "spatial"),
+                    numerical_input_modal(
+                        modal_id="spatial-avg-sigma", modal_text="Sigma", n=n, value=8
+                    ),
+                    numerical_input_modal(
+                        modal_id="spatial-avg-radius", modal_text="Radius", n=n, value=6
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id={"type": f"spatial-avg-confirm", "index": n})
+            ),
+        ],
+        id={"type": f"spatial-avg-modal", "index": n},
+        is_open=False,
+    )
+
+    time_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Time Averaging"),
+            dbc.ModalBody(
+                [
+                    average_method_div(n, "time"),
+                    numerical_input_modal(
+                        modal_id="time-avg-sigma", modal_text="Sigma", n=n, value=4
+                    ),
+                    numerical_input_modal(
+                        modal_id="time-avg-radius", modal_text="Radius", n=n, value=3
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id={"type": f"time-avg-confirm", "index": n})
+            ),
+        ],
+        id={"type": f"time-avg-modal", "index": n},
+        is_open=False,
+    )
+
+    trim_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Trim Signal"),
+            dbc.ModalBody(
+                [
+                    numerical_input_modal(
+                        modal_id="trim-left", modal_text="Trim Left", n=n, value=100
+                    ),
+                    numerical_input_modal(
+                        modal_id="trim-right", modal_text="Trim Right", n=n, value=100
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id={"type": f"trim-confirm", "index": n})
+            ),
+        ],
+        id={"type": f"trim-modal", "index": n},
+        is_open=False,
+    )
+
+    return html.Div([spatial_modal, time_modal, trim_modal])
+
+
+# spatial_modal = dbc.Modal()
+
+
 def input_modal():
     return dbc.Modal(
         [
@@ -278,21 +388,6 @@ def input_modal():
                     html.Div(
                         # dcc.Dropdown(['Gaussian', 'Uniform'], 'Gaussian', id="avg-mode-dropdown"),
                         [
-                            html.Div(
-                                [
-                                    dbc.Label("Choose Averaging Method:"),
-                                    dbc.RadioItems(
-                                        options=[
-                                            {"label": "Gaussian", "value": "Gaussian"},
-                                            {"label": "Uniform", "value": "Uniform"},
-                                        ],
-                                        value="Gaussian",
-                                        id="avg-mode-select",
-                                        inline=True,
-                                    ),
-                                ],
-                                id="avg-mode-parent",
-                            ),
                             html.Div(
                                 [
                                     dbc.Label("Choose Baseline Method:"),
@@ -314,13 +409,6 @@ def input_modal():
                             ),
                         ],
                         id="mode-select-parent",
-                    ),
-                    html.Div(
-                        [
-                            html.P("In 1:", id="input-one-prompt"),
-                            dbc.Input(id="input-one", type="number", min=0, value=0),
-                        ],
-                        id="input-one-parent",
                     ),
                     html.Div(
                         [
