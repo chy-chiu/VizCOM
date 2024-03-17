@@ -1,0 +1,9 @@
+.button-viewer{
+    width: fit-content;
+    font-size: 16px;    
+    margin: 10px 10px 10px 10px;
+}
+
+.signal-viewer{
+    margin: 20px 20px 20px 20px;
+}
