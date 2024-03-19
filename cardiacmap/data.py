@@ -20,6 +20,8 @@ from cardiacmap.transforms import (
     GetMins,
     RemoveBaselineDrift,
     NormalizeData,
+    GetIntersectionsAPD_DI,
+    CalculateAPD_DI,
 )
 
 
@@ -65,6 +67,14 @@ class CascadeDataVoltage:
         self.baselineX = []
         self.baselineY = []
         self.show_baseline = False
+        self.apdThreshold = 0
+        self.apdDIThresholdIdxs = []
+        self.apdIndicators = []
+        self.apds = []
+        self.apd_indices = []
+        self.dis = []
+        self.di_indices = []
+        self.show_apd_threshold = False
 
         # self.transform_history = [voltage_data]
         # self.curr_index = 0
@@ -234,6 +244,20 @@ class CascadeDataVoltage:
 
     # TO FIX in a bit
 
+    def calc_apd_di_threshold(self, sig_id, threshold):
+        data = np.moveaxis(self.transformed_data[sig_id], 0, -1)
+        self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(data, threshold)
+        self.apdThreshold = threshold
+
+    def calc_apd_di(self, sig_id):
+        self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(self.apdDIThresholdIdxs, self.apdIndicators)
+
+    def reset_apd_di(self, sig_id):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = self.dis = self.di_indices = []
+        self.apdThreshold = 0
+
+    
     def invert_data(self, sig_id):
         self.transformed_data[sig_id] = InvertSignal(self.transformed_data[sig_id])
 
@@ -288,6 +312,21 @@ class CascadeDataVoltage:
 
     def reset_baseline(self):
         self.baselineX = self.baselineY = []
+        
+    def get_apd_threshold(self):
+        return self.apdDIThresholdIdxs, self.apdThreshold
+    
+    def get_apds(self):
+        return self.apds, self.apd_indices
+    
+    def get_dis(self):
+        return self.dis, self.di_indices
+    
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = []
+        self.dis = self.di_indices = []
+        self.apdThreshold = 0
 
     def get_keyframe(self, series=0):
         # Take the middle as the key frame for now
