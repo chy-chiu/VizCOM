@@ -2,30 +2,178 @@
 
 import argparse
 import io
-from locale import normalize
-import struct
-import pickle
-import numpy as np
 import os
+import pickle
+import struct
 import sys
 from copy import deepcopy
+from locale import normalize
+from typing import Dict, List
 
-from typing import List
+import numpy as np
 
-from cardiacmap.transforms import (
-    TimeAverage,
-    SpatialAverage,
-    InvertSignal,
-    TrimSignal,
-    GetMins,
-    RemoveBaselineDrift,
-    NormalizeData,
-    GetIntersectionsAPD_DI,
-    CalculateAPD_DI,
-)
+from cardiacmap.transform import (CalculateAPD_DI, GetIntersectionsAPD_DI,
+                                  GetMins, InvertSignal, NormalizeData,
+                                  RemoveBaselineDrift, SpatialAverage,
+                                  TimeAverage, TrimSignal)
 
 
-class CascadeDataVoltage:
+class CascadeSignal:
+    """Class for Cascade voltage / calcium signal data. The original data
+    is stored in base_data, and any additional transformations is done on
+    transformed_data. Transformations are all done by calling the external
+    transforms.py library, which provides methods to calculate various
+    transforms. Additionally, empty variables are saved for baseline calculation,
+    apd / di variables.
+    """
+
+    span_T: int
+    # TODO: In the event that we do anything other than 128x128 images, this cannot be hardcoded anymore
+    span_X: int = 128
+    span_Y: int = 128
+    base_data: np.ndarray
+    transformed_data: np.ndarray
+
+    def __init__(self, signal: np.ndarray) -> None:
+        self.base_data = deepcopy(signal)
+        self.transformed_data = deepcopy(signal)
+        self.span_T = len(signal)
+
+        ## Baseline drift variables
+        self.baselineX = []
+        self.baselineY = []
+        self.show_baseline = False
+
+        ## APD / DI variables
+        self.apdThreshold = 0
+        self.apdDIThresholdIdxs = []
+        self.apdIndicators = []
+        self.apds = []
+        self.apd_indices = []
+        self.dis = []
+        self.di_indices = []
+        self.show_apd_threshold = False
+
+    def perform_average(
+        self,
+        type,
+        sig,
+        rad,
+        mask=None,
+        mode="Gaussian",
+    ):
+        if type == "time":
+            self.transformed_data = TimeAverage(
+                self.transformed_data, sig, rad, mask, mode
+            )
+
+        elif type == "spatial":
+            self.transformed_data = SpatialAverage(
+                self.transformed_data, sig, rad, mask, mode
+            )
+
+        return
+
+    def calc_apd_di_threshold(self, threshold):
+        data = np.moveaxis(self.transformed_data, 0, -1)
+        self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
+            data, threshold
+        )
+        self.apdThreshold = threshold
+
+    def calc_apd_di(self):
+        self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
+            self.apdDIThresholdIdxs, self.apdIndicators
+        )
+
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = self.dis = self.di_indices = []
+        self.apdThreshold = 0
+
+    def invert_data(self):
+        self.transformed_data = InvertSignal(self.transformed_data)
+
+    def trim_data(self, startTrim, endTrim):
+        self.transformed_data = TrimSignal(self.transformed_data, startTrim, endTrim)
+
+    def reset_data(self):
+        self.transformed_data = deepcopy(self.base_data)
+
+    def normalize(self):
+        self.transformed_data = NormalizeData(self.transformed_data)
+
+    def calc_baseline(self, method, methodValue):
+        print("Calculating baseline", method, methodValue)
+        data = self.transformed_data
+        t = np.arange(len(data))
+        threads = (
+            8  # this seems to be optimal thread count, needs more testing to confirm
+        )
+
+        # flip data axes so we can look at it signal-wise instead of frame-wise
+        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
+        self.baselineX, self.baselineY = GetMins(
+            t, dataSwapped, method, methodValue, threads
+        )
+
+    def remove_baseline_drift(self):
+        data = self.transformed_data
+        baselineXs = self.baselineX
+        baselineYs = self.baselineY
+        t = np.arange(len(data))
+        threads = (
+            8  # this seems to be optimal thread count, needs more testing to confirm
+        )
+
+        # flip data axes so we can look at it signal-wise instead of frame-wise
+        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
+
+        dataMinusBaseline = RemoveBaselineDrift(
+            t, dataSwapped, baselineXs, baselineYs, threads
+        )
+
+        # flip data axes back and store results
+        self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
+
+    def get_baseline(self):
+        return self.baselineX, self.baselineY
+
+    def reset_baseline(self):
+        self.baselineX = self.baselineY = []
+
+    def get_apd_threshold(self):
+        return self.apdDIThresholdIdxs, self.apdThreshold
+
+    def get_apds(self):
+        return self.apds, self.apd_indices
+
+    def get_dis(self):
+        return self.dis, self.di_indices
+
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = []
+        self.dis = self.di_indices = []
+        self.apdThreshold = 0
+
+    def get_keyframe(self):
+        # Take the middle as the key frame for now
+        key_frame_idx = self.span_T // 2
+
+        return self.base_data[key_frame_idx]
+
+    def get_curr_signal(self):
+        return self.transformed_data
+
+
+class CascadeDataFile:
+    """Container for cascade data voltage signal. It either consists of a single
+    signal (voltage), or dual signal (voltage + calcium). All the other relevant
+    metadata, such as filename, datetime etc, are all saved as variables here.
+    The import / loading functions from .dat (and in the future will support other
+    files also) are also contained here.
+    """
 
     filename: str
     datetime: str
@@ -34,13 +182,8 @@ class CascadeDataVoltage:
     span_T: int
     span_X: int
     span_Y: int
-    base_data: List[np.ndarray]  # This list can be either one or two signal arrays
-    transformed_data: List[np.ndarray]
     dual_mode: bool
-
-    # TODO: Make signal independent of window / signal selected
-    # transform_history: List[np.ndarray]
-    # curr_index: int
+    signals: Dict[str, CascadeSignal]
 
     def __init__(
         self,
@@ -51,8 +194,8 @@ class CascadeDataVoltage:
         span_T,
         span_X,
         span_Y,
-        voltage_data,
         dual_mode,
+        signals,
     ):
         self.filename = filename
         self.datetime = datetime
@@ -61,79 +204,66 @@ class CascadeDataVoltage:
         self.span_T = span_T
         self.span_X = span_X
         self.span_Y = span_Y
-        self.base_data = deepcopy(voltage_data)
         self.dual_mode = dual_mode
-        self.transformed_data = voltage_data
-        self.baselineX = []
-        self.baselineY = []
-        self.show_baseline = False
-        self.apdThreshold = 0
-        self.apdDIThresholdIdxs = []
-        self.apdIndicators = []
-        self.apds = []
-        self.apd_indices = []
-        self.dis = []
-        self.di_indices = []
-        self.show_apd_threshold = False
-
-        # self.transform_history = [voltage_data]
-        # self.curr_index = 0
+        self.signals = signals
 
     @classmethod
-    def load_data(cls, filepath, calcium_mode=False):
+    def load_data(cls, filepath, dual_mode=False):
+        file_metadata, sigarray = CascadeDataFile.from_dat(filepath)
 
-        file_metadata, sigarray = CascadeDataVoltage.from_dat(filepath)
+        signals = {}
 
-        if calcium_mode:
-            voltage_data = [sigarray[::2, :, :], sigarray[1::2, :, :]]
+        if dual_mode:
+            odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
+            signals["odd"] = CascadeSignal(signal=odd_frames)
+            signals["even"] = CascadeSignal(signal=even_frames)
             file_metadata["span_T"] = file_metadata["span_T"] // 2
         else:
-            voltage_data = [sigarray]
+            signals["signal"] = CascadeSignal(signal=sigarray)
 
         return cls(
             filename=filepath,
-            voltage_data=voltage_data,
-            dual_mode=calcium_mode,
+            dual_mode=dual_mode,
+            signals=signals,
             **file_metadata,
         )
 
     def switch_modes(self, dual_mode):
-        if dual_mode:
-            self.transformed_data = [
-                self.transformed_data[0][::2, :, :],
-                self.transformed_data[0][1::2, :, :],
-            ]
-            self.base_data = [
-                self.base_data[0][::2, :, :],
-                self.base_data[0][1::2, :, :],
-            ]
+        new_signals = {}
+
+        if dual_mode and not self.dual_mode:
+            sigarray = self.signals["signal"].base_data
+
+            odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
+
+            new_signals["odd"] = CascadeSignal(signal=odd_frames)
+            new_signals["even"] = CascadeSignal(signal=even_frames)
+
             self.span_T = self.span_T // 2
             self.dual_mode = True
-        else:
-            new_transformed_data = np.empty(
-                (
-                    len(self.transformed_data[0]) + len(self.transformed_data[1]),
-                    self.span_X,
-                    self.span_Y,
-                )
-            )
-            new_transformed_data[0::2, :, :], new_transformed_data[1::2, :, :] = (
-                self.transformed_data
-            )
-            self.transformed_data = [new_transformed_data]
 
-            new_base_data = np.empty(
+            self.signals = new_signals
+
+        elif not dual_mode and self.dual_mode:
+            odd_frames = self.signals["odd"]
+            even_frames = self.signals["even"]
+
+            combined_signal = np.empty(
                 (
-                    len(self.base_data[0]) + len(self.base_data[1]),
+                    len(odd_frames.base_data) + len(even_frames.base_data),
                     self.span_X,
                     self.span_Y,
                 )
             )
-            new_base_data[0::2, :, :], new_base_data[1::2, :, :] = self.base_data
-            self.base_data = [new_base_data]
+            combined_signal[0::2, :, :] = odd_frames.base_data
+            combined_signal[1::2, :, :] = even_frames.base_data
+
+            new_signals["signal"] = CascadeSignal(signal=combined_signal)
 
             self.span_T = self.span_T * 2
             self.dual_mode = False
+
+            self.signals = new_signals
 
     @staticmethod
     def from_dat(filepath: str) -> np.ndarray:
@@ -178,7 +308,6 @@ class CascadeDataVoltage:
             file_metadata["metadata"] = ""
 
         elif file_version == "f" or file_version == "e":
-
             # First integer is the byte order
             byte_order = struct.unpack("I", file.read(4))[0]
 
@@ -219,121 +348,3 @@ class CascadeDataVoltage:
 
     def __repr__(self):
         return f"CascadeDataVoltage - {self.filename}"
-
-    def perform_average(
-        self,
-        type,
-        sig,
-        rad,
-        sig_id,
-        mask=None,
-        mode="Gaussian",
-    ):
-        
-        if type == "time":
-            self.transformed_data[sig_id] = TimeAverage(
-                self.transformed_data[sig_id], sig, rad, mask, mode
-            )
-
-        elif type == "spatial":
-            self.transformed_data[sig_id] = SpatialAverage(
-                self.transformed_data[sig_id], sig, rad, mask, mode
-            )
-
-        return
-
-    # TO FIX in a bit
-
-    def calc_apd_di_threshold(self, sig_id, threshold):
-        data = np.moveaxis(self.transformed_data[sig_id], 0, -1)
-        self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(data, threshold)
-        self.apdThreshold = threshold
-
-    def calc_apd_di(self, sig_id):
-        self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(self.apdDIThresholdIdxs, self.apdIndicators)
-
-    def reset_apd_di(self, sig_id):
-        self.apdDIThresholdIdxs = self.apdIndicators = []
-        self.apds = self.apd_indices = self.dis = self.di_indices = []
-        self.apdThreshold = 0
-
-    
-    def invert_data(self, sig_id):
-        self.transformed_data[sig_id] = InvertSignal(self.transformed_data[sig_id])
-
-    def trim_data(self, sig_id, startTrim, endTrim):
-
-        self.transformed_data[sig_id] = TrimSignal(
-            self.transformed_data[sig_id], startTrim, endTrim
-        )
-
-    def reset_data(self, sig_id):
-        self.transformed_data[sig_id] = self.base_data[sig_id]
-
-    def normalize(self, sig_id):
-        self.transformed_data[sig_id] = NormalizeData(self.transformed_data[sig_id])
-
-    def calc_baseline(self, sig_id, method, methodValue):
-
-        print("Calculating baseline", method, methodValue)
-        data = self.transformed_data[sig_id]
-        t = np.arange(len(data))
-        threads = (
-            8  # this seems to be optimal thread count, needs more testing to confirm
-        )
-
-        # flip data axes so we can look at it signal-wise instead of frame-wise
-        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
-        self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, method, methodValue, threads
-        )
-
-    def remove_baseline_drift(self, sig_id):
-        data = self.transformed_data[sig_id]
-        baselineXs = self.baselineX
-        baselineYs = self.baselineY
-        t = np.arange(len(data))
-        threads = (
-            8  # this seems to be optimal thread count, needs more testing to confirm
-        )
-
-        # flip data axes so we can look at it signal-wise instead of frame-wise
-        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
-
-        dataMinusBaseline = RemoveBaselineDrift(
-            t, dataSwapped, baselineXs, baselineYs, threads
-        )
-
-        # flip data axes back and store results
-        self.transformed_data[sig_id] = np.moveaxis(dataMinusBaseline, -1, 0)
-
-    def get_baseline(self):
-        return self.baselineX, self.baselineY
-
-    def reset_baseline(self):
-        self.baselineX = self.baselineY = []
-        
-    def get_apd_threshold(self):
-        return self.apdDIThresholdIdxs, self.apdThreshold
-    
-    def get_apds(self):
-        return self.apds, self.apd_indices
-    
-    def get_dis(self):
-        return self.dis, self.di_indices
-    
-    def reset_apd_di(self):
-        self.apdDIThresholdIdxs = self.apdIndicators = []
-        self.apds = self.apd_indices = []
-        self.dis = self.di_indices = []
-        self.apdThreshold = 0
-
-    def get_keyframe(self, series=0):
-        # Take the middle as the key frame for now
-        key_frame_idx = self.span_T // 2
-
-        return self.base_data[series][key_frame_idx]
-
-    def get_curr_signal(self):
-        return self.transformed_data
-        # return self.transform_history[self.curr_index]
