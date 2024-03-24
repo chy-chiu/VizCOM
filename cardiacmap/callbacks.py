@@ -145,6 +145,20 @@ def signal_callbacks(app, cache: Cache):
                 ],
                 "layout": {},
             }
+        elif active_signal.show_apd_threshold:
+            sig_idx = x * active_signal.span_X + y
+            indices, thresh = active_signal.get_apd_threshold()
+            
+            tX = indices[sig_idx]
+            tY = [thresh for t in tX]
+            
+            fig_0 = {
+                "data": [
+                    {"y": curr_signals[0][:, x, y], "type": "line"},
+                    {"x": tX, "y": tY, "type": "scatter", "mode": "markers+lines", "marker":{'symbol': 'circle'}},
+                ],
+                "layout": {},
+            }
 
         else:
 
@@ -196,6 +210,13 @@ def modal_callbacks(app: Dash):
         Output({"type": "baseline-modal", "index": MATCH}, "is_open"),
         Input({"type": "remove-drift-button", "index": MATCH}, "n_clicks"),
         State({"type": "baseline-modal", "index": MATCH}, "is_open"),
+        prevent_initial_call=True,
+    )(toggle_modal)
+    
+    app.callback(
+        Output({"type": "apd-di-modal", "index": MATCH}, "is_open"),
+        Input({"type": "calc-apd-di-button", "index": MATCH}, "n_clicks"),
+        State({"type": "apd-di-modal", "index": MATCH}, "is_open"),
         prevent_initial_call=True,
     )(toggle_modal)
 
@@ -407,6 +428,77 @@ def transform_callbacks(app, cache: Cache):
 
         return np.random.random(), [True, True], [True, True], ["light", "light"], ["light", "light"]
 
+    @app.callback(
+        Output("refresh-dummy", "data", allow_duplicate=True),
+        Output(
+            {"type": "apd-di-modal", "index": ALL}, "is_open", allow_duplicate=True
+        ),
+        Output(
+            {"type": "confirm-apd-di-button", "index": ALL}, "disabled", allow_duplicate=True
+        ),
+        Output(
+            {"type": "reject-apd-di-button", "index": ALL}, "disabled", allow_duplicate=True
+        ),
+        Output(
+            {"type": "confirm-apd-di-button", "index": ALL}, "color", allow_duplicate=True
+        ),
+        Output(
+            {"type": "reject-apd-di-button", "index": ALL}, "color", allow_duplicate=True
+        ),
+        Input({"type": "apd-di-confirm", "index": ALL}, "n_clicks"),
+        State({"type": "apd-di-threshold", "index": ALL}, "value"),
+        State("active-file", "data"),
+        prevent_initial_call=True,
+    )
+    def calculate_apd_di(_, threshold, active_file):
+
+        sig_id = ctx.triggered_id["index"] - 1
+
+        active_signal = get_active_signal(active_file, cache)
+
+        if active_signal:
+            active_signal.calc_apd_di_threshold(sig_id, threshold[sig_id])
+
+            active_signal.show_apd_threshold = True
+
+            cache.set(json.loads(active_file)["filename"], active_signal)
+
+        return np.random.random(), [False, False], [False, False], [False, False], ["success", "success"], ["danger", "danger"]
+
+    @app.callback(
+        Output("refresh-dummy", "data", allow_duplicate=True),
+        Output(
+            {"type": "confirm-apd-di-button", "index": ALL}, "disabled", allow_duplicate=True
+        ),
+        Output(
+            {"type": "reject-apd-di-button", "index": ALL}, "disabled", allow_duplicate=True
+        ),
+        Output(
+            {"type": "confirm-apd-di-button", "index": ALL}, "color", allow_duplicate=True
+        ),
+        Output(
+            {"type": "reject-apd-di-button", "index": ALL}, "color", allow_duplicate=True
+        ),    
+        Input({"type": "confirm-apd-di-button", "index": ALL}, "n_clicks"),
+        Input({"type": "reject-apd-di-button", "index": ALL}, "n_clicks"),
+        State("active-file", "data"),
+        prevent_initial_call=True,
+    )
+    def confirm_apd_di(_confirm, _reject, active_file):
+
+        sig_id = ctx.triggered_id["index"] - 1
+
+        active_signal = get_active_signal(active_file, cache)
+
+        if active_signal:
+            if ctx.triggered_id['type'] == "confirm-apd-di-button":
+                active_signal.calc_apd_di(sig_id)
+
+            active_signal.show_apd_threshold = False
+
+            cache.set(json.loads(active_file)["filename"], active_signal)
+
+        return np.random.random(), [True, True], [True, True], ["light", "light"], ["light", "light"]
 
     @app.callback(
         Output("refresh-dummy", "data", allow_duplicate=True),

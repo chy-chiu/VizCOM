@@ -193,6 +193,34 @@ def button_bar(n):
                 class_name="button-viewer",
 
             ),
+            dbc.ButtonGroup(
+                [
+                    dbc.Button(
+                        [
+                            html.I(className="bi bi-bar-chart"),
+                            "  Calculate APDs/DIs",
+                        ],
+                        id={"type": "calc-apd-di-button", "index": n},
+                        color="light",
+                    ),
+                    dbc.Button(
+                        [html.I(className="bi bi-check")],
+                        id={"type": "confirm-apd-di-button", "index": n},
+                        className="btn btn-success",
+                        color="light",
+                        disabled=True,
+                    ),
+                    dbc.Button(
+                        [html.I(className="bi bi-x")],
+                        id={"type": "reject-apd-di-button", "index": n},
+                        className="btn btn-danger",
+                        color="light",
+                        disabled=True,
+                    ),
+                ],
+                class_name="button-viewer",
+
+            ),
         ],
         id="button-bar-{n}".format(n=n),
         style={
@@ -447,8 +475,26 @@ def transform_modals(n):
         id={"type": f"baseline-modal", "index": n},
         is_open=False,
     )
+    
+    apd_di_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("Calculate APD/DI"),
+            dbc.ModalBody(
+                [
+                    numerical_input_modal(
+                        modal_id="apd-di-threshold", modal_text="Threshold", n=n, value=0,
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id={"type": f"apd-di-confirm", "index": n})
+            ),
+        ],
+        id={"type": f"apd-di-modal", "index": n},
+        is_open=False,
+    )
 
-    return html.Div([spatial_modal, time_modal, trim_modal, baseline_modal])
+    return html.Div([spatial_modal, time_modal, trim_modal, baseline_modal, apd_di_modal])
 
 
 # spatial_modal = dbc.Modal()
