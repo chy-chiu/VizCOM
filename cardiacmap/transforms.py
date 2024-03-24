@@ -1,85 +1,86 @@
 import concurrent.futures as cf
 from types import NoneType
+
 import numpy as np
-from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter, uniform_filter
+from scipy.signal import find_peaks
 
-### TODO: ? make this a class instead and include to data.py
 
-def TimeAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
+def TimeAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     """Function to apply a gaussian filter to a data array along Time Axis
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
         radius (int): radius of averaging, kernel width = 2 * radius + 1
         mask (array): 2d array with same dimensions as arr[0] (128 x 128)
-        
+
     Returns:
         ndarray: result of averaging along time axis
     """
     # select averaging mode
-    if mode=='Gaussian':
+    if mode == "Gaussian":
         avgFunc = gaussian_filter
         # ~25% faster to swap axes for gaussian time avg than to not
         axis = 2
         arr = np.array(arr).swapaxes(0, -1)
-    elif mode=='Uniform':
+    elif mode == "Uniform":
         avgFunc = useUniform
         axis = 0
-        
-    if(sigma < 0):
+
+    if sigma < 0:
         raise ValueError("sigma must be non-negative")
-    if(radius < 0):
+    if radius < 0:
         raise ValueError("radius must be non-negative")
-    
+
     if isinstance(mask, NoneType):
-        if(axis != 0):
+        if axis != 0:
             return avgFunc(arr, sigma, radius=radius, axes=axis).swapaxes(-1, 0)
         return avgFunc(arr, sigma, radius=radius, axes=axis)
     else:
-        if(np.array(mask).shape != np.array(arr[0]).shape):
+        if np.array(mask).shape != np.array(arr[0]).shape:
             raise IndexError("mask must have same shape as a single frame")
-        
+
         data = avgFunc(arr, sigma, radius=radius, axes=axis)
         # set masked points back to original value
         data = np.where(mask == 0, arr, data)
-        
-        if(axis != 0):
-            data = data.swapaxes(-1, 0)
-            
-        return data.astype('int')
 
-def SpatialAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
+        if axis != 0:
+            data = data.swapaxes(-1, 0)
+
+        return data.astype("int")
+
+
+def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     """Function to apply a gaussian filter to a data array along Spatial Axes
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
         radius (int): radius of averaging, kernel width = 2 * radius + 1
         mask (array): 2d array with same dimensions as arr[0] (128 x 128)
-        
+
     Returns:
         ndarray: result of averaging along spatial axes
     """
     # select averaging mode
-    if mode=='Gaussian':
+    if mode == "Gaussian":
         avgFunc = gaussian_filter
-    elif mode=='Uniform':
+    elif mode == "Uniform":
         avgFunc = useUniform
-        
-    if(sigma < 0):
+
+    if sigma < 0:
         raise ValueError("sigma must be non-negative")
-    if(radius < 0):
+    if radius < 0:
         raise ValueError("radius must be non-negative")
-    
+
     # convert sigma to sqrt(sigma/2)
     # replicates Java version functionality
-    newSigma = np.sqrt(sigma/2)
+    newSigma = np.sqrt(sigma / 2)
     if isinstance(mask, NoneType):
-        return avgFunc(arr, newSigma, radius=radius, axes=(1,2))
+        return avgFunc(arr, newSigma, radius=radius, axes=(1, 2))
     else:
-        if(np.array(mask).shape != np.array(arr[0]).shape):
+        if np.array(mask).shape != np.array(arr[0]).shape:
             raise IndexError("mask must have same shape as a single frame")
-        
+
         maskedData = avgFunc(arr * mask, newSigma, radius=radius, axes=(1, 2))
         maskWeights = avgFunc(mask, newSigma, radius=radius, axes=(0, 1))
 
@@ -88,19 +89,21 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode='Gaussian'):
 
         # set masked points back to original value
         data = np.where(mask == 0, arr, data)
-        return data.astype('int')
+        return data.astype("int")
+
 
 def InvertSignal(arr):
     """Function to invert array values
     Args:
         arr (array): data
     Returns:
-        newArr: results, each data point is equal to: -(value) -1 
+        newArr: results, each data point is equal to: -(value) -1
                                                     i.e. np.invert([6, 0]) -> [-7, -1]
-    """   
+    """
 
     newArr = np.invert(arr)
     return newArr
+
 
 def TrimSignal(arr, trimStart, trimEnd):
     """Function to trim array
@@ -110,14 +113,15 @@ def TrimSignal(arr, trimStart, trimEnd):
         trimEnd: int, number of frames to delete from end
     Returns:
         newArr: results, size = arrLength - trimStart - trimEnd
-    """   
+    """
     arrLen = len(arr)
-    
+
     start = np.arange(trimStart)
-    end = np.arange(arrLen-trimEnd-1, arrLen)
+    end = np.arange(arrLen - trimEnd - 1, arrLen)
     trimIndices = np.concatenate((start, end))
     newArr = np.delete(arr, trimIndices, axis=0)
     return newArr
+
 
 def useUniform(arr, sig, radius=1, axes=-1):
     """Function to convert gaussian_filter inputs for a uniform_filter
@@ -128,7 +132,8 @@ def useUniform(arr, sig, radius=1, axes=-1):
         radius(int): radius of averaging, kernel width = 2*radius+1
         axes (int, tuple): axes of averaging
     """
-    return uniform_filter(arr, size=2*radius+1, axes=axes)
+    return uniform_filter(arr, size=2 * radius + 1, axes=axes)
+
 
 def GetMins(t, data, method, methodValue, threads):
     """Function for calculating the baseline of the data for each xy pair
@@ -144,35 +149,44 @@ def GetMins(t, data, method, methodValue, threads):
     tLen = len(data[0][0])
     baselineX = [0 for j in range(yLen * xLen)]
     baselineY = baselineX.copy()
-    
-    if(method == 'Threshold'):
+
+    if method == "Threshold":
         executor = cf.ThreadPoolExecutor(max_workers=threads)
         for y in range(yLen):
             for x in range(xLen):
                 index = y * yLen + x
                 d = data[y][x]
-                executor.submit(getMinsByThresholdThread, methodValue, t, d, baselineX, baselineY, index)
+                executor.submit(
+                    getMinsByThresholdThread,
+                    methodValue,
+                    t,
+                    d,
+                    baselineX,
+                    baselineY,
+                    index,
+                )
         executor.shutdown(wait=True)
-        
-    elif(method == 'Period'):
-        if tLen%methodValue == 0:
-            offset = [methodValue * i for i in range(int(tLen/methodValue))]
+
+    elif method == "Period":
+        if tLen % methodValue == 0:
+            offset = [methodValue * i for i in range(int(tLen / methodValue))]
         else:
-            offset = [methodValue * i for i in range(int(tLen/methodValue) + 1)]
+            offset = [methodValue * i for i in range(int(tLen / methodValue) + 1)]
         pIdx = np.arange(methodValue, tLen, methodValue)
         for y in range(yLen):
             for x in range(xLen):
                 index = y * yLen + x
                 d = data[y][x]
                 getMinsByPeriod(t, d, baselineX, baselineY, index, offset, pIdx)
-        
+
     else:
         raise ValueError("getMins method must be Threshold or Period. Was:", method)
-    
+
     baselineX = np.array(baselineX)
     baselineY = np.array(baselineY)
 
     return baselineX, baselineY
+
 
 def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
     """Function called by getMins when method = 'threshold'
@@ -189,15 +203,15 @@ def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
     minsY = d[minsIndex]
     # find indices where minima is > threshold
     badMinsIndex = np.argwhere(minsY > threshold)
-    
+
     # all mins are invalid
     # use beginning and end of signal as baseline
-    if(len(badMinsIndex) == len(minsIndex)):
-        minsIndex = [0, len(d)-1]
+    if len(badMinsIndex) == len(minsIndex):
+        minsIndex = [0, len(d) - 1]
         # set output
         xOut[outIndex] = t[minsIndex]
         yOut[outIndex] = d[minsIndex]
-    
+
         # return warning
         return 1
     # get rid of bad indicies
@@ -206,9 +220,10 @@ def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
     # set output
     xOut[outIndex] = t[minsIndex]
     yOut[outIndex] = d[minsIndex]
-    
+
     # return success
     return 0
+
 
 def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
     """Function called by getMins when method = 'period'
@@ -227,23 +242,24 @@ def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
     # last period is usually not a full period
     # pop it so periods has homogenous shape
     lastPeriod = periods.pop(-1)
-    
+
     # get argmin of each period and add it to the index list
     # note: if a period has multiple mins, argmin returns the first found index
     minsIndex = np.argmin(periods, axis=1)
 
     # add in last period min back in
     minsIndex = np.append(minsIndex, np.argmin(lastPeriod))
-    
+
     # for each period index, convert to index in d
     minsIndex = np.add(minsIndex, offset)
-        
+
     # set output
     xOut[outIndex] = t[minsIndex]
     yOut[outIndex] = d[minsIndex]
-    
+
     # return success
     return 0
+
 
 def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
     """Function to remove baseline drift from data
@@ -258,7 +274,7 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
     xLen = len(data[0])
     tLen = len(data[0][0])
     resData = [0 for j in range(xLen * yLen)]
-    
+
     executor = cf.ThreadPoolExecutor(max_workers=threads)
     for y in range(yLen):
         for x in range(xLen):
@@ -266,11 +282,11 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
             d = data[y][x]
             xs = baselineXs[index]
             ys = baselineYs[index]
-            executor.submit(baselineDriftThread, t, d, resData, index,  xs, ys)
-  
+            executor.submit(baselineDriftThread, t, d, resData, index, xs, ys)
+
     executor.shutdown(wait=True)
     # reshape results array, then convert to int from float
-    return np.array(resData).reshape(yLen, xLen, tLen).astype(int)
+    return np.array(resData).reshape(yLen, xLen, tLen)
 
 def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     """Function to remove baseline drift a signal
@@ -291,7 +307,8 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     # return success
     return 0
 
-def  GetIntersectionsAPD_DI(data, threshold):
+
+def GetIntersectionsAPD_DI(data, threshold):
     """Function to Find intersections between threshold and data
     Args:
         data (array): input data
@@ -301,18 +318,21 @@ def  GetIntersectionsAPD_DI(data, threshold):
     xLen = len(data[0])
 
     # get crossing indices
-    idx = np.argwhere(np.diff(np.sign(data - threshold)))# this line is by far the most time consuming
-                                                         # TODO: Is there a better way?
+
+    idx = np.argwhere(
+        np.diff(data > threshold)
+    )  # this line is by far the most time consuming
+
+    # TODO: Is there a better way?
     ys = idx[:, 0]
     xs = idx[:, 1]
     validSigs = ys * xLen + xs
-    idx0 = idx[:, 2] # index before                
-
+    idx0 = idx[:, 2]  # index before
 
     # split the index values by signal
     split_idx = np.argwhere(np.diff(validSigs) != 0).flatten() + 1
     splits0 = np.split(idx0, split_idx)
-    numInvalidSignals = 0 # splits offset
+    numInvalidSignals = 0  # splits offset
 
     # get unique signals from "valid" list
     # must do this AFTER splitting
@@ -326,18 +346,21 @@ def  GetIntersectionsAPD_DI(data, threshold):
         y = int(index / yLen)
         # check if this signal is valid
         if index in validSigs:
-                t0Idx = splits0[index - numInvalidSignals]
-                t1Idx = t0Idx+1
-                #print(y, x)
-                # get t values for apds/dis
-                getIndicesAPD_DI(threshold, t0Idx, data[y][x][t0Idx], data[y][x][t1Idx], outArr, apdsArr)
-        else: 
-            numInvalidSignals += 1  
+            t0Idx = splits0[index - numInvalidSignals]
+            t1Idx = t0Idx + 1
+            # print(y, x)
+            # get t values for apds/dis
+            getIndicesAPD_DI(
+                threshold, t0Idx, data[y][x][t0Idx], data[y][x][t1Idx], outArr, apdsArr
+            )
+        else:
+            numInvalidSignals += 1
 
     return outArr, apdsArr
 
+
 def getIndicesAPD_DI(threshold, x0s, y0s, y1s, resArr, apdArr):
-    """Helper function to calculate the exact t values of intersection for a signal 
+    """Helper function to calculate the exact t values of intersection for a signal
     Args:
         threshold (int): threshold value
         x0s (array): t values BEFORE crossing threshold
@@ -347,20 +370,21 @@ def getIndicesAPD_DI(threshold, x0s, y0s, y1s, resArr, apdArr):
         apdArr (array): apd/di indicator
     """
     slopes = np.subtract(y1s, y0s)
-    if(slopes[0] > 0):
+    if slopes[0] > 0:
         apd = True
-    elif(slopes[0] < 0):
+    elif slopes[0] < 0:
         apd = False
     else:
         return -1
     intercepts = y0s - (slopes * x0s)
-    indices = ((threshold - intercepts) / slopes)
+    indices = (threshold - intercepts) / slopes
     resArr.append(indices)
     apdArr.append(apd)
     return 0
 
+
 def CalculateAPD_DI(intersections, firstIntervalFlag):
-    """Function to measure the intervals between intersections and store interval time as apd/di 
+    """Function to measure the intervals between intersections and store interval time as apd/di
     Args:
         intersections (array): intersections found by GetIntersectionsAPD_DI()
         firstIntervalFlag (array): bool array indicating whether first interval of a signal is apd/di
@@ -375,20 +399,20 @@ def CalculateAPD_DI(intersections, firstIntervalFlag):
         # check if the first interval is an apd or di
         apdEvens = firstIntervalFlag[sig]
         for i in range(1, len(signalIndices)):
-            index0 = signalIndices[i-1]
+            index0 = signalIndices[i - 1]
             index1 = signalIndices[i]
             duration = index1 - index0
 
             # append duration and starting index of interval to appropriate array
             if i % 2 == 0:
-                if(apdEvens):
+                if apdEvens:
                     apdArr[sig].append(duration)
                     apdIdxArr[sig].append(index0)
                 else:
                     diArr[sig].append(duration)
                     diIdxArr[sig].append(index0)
             else:
-                if(apdEvens):
+                if apdEvens:
                     diArr[sig].append(duration)
                     diIdxArr[sig].append(index0)
                 else:
@@ -396,27 +420,28 @@ def CalculateAPD_DI(intersections, firstIntervalFlag):
                     apdIdxArr[sig].append(index0)
     return apdArr, apdIdxArr, diArr, diIdxArr
 
+
 def NormalizeData(data):
     data = np.moveaxis(data, 0, -1)
     # constants to normalize data to
     RES_MIN = 10000
     RES_RANGE = 20000
-    
+
     # get mins and maxes
     dataMaxes = np.amax(data, axis=2)
     dataMins = np.amin(data, axis=2)
-    
+
     # subtract mins from both data and maxes
     norm = dataMaxes - dataMins
     dataMins = np.expand_dims(dataMins, 2)
     dataMinusMins = np.subtract(data, dataMins)
-    
+
     # normalize [0 - 1]
     res = dataMinusMins / norm[:, :, np.newaxis]
-    
+
     # output data array will be in range [RES_MIN, RES_MIN + RES_RANGE]
     res *= RES_RANGE
     res += RES_MIN
-    
+
     res = np.moveaxis(res, -1, 0)
-    return res.astype(int)
+    return res.astype(np.uint16)
