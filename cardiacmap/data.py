@@ -12,7 +12,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from cardiacmap.transform import (CalculateAPD_DI, GetIntersectionsAPD_DI,
+from cardiacmap.transforms import (CalculateAPD_DI, GetIntersectionsAPD_DI,
                                   GetMins, InvertSignal, NormalizeData,
                                   RemoveBaselineDrift, SpatialAverage,
                                   TimeAverage, TrimSignal)
@@ -134,6 +134,7 @@ class CascadeSignal:
         )
 
         # flip data axes back and store results
+        # NB: np.int16 is double the size of np.uint16
         self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
 
     def get_baseline(self):
@@ -183,7 +184,7 @@ class CascadeDataFile:
     span_X: int
     span_Y: int
     dual_mode: bool
-    signals: Dict[str, CascadeSignal]
+    signals: Dict[int, CascadeSignal]
 
     def __init__(
         self,
@@ -215,11 +216,11 @@ class CascadeDataFile:
 
         if dual_mode:
             odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
-            signals["odd"] = CascadeSignal(signal=odd_frames)
-            signals["even"] = CascadeSignal(signal=even_frames)
+            signals[0] = CascadeSignal(signal=odd_frames)
+            signals[1] = CascadeSignal(signal=even_frames)
             file_metadata["span_T"] = file_metadata["span_T"] // 2
         else:
-            signals["signal"] = CascadeSignal(signal=sigarray)
+            signals[0] = CascadeSignal(signal=sigarray)
 
         return cls(
             filename=filepath,
@@ -264,6 +265,18 @@ class CascadeDataFile:
             self.dual_mode = False
 
             self.signals = new_signals
+
+
+    # TODO: Adding trace instead of the whole thing might be faster? Idk 
+    def traces(self):
+
+        signal_traces = {}
+
+        for k, signal in self.signals:
+            for i in range(128):
+                signal_traces[(k, i)] = signal[:, i, :]
+
+        return signal_traces
 
     @staticmethod
     def from_dat(filepath: str) -> np.ndarray:

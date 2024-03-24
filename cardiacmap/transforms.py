@@ -286,8 +286,7 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
 
     executor.shutdown(wait=True)
     # reshape results array, then convert to int from float
-    return np.array(resData).reshape(yLen, xLen, tLen).astype(int)
-
+    return np.array(resData).reshape(yLen, xLen, tLen)
 
 def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     """Function to remove baseline drift a signal
@@ -319,9 +318,11 @@ def GetIntersectionsAPD_DI(data, threshold):
     xLen = len(data[0])
 
     # get crossing indices
+
     idx = np.argwhere(
-        np.diff(np.sign(data - threshold))
+        np.diff(data > threshold)
     )  # this line is by far the most time consuming
+
     # TODO: Is there a better way?
     ys = idx[:, 0]
     xs = idx[:, 1]
@@ -443,4 +444,4 @@ def NormalizeData(data):
     res += RES_MIN
 
     res = np.moveaxis(res, -1, 0)
-    return res.astype(int)
+    return res.astype(np.uint16)

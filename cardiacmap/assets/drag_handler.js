@@ -63,11 +63,8 @@ window.dash_clientside.clientside = {
 
         // Ensure we have the graph div
         if (graphDiv) {
-            console.log("Graph Div present")
 
             graphDiv.onmousedown = function (downEvent) {
-
-                console.log("Mousedown")
 
                 const rect = graphDiv.getBoundingClientRect();
 
@@ -100,10 +97,7 @@ window.dash_clientside.clientside = {
 
         }
 
-        console.log("Drag handler function set up")
-        console.log(graphDiv.onmousedown)
-
-        return '{"x":123, "y": 123}';
+        return '{"x":64, "y": 64}';
     },
 
     // // This is no longer necessary

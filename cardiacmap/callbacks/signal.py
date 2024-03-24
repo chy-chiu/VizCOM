@@ -28,6 +28,8 @@ def signal_callbacks(app, signal_cache: Cache):
         prevent_initial_call=True,
     )
     def update_signal(event, _drag_listener, _refresher):
+
+        start = time.time()
         
         sig_id = ctx.triggered_id["index"]
         
@@ -62,6 +64,8 @@ def signal_callbacks(app, signal_cache: Cache):
                 sig_idx = x * active_signal.span_X + y
                 indices, thresh = active_signal.get_apd_threshold()
 
+                print(len(indices))
+
                 tX = indices[sig_idx]
                 tY = [thresh for t in tX]
 
@@ -74,6 +78,9 @@ def signal_callbacks(app, signal_cache: Cache):
                         "marker": {"symbol": "circle"},
                     }
                 )
+
+            print(time.time() - start)
+            
         else:
             fig = BLANK_SIGNAL
 
