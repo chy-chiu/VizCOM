@@ -30,6 +30,7 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
     @app.callback(
         Output("filename-display", "children"),
         Output("calcium-mode-badge", "hidden"),
+        Output("calcium-dual-mode-window", "hidden"),
         Output({"type": "refresh-image", "index": ALL}, "data"),
         Output({"type": "refresh-signal", "index": ALL}, "data"),
         Input("load-voltage-button", "n_clicks"),
@@ -55,6 +56,7 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
             return (
                 "Load file to continue...",
                 True,
+                True,
                 (np.random.random(), np.random.random()),
                 (np.random.random(), np.random.random()),
             )
@@ -79,6 +81,7 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
 
         return (
             filename,
+            not dual_mode,
             not dual_mode,
             (np.random.random(), np.random.random()),
             (np.random.random(), np.random.random()),

@@ -233,12 +233,12 @@ class CascadeDataFile:
         new_signals = {}
 
         if dual_mode and not self.dual_mode:
-            sigarray = self.signals["signal"].base_data
+            sigarray = self.signals[0].base_data
 
             odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
 
-            new_signals["odd"] = CascadeSignal(signal=odd_frames)
-            new_signals["even"] = CascadeSignal(signal=even_frames)
+            new_signals[0] = CascadeSignal(signal=odd_frames)
+            new_signals[1] = CascadeSignal(signal=even_frames)
 
             self.span_T = self.span_T // 2
             self.dual_mode = True
@@ -246,8 +246,8 @@ class CascadeDataFile:
             self.signals = new_signals
 
         elif not dual_mode and self.dual_mode:
-            odd_frames = self.signals["odd"]
-            even_frames = self.signals["even"]
+            odd_frames = self.signals[0]
+            even_frames = self.signals[1]
 
             combined_signal = np.empty(
                 (
@@ -259,7 +259,7 @@ class CascadeDataFile:
             combined_signal[0::2, :, :] = odd_frames.base_data
             combined_signal[1::2, :, :] = even_frames.base_data
 
-            new_signals["signal"] = CascadeSignal(signal=combined_signal)
+            new_signals[0] = CascadeSignal(signal=combined_signal)
 
             self.span_T = self.span_T * 2
             self.dual_mode = False
