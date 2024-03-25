@@ -224,7 +224,7 @@ def transform_callbacks(app, signal_cache: Cache):
         active_signal: CascadeSignal = signal_cache.get(sig_id)
 
         if active_signal:
-            print(type(active_signal.transformed_data.dtype))
+            # print(type(active_signal.transformed_data.dtype))
 
             if ctx.triggered_id["type"] == "confirm-baseline-button":
                 active_signal.remove_baseline_drift()
@@ -232,7 +232,7 @@ def transform_callbacks(app, signal_cache: Cache):
             active_signal.reset_baseline()
             active_signal.show_baseline = False
 
-            print(type(active_signal.transformed_data.dtype))
+            # print(type(active_signal.transformed_data.dtype))
 
             signal_cache.set(sig_id, active_signal)
 

@@ -115,4 +115,4 @@ if __name__ == "__main__":
     file_cache.clear()
     signal_cache.clear()
 
-    input("Application terminated. If you are seeing this, please copy and paste the error message above to the team for debugging.\nPress Any Key to Continue...")
+    input("\nApplication terminated.\nIf there are any error messages above, please copy and paste the error message above to the team for debugging.\nPress Enter to Continue...")
