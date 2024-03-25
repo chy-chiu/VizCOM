@@ -12,10 +12,17 @@ from typing import Dict, List
 
 import numpy as np
 
-from cardiacmap.transforms import (CalculateAPD_DI, GetIntersectionsAPD_DI,
-                                  GetMins, InvertSignal, NormalizeData,
-                                  RemoveBaselineDrift, SpatialAverage,
-                                  TimeAverage, TrimSignal)
+from cardiacmap.transforms import (
+    CalculateAPD_DI,
+    GetIntersectionsAPD_DI,
+    GetMins,
+    InvertSignal,
+    NormalizeData,
+    RemoveBaselineDrift,
+    SpatialAverage,
+    TimeAverage,
+    TrimSignal,
+)
 
 
 class CascadeSignal:
@@ -266,10 +273,8 @@ class CascadeDataFile:
 
             self.signals = new_signals
 
-
-    # TODO: Adding trace instead of the whole thing might be faster? Idk 
+    # TODO: Adding trace instead of the whole thing might be faster? Idk
     def traces(self):
-
         signal_traces = {}
 
         for k, signal in self.signals:

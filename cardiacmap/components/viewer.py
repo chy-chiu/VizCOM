@@ -67,14 +67,16 @@ def signal_viewer(n):
             html.Div(
                 '{"x": 64, "y": 64}',
                 id=indexed_component_id("hidden-div", n),
-                hidden=False
+                hidden=True,  # False if debug
             ),
             events=[event_change, event_mouseup, event_mousedown],
             logging=False,
             id=indexed_component_id("drag-event-listener", n),
         ),
         # Position of signal
-        dcc.Store(id=indexed_component_id("signal-position", n), storage_type="session"),
+        dcc.Store(
+            id=indexed_component_id("signal-position", n), storage_type="session"
+        ),
         # Dummy variables to trigger a refresh in the image and signal viewports respectively
         dcc.Store(id=indexed_component_id("refresh-signal", n), storage_type="session"),
         dcc.Store(id=indexed_component_id("refresh-image", n), storage_type="session"),

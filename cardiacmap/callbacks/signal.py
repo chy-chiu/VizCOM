@@ -1,4 +1,3 @@
-
 import json
 import os
 import time
@@ -6,8 +5,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import plotly.express as px
-from dash import (ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc,
-                  html)
+from dash import ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc, html
 from flask_caching import Cache
 
 from cardiacmap.data import CascadeDataFile, CascadeSignal
@@ -18,21 +16,25 @@ BLANK_SIGNAL = {"data": [{"y": np.zeros(10), "type": "line"}], "layout": {}}
 
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
+
 def signal_callbacks(app, signal_cache: Cache):
     @app.callback(
-        Output(indexed_component_id("graph-signal", MATCH), "figure", allow_duplicate=True),
-        Output(indexed_component_id("signal-position", MATCH), "data", allow_duplicate=True),
+        Output(
+            indexed_component_id("graph-signal", MATCH), "figure", allow_duplicate=True
+        ),
+        Output(
+            indexed_component_id("signal-position", MATCH), "data", allow_duplicate=True
+        ),
         Input(indexed_component_id("drag-event-listener", MATCH), "event"),
         Input(indexed_component_id("drag-event-listener", MATCH), "n_events"),
         Input(indexed_component_id("refresh-signal", MATCH), "data"),
         prevent_initial_call=True,
     )
     def update_signal(event, _drag_listener, _refresher):
-
         start = time.time()
-        
+
         sig_id = ctx.triggered_id["index"]
-        
+
         active_signal: CascadeSignal = signal_cache.get(sig_id)
 
         signal_position = (
@@ -80,9 +82,8 @@ def signal_callbacks(app, signal_cache: Cache):
                 )
 
             print(time.time() - start)
-            
+
         else:
             fig = BLANK_SIGNAL
 
         return fig, signal_position
-

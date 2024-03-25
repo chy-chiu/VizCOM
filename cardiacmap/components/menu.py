@@ -26,6 +26,7 @@ def navbar():
         style={"margin-bottom": "20px"},
     )
 
+
 # TODO: Add more stuff here e.g. framerate, number of frames etc
 def metadata_bar():
     return html.Div(
@@ -36,6 +37,7 @@ def metadata_bar():
             "display": "flex",
             "align-items": "center",
             "justify-content": "center",
+            "margin-top": "20px",
         },
     )
 

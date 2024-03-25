@@ -5,8 +5,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import plotly.express as px
-from dash import (ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc,
-                  html)
+from dash import ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc, html
 from flask_caching import Cache
 
 from cardiacmap.data import CascadeDataFile, CascadeSignal
@@ -41,4 +40,3 @@ def get_active_signal(
         return even_frames_signal, None
     else:
         return None, None
-

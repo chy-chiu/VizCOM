@@ -6,17 +6,19 @@ from threading import Timer
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.express as px
-from dash import (ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc,
-                  html)
+from dash import ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc, html
 from dash.dependencies import ClientsideFunction
 from flask_caching import Cache
 
 # from cardiacmap.data import CascadeDataVoltage
-from cardiacmap.callbacks import (file_callbacks, image_callbacks,
-                                  modal_callbacks, signal_callbacks,
-                                  transform_callbacks)
-from cardiacmap.components import (file_directory, metadata_bar, navbar,
-                                   signal_viewer)
+from cardiacmap.callbacks import (
+    file_callbacks,
+    image_callbacks,
+    modal_callbacks,
+    signal_callbacks,
+    transform_callbacks,
+)
+from cardiacmap.components import file_directory, metadata_bar, navbar, signal_viewer
 
 DEFAULT_POSITION = 64
 CACHE_FRAME_LIMIT = 100
@@ -100,6 +102,7 @@ transform_callbacks(app, signal_cache)
 
 def open_browser():
     webbrowser.open_new("http://localhost:{}".format(DASH_APP_PORT))
+
 
 DEBUG = True
 

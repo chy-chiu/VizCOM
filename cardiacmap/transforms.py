@@ -288,6 +288,7 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
     # reshape results array, then convert to int from float
     return np.array(resData).reshape(yLen, xLen, tLen)
 
+
 def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     """Function to remove baseline drift a signal
     Args:

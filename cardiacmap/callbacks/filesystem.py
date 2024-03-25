@@ -12,6 +12,7 @@ from cardiacmap.data import CascadeDataFile, CascadeSignal
 
 DUMMY_FILENAME = "put .dat files here"
 
+
 def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
     # Load data from specific directory
     @app.callback(
@@ -19,7 +20,7 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
         Input("refresh-folder-button", "n_clicks"),
     )
     def update_file_directory(_refresh_folder):
-        # TODO: Load this from settings.json 
+        # TODO: Load this from settings.json
         file_list = os.listdir("./data")
 
         if DUMMY_FILENAME in file_list:

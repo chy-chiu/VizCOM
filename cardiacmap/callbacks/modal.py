@@ -1,5 +1,6 @@
 from dash import MATCH, Dash, Input, Output, State
 
+
 def modal_callbacks(app: Dash):
     def toggle_modal(n, is_open):
         if n:

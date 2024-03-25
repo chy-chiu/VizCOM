@@ -12,6 +12,7 @@ from cardiacmap.data import CascadeDataFile, CascadeSignal
 
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
+
 def transform_callbacks(app, signal_cache: Cache):
     @app.callback(
         Output(
@@ -221,9 +222,8 @@ def transform_callbacks(app, signal_cache: Cache):
         sig_id = ctx.triggered_id["index"]
 
         active_signal: CascadeSignal = signal_cache.get(sig_id)
-        
-        if active_signal:
 
+        if active_signal:
             print(type(active_signal.transformed_data.dtype))
 
             if ctx.triggered_id["type"] == "confirm-baseline-button":
