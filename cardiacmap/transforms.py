@@ -247,8 +247,14 @@ def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
     # note: if a period has multiple mins, argmin returns the first found index
     minsIndex = np.argmin(periods, axis=1)
 
-    # add in last period min back in
-    minsIndex = np.append(minsIndex, np.argmin(lastPeriod))
+    # if its not the last 10 indices of the period
+    if(np.argmin(lastPeriod) < len(lastPeriod) - 10):
+        # add in last period min back in
+        minsIndex = np.append(minsIndex, np.argmin(lastPeriod))
+    else:
+        # otherwise, duplicate the previous min
+        # MUST DO THIS so minsIndex has correct length
+        minsIndex = np.append(minsIndex, minsIndex[-1] - len(periods[-1]))
 
     # for each period index, convert to index in d
     minsIndex = np.add(minsIndex, offset)
