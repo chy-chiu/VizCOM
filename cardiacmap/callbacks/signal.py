@@ -46,7 +46,7 @@ def signal_callbacks(app, signal_cache: Cache):
 
             x = signal_position["x"]
             y = signal_position["y"]
-
+            
             fig = {
                 "data": [{"y": curr_signal[:, x, y], "type": "line"}],
                 "layout": {},
@@ -65,7 +65,7 @@ def signal_callbacks(app, signal_cache: Cache):
             if active_signal.show_apd_threshold:
                 sig_idx = x * active_signal.span_X + y
                 indices, thresh = active_signal.get_apd_threshold()
-
+                
                 tX = indices[sig_idx]
                 tY = [thresh for t in tX]
 

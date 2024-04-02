@@ -171,7 +171,7 @@ def GetMins(t, data, method, methodValue, threads):
         if tLen % methodValue == 0:
             offset = [methodValue * i for i in range(int(tLen / methodValue))]
         else:
-            offset = [methodValue * i for i in range(int(tLen / methodValue) + 1)]
+            offset = [methodValue * i for i in range(int(tLen / methodValue) + 1)] # numpy doesnt support jagged arrs, must do the last segment seperately
         pIdx = np.arange(methodValue, tLen, methodValue)
         for y in range(yLen):
             for x in range(xLen):
@@ -320,11 +320,9 @@ def GetIntersectionsAPD_DI(data, threshold):
 
     # get crossing indices
 
-    idx = np.argwhere(
-        np.diff(data > threshold)
-    )  # this line is by far the most time consuming
-
+    idx = np.argwhere(np.diff(np.sign(data - threshold))) # this line is by far the most time consuming
     # TODO: Is there a better way?
+
     ys = idx[:, 0]
     xs = idx[:, 1]
     validSigs = ys * xLen + xs
@@ -365,22 +363,22 @@ def getIndicesAPD_DI(threshold, x0s, y0s, y1s, resArr, apdArr):
     Args:
         threshold (int): threshold value
         x0s (array): t values BEFORE crossing threshold
-        y0s (array): y values BEFORE crossing threshold
-        y1s (array): y values AFTER crossing threshold
+        y0s (array): data values BEFORE crossing threshold
+        y1s (array): data values AFTER crossing threshold
         resArr (array): indices of crossings
         apdArr (array): apd/di indicator
     """
     slopes = np.subtract(y1s, y0s)
     if slopes[0] > 0:
-        apd = True
+        apdFirst = True
     elif slopes[0] < 0:
-        apd = False
+        apdFirst = False
     else:
         return -1
     intercepts = y0s - (slopes * x0s)
     indices = (threshold - intercepts) / slopes
     resArr.append(indices)
-    apdArr.append(apd)
+    apdArr.append(apdFirst)
     return 0
 
 
@@ -425,8 +423,8 @@ def CalculateAPD_DI(intersections, firstIntervalFlag):
 def NormalizeData(data):
     data = np.moveaxis(data, 0, -1)
     # constants to normalize data to
-    RES_MIN = 10000
-    RES_RANGE = 20000
+    RES_MIN = 0
+    RES_RANGE = 10000
 
     # get mins and maxes
     dataMaxes = np.amax(data, axis=2)

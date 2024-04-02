@@ -228,6 +228,7 @@ def transform_callbacks(app, signal_cache: Cache):
 
             if ctx.triggered_id["type"] == "confirm-baseline-button":
                 active_signal.remove_baseline_drift()
+                active_signal.normalize()
 
             active_signal.reset_baseline()
             active_signal.show_baseline = False
@@ -280,7 +281,6 @@ def transform_callbacks(app, signal_cache: Cache):
             active_signal.show_apd_threshold = True
 
             signal_cache.set(sig_id, active_signal)
-
         return (
             np.random.random(),
             False,
