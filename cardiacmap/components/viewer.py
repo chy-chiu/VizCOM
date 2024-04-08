@@ -19,11 +19,43 @@ event_mouseup = {"event": "drag-mouseup", "props": ["type", "srcElement.innerTex
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
 
+def img_drag_display(n):
+    # TODO: add other menu bar items here
+
+    return dcc.Graph(
+        id=indexed_component_id("graph-image", n),
+    )
+
+
+def img_mask_display(n):
+
+    return dcc.Graph(
+        id=indexed_component_id("graph-mask", n),
+        config={
+            "modeBarButtonsToAdd": [
+                "drawclosedpath",
+                "eraseshape",
+            ]
+        },
+    )
+
+
+def video_display(n):
+
+    return dcc.Graph(
+        id=indexed_component_id("graph-video", n),
+    )
+
+
+# Image viewport has three tabs, each has its own display tab
 def image_viewport(n):
     return dbc.Col(
-        # TODO: add other menu bar items here
-        dcc.Graph(
-            id=indexed_component_id("graph-image", n),
+        dbc.Tabs(
+            [
+                dbc.Tab(img_drag_display(n), label="Key Image"),
+                dbc.Tab(img_mask_display(n), label="Mask"),
+                dbc.Tab(video_display(n), label="Video"),
+            ]
         ),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
@@ -67,7 +99,7 @@ def signal_viewer(n):
             html.Div(
                 '{"x": 64, "y": 64}',
                 id=indexed_component_id("hidden-div", n),
-                hidden=True,  # False if debug
+                hidden=False,  # False if debug
             ),
             events=[event_change, event_mouseup, event_mousedown],
             logging=False,

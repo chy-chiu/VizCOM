@@ -23,6 +23,9 @@ def image_callbacks(app, signal_cache: Cache):
         Output(
             indexed_component_id("graph-image", MATCH), "figure", allow_duplicate=True
         ),
+        Output(
+            indexed_component_id("graph-mask", MATCH), "figure", allow_duplicate=True
+        ),
         Input(indexed_component_id("refresh-image", MATCH), "data"),
         prevent_initial_call=True,
     )
@@ -35,8 +38,11 @@ def image_callbacks(app, signal_cache: Cache):
             active_signal.get_keyframe() if active_signal is not None else DEFAULT_IMG
         )
 
-        fig = px.imshow(key_frame, binary_string=True)
-        fig.update_layout(
+        img_fig = px.imshow(key_frame, binary_string=True)
+
+        mask_fig = px.imshow(key_frame, binary_string=True)
+
+        img_fig.update_layout(
             showlegend=False,
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
@@ -44,4 +50,35 @@ def image_callbacks(app, signal_cache: Cache):
             dragmode="orbit",
         )
 
-        return fig
+        mask_fig.update_layout(
+            showlegend=False,
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            margin=dict(l=5, r=5, t=5, b=5),
+            dragmode="drawclosedpath",
+            newshape=dict(line_color="yellow")
+        )
+
+        # # Add modebar buttons
+        # mask_fig.show()
+
+
+        return img_fig, mask_fig
+
+    # @app.callback(
+    #     Output(
+    #         indexed_component_id("graph-image", MATCH), "figure", allow_duplicate=True
+    #     ),
+    #     Output(
+    #         indexed_component_id("graph-mask", MATCH), "figure", allow_duplicate=True
+    #     ),
+    #     Input(indexed_component_id("graph-mask", MATCH), "relayoutData"),
+    #     State(indexed_component_id("graph-image", MATCH), "figure"),
+    #     State(indexed_component_id("graph-mask", MATCH), "figure"),
+    #     prevent_initial_call=True,
+    # )
+    # def update_img_mask(relayout_data, img_fig, mask_fig):
+
+    #     print(json.dumps(relayout_data, indent=2))
+
+    #     return img_fig, mask_fig
