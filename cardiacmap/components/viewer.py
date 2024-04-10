@@ -46,6 +46,12 @@ def video_display(n):
         id=indexed_component_id("graph-video", n),
     )
 
+def plot_display(n):
+    
+    return dcc.Graph(
+                id=indexed_component_id("graph-plot", n),
+    )
+
 
 # Image viewport has three tabs, each has its own display tab
 def image_viewport(n):
@@ -55,7 +61,9 @@ def image_viewport(n):
                 dbc.Tab(img_drag_display(n), label="Key Image"),
                 dbc.Tab(img_mask_display(n), label="Mask"),
                 dbc.Tab(video_display(n), label="Video"),
-            ]
+                dbc.Tab(plot_display(n), label="APD/DI Plot", tab_id="apd-di-tab"),
+            ],
+            id=indexed_component_id("image-tabs", n)
         ),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
