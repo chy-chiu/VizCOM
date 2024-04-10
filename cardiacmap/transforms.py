@@ -327,15 +327,14 @@ def GetIntersectionsAPD_DI(data, threshold):
     xLen = len(data[0])
 
     # get crossing indices
-
     idx = np.argwhere(np.diff(np.sign(data - threshold))) # this line is by far the most time consuming
     # TODO: Is there a better way?
 
     ys = idx[:, 0]
     xs = idx[:, 1]
+
     validSigs = ys * xLen + xs
     idx0 = idx[:, 2]  # index before
-
     # split the index values by signal
     split_idx = np.argwhere(np.diff(validSigs) != 0).flatten() + 1
     splits0 = np.split(idx0, split_idx)
@@ -344,7 +343,6 @@ def GetIntersectionsAPD_DI(data, threshold):
     # get unique signals from "valid" list
     # must do this AFTER splitting
     validSigs = np.unique(validSigs)
-
     outArr = []
     apdsArr = []
     indices = np.arange(xLen * yLen)
@@ -462,4 +460,19 @@ def NormalizeData(data):
 
     return data
 
-    return res.astype(np.uint16)
+    return res
+
+
+def fft(signal, sampling_rate):
+    """
+    Returns the dominant frequency of each pixel across all the frames
+    @:arg:
+    signal: np array with image data
+    :return: 2D np array containing the dominant frequency value for each pixel
+    """
+    fft_frames = np.fft.fft(signal, axis=0)
+    fft_abs = np.abs(fft_frames)  # Magnitude of the frequency
+    fft_abs[..., 0] = 0  # Remove zero frequency component
+    dominant_frequencies = np.argmax(fft_abs, axis=0)
+    dominant_frequencies = dominant_frequencies * sampling_rate / signal.shape[0]
+    return dominant_frequencies
