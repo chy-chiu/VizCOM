@@ -455,13 +455,10 @@ def NormalizeData(data):
 
     # res = np.moveaxis(res, -1, 0)
 
-    print(data.dtype)
-    print(data[0, 0, :])
+    # print(data.dtype)
+    # print(data[0, 0, :])
 
     return data
-
-    return res
-
 
 def fft(signal, sampling_rate):
     """
@@ -475,4 +472,5 @@ def fft(signal, sampling_rate):
     fft_abs[..., 0] = 0  # Remove zero frequency component
     dominant_frequencies = np.argmax(fft_abs, axis=0)
     dominant_frequencies = dominant_frequencies * sampling_rate / signal.shape[0]
+    
     return dominant_frequencies

@@ -41,3 +41,10 @@ def modal_callbacks(app: Dash):
         State({"type": "apd-di-modal", "index": MATCH}, "is_open"),
         prevent_initial_call=True,
     )(toggle_modal)
+
+    app.callback(
+        Output({"type": "rendering-modal", "index": MATCH}, "is_open"),
+        Input({"type": "rendering-options-button", "index": MATCH}, "n_clicks"),
+        State({"type": "rendering-modal", "index": MATCH}, "is_open"),
+        prevent_initial_call=True,
+    )(toggle_modal)
