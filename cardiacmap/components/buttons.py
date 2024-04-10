@@ -4,7 +4,7 @@ from dash import html
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
 
-def button_bar(n):
+def signal_button_bar(n):
     return dbc.Row(
         [
             dbc.Button(
@@ -98,7 +98,33 @@ def button_bar(n):
                 class_name="button-viewer",
             ),
         ],
-        id="button-bar-{n}".format(n=n),
+        id="signal-button-bar-{n}".format(n=n),
+        style={
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+        },
+    )
+
+def mask_button_bar(n):
+
+    return dbc.Row(
+        [
+            dbc.Button(
+                [html.I(className="bi bi-check"), "  Confirm Mask"],
+                id=indexed_component_id("confirm-mask-button", n),
+                color="light",
+                class_name="button-viewer",
+            ),
+
+            dbc.Button(
+                [html.I(className="bi bi-arrow-clockwise"), "  Reset Mask"],
+                id=indexed_component_id("reset-mask-button", n),
+                color="light",
+                class_name="button-viewer",
+            ),
+        ],
+        id="mask-button-bar-{n}".format(n=n),
         style={
             "display": "flex",
             "align-items": "center",

@@ -9,7 +9,7 @@ import plotly.express as px
 from dash import Dash, Input, Output, callback, dcc, html
 from dash_extensions import EventListener
 
-from cardiacmap.components.buttons import button_bar
+from cardiacmap.components.buttons import signal_button_bar, mask_button_bar
 from cardiacmap.components.modal import transform_modals
 
 event_change = {"event": "drag-change", "props": ["type", "srcElement.innerText"]}
@@ -29,15 +29,20 @@ def img_drag_display(n):
 
 def img_mask_display(n):
 
-    return dcc.Graph(
-        id=indexed_component_id("graph-mask", n),
-        config={
-            "modeBarButtonsToAdd": [
-                "drawclosedpath",
-                "eraseshape",
-            ]
-        },
-    )
+    return [
+        mask_button_bar(n),
+        dbc.Row(
+            dcc.Graph(
+                id=indexed_component_id("graph-mask", n),
+                config={
+                    "modeBarButtonsToAdd": [
+                        "drawclosedpath",
+                        "eraseshape",
+                    ]
+                },
+            )
+        ),
+    ]
 
 
 def video_display(n):
@@ -57,7 +62,7 @@ def image_viewport(n):
                 dbc.Tab(video_display(n), label="Video"),
             ]
         ),
-        width={"size": 2, "order": 1},
+        width={"size": 3, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
         id=indexed_component_id("col-image", n),
     )
@@ -65,7 +70,7 @@ def image_viewport(n):
 
 def signal_viewport(n):
     return dbc.Col(
-        [button_bar(n), dcc.Graph(id=indexed_component_id("graph-signal", n))],
+        [signal_button_bar(n), dcc.Graph(id=indexed_component_id("graph-signal", n))],
         # html.Div(
         #     [
         #         # dcc.Slider(

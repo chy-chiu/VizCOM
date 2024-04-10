@@ -66,7 +66,7 @@ def file_directory():
             ),
             html.Div(
                 dbc.Button(
-                    " Load Calcium Data",
+                    " Load V-Ca Data (Dual Mode)",
                     id="load-calcium-button",
                     className="bi bi-cloud-upload-fill",
                     color="light",

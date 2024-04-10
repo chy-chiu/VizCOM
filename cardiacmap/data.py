@@ -9,6 +9,7 @@ import sys
 from copy import deepcopy
 from locale import normalize
 from typing import Dict, List, Tuple
+import cv2
 
 import numpy as np
 
@@ -42,6 +43,7 @@ class CascadeSignal:
     transformed_data: np.ndarray
     position: np.ndarray
     mask: List[Tuple[int, int]]
+    mask_arr: np.ndarray
 
     def __init__(self, signal: np.ndarray) -> None:
         self.base_data = deepcopy(signal)
@@ -62,6 +64,7 @@ class CascadeSignal:
         self.dis = []
         self.di_indices = []
         self.mask = []
+        self.mask_arr = None
         self.show_apd_threshold = False
 
     def perform_average(
@@ -69,17 +72,16 @@ class CascadeSignal:
         type,
         sig,
         rad,
-        mask=None,
         mode="Gaussian",
     ):
         if type == "time":
             self.transformed_data = TimeAverage(
-                self.transformed_data, sig, rad, mask, mode
+                self.transformed_data, sig, rad, self.mask_arr, mode
             )
 
         elif type == "spatial":
             self.transformed_data = SpatialAverage(
-                self.transformed_data, sig, rad, mask, mode
+                self.transformed_data, sig, rad, self.mask_arr, mode
             )
 
         return
@@ -172,7 +174,13 @@ class CascadeSignal:
         # Take the middle as the key frame for now
         key_frame_idx = self.span_T // 2
 
-        return self.base_data[key_frame_idx]
+        key_frame = self.base_data[key_frame_idx]
+
+        if self.mask_arr is not None:
+
+            key_frame = key_frame * self.mask_arr
+
+        return key_frame
 
     def get_curr_signal(self):
         return self.transformed_data

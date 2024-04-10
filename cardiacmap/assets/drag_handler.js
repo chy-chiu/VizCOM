@@ -56,7 +56,7 @@ window.dash_clientside.clientside = {
             const offsetX = moveEvent.clientX - rect.left - (rect.width + WINDOW_OFFSET - minWidth) / 2;
             const offsetY = moveEvent.clientY - rect.top - (rect.height + WINDOW_OFFSET - minWidth) / 2;
 
-            console.log(offsetX, offsetY);
+            // console.log(offsetX, offsetY);
 
             // Normalize/Map the offset to canvas (128x128)
             const mappedX = Math.max(Math.min(Math.floor((offsetX / (minWidth - WINDOW_OFFSET)) * canvasWidth), 127), 0);
