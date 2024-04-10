@@ -8,7 +8,7 @@ import struct
 import sys
 from copy import deepcopy
 from locale import normalize
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -40,6 +40,8 @@ class CascadeSignal:
     span_Y: int = 128
     base_data: np.ndarray
     transformed_data: np.ndarray
+    position: np.ndarray
+    mask: List[Tuple[int, int]]
 
     def __init__(self, signal: np.ndarray) -> None:
         self.base_data = deepcopy(signal)
@@ -59,6 +61,7 @@ class CascadeSignal:
         self.apd_indices = []
         self.dis = []
         self.di_indices = []
+        self.mask = []
         self.show_apd_threshold = False
 
     def perform_average(
