@@ -37,12 +37,14 @@ def TimeAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
             return avgFunc(arr, sigma, radius=radius, axes=axis).swapaxes(-1, 0)
         return avgFunc(arr, sigma, radius=radius, axes=axis)
     else:
-        if np.array(mask).shape != np.array(arr[0]).shape:
-            raise IndexError("mask must have same shape as a single frame")
+        print(arr.shape)
+
+        # if np.array(mask).shape != np.array(arr[0]).shape:
+        #     raise IndexError("mask must have same shape as a single frame")
 
         data = avgFunc(arr, sigma, radius=radius, axes=axis)
         # set masked points back to original value
-        data = np.where(mask == 0, arr, data)
+        data = np.where(np.expand_dims(mask, axis) == 1, arr, data)
 
         if axis != 0:
             data = data.swapaxes(-1, 0)
@@ -427,26 +429,37 @@ def CalculateAPD_DI(intersections, firstIntervalFlag):
 
 
 def NormalizeData(data):
-    data = np.moveaxis(data, 0, -1)
+    # data = np.moveaxis(data, 0, -1)
     # constants to normalize data to
-    RES_MIN = 0
-    RES_RANGE = 10000
+    # RES_MIN = 0
+    # RES_RANGE = 10000
 
     # get mins and maxes
-    dataMaxes = np.amax(data, axis=2)
-    dataMins = np.amin(data, axis=2)
+    # dataMaxes = np.amax(data, axis=2)
+    dataMins = np.min(data, axis=0)
 
-    # subtract mins from both data and maxes
-    norm = dataMaxes - dataMins
-    dataMins = np.expand_dims(dataMins, 2)
-    dataMinusMins = np.subtract(data, dataMins)
+    print(dataMins)
 
-    # normalize [0 - 1]
-    res = dataMinusMins / norm[:, :, np.newaxis]
+    # # subtract mins from both data and maxes
+    # norm = dataMaxes - dataMins
 
-    # output data array will be in range [RES_MIN, RES_MIN + RES_RANGE]
-    res *= RES_RANGE
-    res += RES_MIN
+    # dataMins = np.expand_dims(dataMins, 2)
+    # dataMinusMins = np.subtract(data, dataMins)
 
-    res = np.moveaxis(res, -1, 0)
+    data -= np.expand_dims(dataMins, 0)
+
+    # # normalize [0 - 1]
+    # res = dataMinusMins / norm[:, :, np.newaxis]
+
+    # # output data array will be in range [RES_MIN, RES_MIN + RES_RANGE]
+    # res *= RES_RANGE
+    # res += RES_MIN
+
+    # res = np.moveaxis(res, -1, 0)
+
+    print(data.dtype)
+    print(data[0, 0, :])
+
+    return data
+
     return res.astype(np.uint16)

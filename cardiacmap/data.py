@@ -75,6 +75,7 @@ class CascadeSignal:
         mode="Gaussian",
     ):
         if type == "time":
+            print(self.transformed_data.shape)
             self.transformed_data = TimeAverage(
                 self.transformed_data, sig, rad, self.mask_arr, mode
             )
