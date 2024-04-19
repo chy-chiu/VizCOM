@@ -2,6 +2,7 @@
 
 import json
 import os
+from turtle import width
 
 import dash
 import dash_bootstrap_components as dbc
@@ -46,6 +47,52 @@ def video_display(n):
         id=indexed_component_id("graph-video", n),
     )
 
+def apd_plot_display(n):
+    
+    return dcc.Graph(
+                id=indexed_component_id("graph-apd-plot", n),
+    )
+
+def apd_spatial_display(n):
+    
+    return dbc.Col(children=[
+                dcc.RadioItems(
+                    ['Value', 'Difference'], 'Value',
+                    inline=True,
+                    id=indexed_component_id("spatial-apd-select", n),
+                ),
+                dcc.Graph(
+                    id=indexed_component_id("graph-apd-spatial", n),
+                ),
+                dbc.Row(
+                    children=[
+                        dbc.Button(
+                            ["<"],
+                            id=indexed_component_id("prev-apd-button", n),
+                            color="light",
+                            class_name="button-viewer",
+                        ),
+                        html.Div(
+                            0, id=indexed_component_id("spatial-apd-index", n), 
+                            style={'width': '3em'}
+                        ),
+                        dbc.Button(
+                            [">"],
+                            id=indexed_component_id("next-apd-button", n),
+                            color="light",
+                            class_name="button-viewer",
+                        ),
+                        dbc.Button(
+                            [html.I(className="bi bi-gear-fill")],
+                            id=indexed_component_id("spatial-apd-settings-button", n),
+                            color="light",
+                            class_name="button-viewer",
+                        ),
+                    ],
+                    id=indexed_component_id("spatial-apd-buttons", n)
+                )
+    ], width=10)
+
 
 # Image viewport has three tabs, each has its own display tab
 def image_viewport(n):
@@ -55,7 +102,10 @@ def image_viewport(n):
                 dbc.Tab(img_drag_display(n), label="Key Image"),
                 dbc.Tab(img_mask_display(n), label="Mask"),
                 dbc.Tab(video_display(n), label="Video"),
-            ]
+                dbc.Tab(apd_plot_display(n), label="APD/DI Plot", tab_id="apd-di-tab"),
+                dbc.Tab(apd_spatial_display(n), label="APD Spatial", tab_id="apd-spatial-tab"),
+            ],
+            id=indexed_component_id("image-tabs", n)
         ),
         width={"size": 2, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},

@@ -41,3 +41,10 @@ def modal_callbacks(app: Dash):
         State({"type": "apd-di-modal", "index": MATCH}, "is_open"),
         prevent_initial_call=True,
     )(toggle_modal)
+    
+    app.callback(
+        Output({"type": "spatial-apd-settings-modal", "index": MATCH}, "is_open"),
+        Input({"type": "spatial-apd-settings-button", "index": MATCH}, "n_clicks"),
+        State({"type": "spatial-apd-settings-modal", "index": MATCH}, "is_open"),
+        prevent_initial_call=True,
+    )(toggle_modal)
