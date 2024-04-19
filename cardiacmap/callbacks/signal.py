@@ -138,4 +138,4 @@ def signal_callbacks(app, signal_cache: Cache):
                 
                 return fig
             
-        return px.scatter("")
+        return px.scatter()
