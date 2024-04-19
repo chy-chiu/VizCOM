@@ -40,6 +40,7 @@ class CascadeSignal:
     span_Y: int = 128
     base_data: np.ndarray
     transformed_data: np.ndarray
+    spatial_apds = []
 
     def __init__(self, signal: np.ndarray) -> None:
         self.base_data = deepcopy(signal)
@@ -53,13 +54,14 @@ class CascadeSignal:
 
         ## APD / DI variables
         self.apdThreshold = 0
-        self.apdDIThresholdIdxs = []
+        self.apdDIThresholdIdxs = []    # TODO: Can this be cleared after confirmation?
         self.apdIndicators = []
         self.apds = []
         self.apd_indices = []
         self.dis = []
         self.di_indices = []
         self.show_apd_threshold = False
+        self.spatial_apds = []
 
     def perform_average(
         self,

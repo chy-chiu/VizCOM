@@ -89,7 +89,7 @@ def signal_callbacks(app, signal_cache: Cache):
     
     @app.callback(
         Output(
-            indexed_component_id("graph-plot", MATCH), "figure", allow_duplicate=True
+            indexed_component_id("graph-apd-plot", MATCH), "figure", allow_duplicate=True
         ),
         Input(indexed_component_id("image-tabs", MATCH), "active_tab"),
         Input(indexed_component_id("signal-position", MATCH), "data"),
@@ -109,7 +109,7 @@ def signal_callbacks(app, signal_cache: Cache):
                 
                 # check if apds have been calculated
                 if len(active_signal.apds) <= sig_idx or len(active_signal.dis) <= sig_idx:
-                    return BLANK_SIGNAL
+                    return px.scatter(title="No APDs/DIs for this (x,y)")
                 
                 active_apds = active_signal.apds[sig_idx]
                 active_dis = active_signal.dis[sig_idx]
@@ -118,7 +118,7 @@ def signal_callbacks(app, signal_cache: Cache):
                 
                 # make sure signal is valid
                 if lenAPD <= 0 or lenDI <= 0:
-                    return BLANK_SIGNAL
+                    return px.scatter(title="APDs/DIs not found")
                 
                 # make sure apd and di arrays are the same length
                 if lenAPD > lenDI:
@@ -138,4 +138,4 @@ def signal_callbacks(app, signal_cache: Cache):
                 
                 return fig
             
-        return BLANK_SIGNAL
+        return px.scatter("")

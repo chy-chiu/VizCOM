@@ -174,7 +174,28 @@ def transform_modals(n):
         id=indexed_component_id(f"apd-di-modal", n),
         is_open=False,
     )
+    
+    spatial_apd_settings_modal = dbc.Modal(
+        [
+            dbc.ModalHeader("APD Plot Settings"),
+            dbc.ModalBody(
+                [
+                    numerical_input_modal(
+                        modal_id="min-bound-apd", modal_text="Min Bound", n=n, value=0
+                    ),
+                    numerical_input_modal(
+                        modal_id="max-bound-apd", modal_text="Max Bound", n=n, value=10000
+                    ),
+                ]
+            ),
+            dbc.ModalFooter(
+                dbc.Button("Confirm", id=indexed_component_id(f"spatial-apd-settings-confirm", n))
+            ),
+        ],
+        id=indexed_component_id(f"spatial-apd-settings-modal", n),
+        is_open=False,
+    )
 
     return html.Div(
-        [spatial_modal, time_modal, trim_modal, baseline_modal, apd_di_modal]
+        [spatial_modal, time_modal, trim_modal, baseline_modal, apd_di_modal, spatial_apd_settings_modal]
     )
