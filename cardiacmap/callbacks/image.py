@@ -78,7 +78,7 @@ def image_callbacks(app, signal_cache: Cache):
             indexed_component_id("graph-apd-spatial", MATCH), "figure", allow_duplicate=True
         ),
         Input(indexed_component_id("image-tabs", MATCH), "active_tab"),
-        Input(indexed_component_id("spatial-apd-index", MATCH), "children"),
+        Input(indexed_component_id("spatial-apd-index", MATCH), "value"),
         Input(indexed_component_id("spatial-apd-select", MATCH), "value"),
         State(indexed_component_id("min-bound-apd", MATCH), "value"),
         State(indexed_component_id("max-bound-apd", MATCH), "value"),
@@ -88,13 +88,17 @@ def image_callbacks(app, signal_cache: Cache):
         if at == "apd-spatial-tab":
 
             sig_id = ctx.triggered_id["index"]
+            spatial_apd_id = 1000                            # using signal cache here, sig_id+1000 to avoid key conflicts
 
-            active_signal: CascadeSignal = signal_cache.get(sig_id)
+            spatialAPDs = None
+
+            active_spatial_apds = signal_cache.get(sig_id + spatial_apd_id)
+            if active_spatial_apds is not None and len(active_spatial_apds) > 0:
+                spatialAPDs = active_spatial_apds
+            else:
+                active_signal: CascadeSignal = signal_cache.get(sig_id)
             
-            if active_signal:
-                spatialAPDs = []
-                # check if we've done this before
-                if len(active_signal.spatial_apds) == 0:   
+                if active_signal:   
                     # calculate spatial apd plot
                     active_apds = active_signal.apds
                     
@@ -113,44 +117,51 @@ def image_callbacks(app, signal_cache: Cache):
                     spatialAPDs = spatialAPDs.reshape((128, 128, max_apd_size))
                     spatialAPDs = np.moveaxis(spatialAPDs, -1, 0)
 
-                    active_signal.spatial_apds = spatialAPDs
-                    signal_cache.set(sig_id, active_signal)
-                else:
-                    # if its been calculated already, load it
-                    spatialAPDs = active_signal.spatial_apds
-                
-                # show/calculate the frame to display
-                if displayType == "Value":
-                    frame = (spatialAPDs[spatialAPDIdx])
-                elif displayType == "Difference":
-                    # doing the subtraction at runtime
-                    # saves storage space, but may cause lag
-                    frame0 = (spatialAPDs[spatialAPDIdx])
-                    frame1 = (spatialAPDs[spatialAPDIdx + 1])
-                    frame = frame1 - frame0
-                
-                # remove outliers
-                indices_under_range = frame < minBound
-                indices_over_range = frame > maxBound
-                frame[indices_under_range] = frame[indices_over_range] = 0
-                
-                # make frame data into an image
-                fig = px.imshow(frame, zmin=minBound, zmax=maxBound, binary_string=True)
+                    signal_cache.set(sig_id + spatial_apd_id, spatialAPDs)
 
-                fig.update_layout(
-                    showlegend=False,
-                    xaxis=dict(visible=False),
-                    yaxis=dict(visible=False),
-                    margin=dict(l=5, r=5, t=5, b=5),
-                    dragmode="orbit",
-                )
+            if spatialAPDs is None:
+                print("No Active Signal")
+                return px.imshow(DEFAULT_IMG, binary_string=True, title="No Active Signal")
+
+            # ensure index is within limits
+            if spatialAPDIdx >= len(spatialAPDs):
+                spatialAPDIdx = len(spatialAPDs) - 1
+                if displayType == "Difference":
+                    spatialAPDIdx -= 1
                 
-                return fig    
+                
+            # show/calculate the frame to display
+            if displayType == "Value":
+                frame = (spatialAPDs[spatialAPDIdx])
+            elif displayType == "Difference":
+                # doing the subtraction at runtime
+                # saves storage space, but may cause lag
+                frame0 = (spatialAPDs[spatialAPDIdx])
+                frame1 = (spatialAPDs[spatialAPDIdx + 1])
+                frame = frame1 - frame0
+                
+            # remove outliers
+            indices_under_range = frame < minBound
+            indices_over_range = frame > maxBound
+            frame[indices_under_range] = frame[indices_over_range] = 0
+                
+            # make frame data into an image
+            fig = px.imshow(frame, zmin=minBound, zmax=maxBound, binary_string=True)
+
+            fig.update_layout(
+                showlegend=False,
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                margin=dict(l=5, r=5, t=5, b=5),
+                dragmode="orbit",
+            )
+                
+            return fig    
         return px.imshow(DEFAULT_IMG, binary_string=True)
     
     @app.callback(
-        Output(indexed_component_id("spatial-apd-index", MATCH), "children", allow_duplicate=True),
-        Input(indexed_component_id("spatial-apd-index", MATCH), "children"),
+        Output(indexed_component_id("spatial-apd-index", MATCH), "value", allow_duplicate=True),
+        Input(indexed_component_id("spatial-apd-index", MATCH), "value"),
         Input(indexed_component_id("prev-apd-button", MATCH), "n_clicks"),
         Input(indexed_component_id("next-apd-button", MATCH), "n_clicks"),
         prevent_initial_call=True,
