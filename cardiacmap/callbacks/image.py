@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from types import NoneType
 from typing import Tuple, Union
 
 import numpy as np
@@ -81,15 +82,17 @@ def image_callbacks(app, signal_cache: Cache):
         Input(indexed_component_id("spatial-apd-index", MATCH), "value"),
         Input(indexed_component_id("spatial-apd-select", MATCH), "value"),
         State(indexed_component_id("min-bound-apd", MATCH), "value"),
+        State(indexed_component_id("min-bound-apd-diff", MATCH), "value"),
         State(indexed_component_id("max-bound-apd", MATCH), "value"),
         prevent_initial_call=True,
     )
-    def apd_spatial_plot(at, spatialAPDIdx, displayType, minBound, maxBound):
+    def apd_spatial_plot(at, spatialAPDIdx, displayType, minBound, minBoundDiff, maxBound):
         if at == "apd-spatial-tab":
 
             sig_id = ctx.triggered_id["index"]
             spatial_apd_id = 1000                            # using signal cache here, sig_id+1000 to avoid key conflicts
-
+            spatial_apd_diff_id = 2000
+            
             spatialAPDs = None
 
             active_spatial_apds = signal_cache.get(sig_id + spatial_apd_id)
@@ -116,8 +119,11 @@ def image_callbacks(app, signal_cache: Cache):
                     # reshape and save
                     spatialAPDs = spatialAPDs.reshape((128, 128, max_apd_size))
                     spatialAPDs = np.moveaxis(spatialAPDs, -1, 0)
+                    
+                    spatialAPDDiffs = np.diff(spatialAPDs, axis=0)
 
                     signal_cache.set(sig_id + spatial_apd_id, spatialAPDs)
+                    signal_cache.set(sig_id + spatial_apd_diff_id, spatialAPDDiffs)
 
             if spatialAPDs is None:
                 print("No Active Signal")
@@ -128,25 +134,37 @@ def image_callbacks(app, signal_cache: Cache):
                 spatialAPDIdx = len(spatialAPDs) - 1
                 if displayType == "Difference":
                     spatialAPDIdx -= 1
-                
-                
+           
+            minBoundToUse = 0    
             # show/calculate the frame to display
             if displayType == "Value":
                 frame = (spatialAPDs[spatialAPDIdx])
+
+                minBoundToUse = minBound
+                
+                minDataVal = spatialAPDs.min()
+                maxDataVal = spatialAPDs.max()
+
             elif displayType == "Difference":
-                # doing the subtraction at runtime
-                # saves storage space, but may cause lag
-                frame0 = (spatialAPDs[spatialAPDIdx])
-                frame1 = (spatialAPDs[spatialAPDIdx + 1])
-                frame = frame1 - frame0
+                spatialAPDDiffs = signal_cache.get(sig_id + spatial_apd_diff_id)
                 
-            # remove outliers
-            indices_under_range = frame < minBound
-            indices_over_range = frame > maxBound
-            frame[indices_under_range] = frame[indices_over_range] = 0
+                frame = (spatialAPDDiffs[spatialAPDIdx])
+
+                minBoundToUse = minBoundDiff
+                minDataVal = spatialAPDDiffs.min()
+                maxDataVal = spatialAPDDiffs.max()
                 
-            # make frame data into an image
-            fig = px.imshow(frame, zmin=minBound, zmax=maxBound, binary_string=True)
+            if minBound is None or maxBound is None:
+                # if bounds are not provided, autoscale to min and max
+                fig = px.imshow(frame, zmin=minDataVal, zmax=maxDataVal, binary_string=True)
+            else:
+                # remove outliers
+                indices_under_range = frame < minBoundToUse
+                indices_over_range = frame > maxBound
+                frame[indices_under_range] = frame[indices_over_range] = 0
+                
+                # make frame data into an image
+                fig = px.imshow(frame, zmin=minBoundToUse, zmax=maxBound, binary_string=True)
 
             fig.update_layout(
                 showlegend=False,
