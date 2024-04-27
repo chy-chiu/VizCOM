@@ -14,7 +14,13 @@ window.dash_clientside.clientside = {
             hiddenDivId = JSON.stringify(hiddenDivId, Object.keys(hiddenDivId).sort());
         };
 
+
+        const collection = document.getElementsByClassName("nsewdrag");
+        const canvasDiv = collection[0];
+
         const graphDiv = document.getElementById(graphDivId);
+        // console.log(graphDiv.width);
+        // console.log(canvasDiv.width);
 
         const canvasWidth = 128;
         const canvasHeight = 128;
@@ -38,18 +44,23 @@ window.dash_clientside.clientside = {
 
         // Function to handle mouse move
         const handleMouseMove = function (moveEvent) {
+
+            const WINDOW_OFFSET = 10.4;
+
             const rect = graphDiv.getBoundingClientRect();
 
             // Doing minWidth because the canvas is a rectangle
             const minWidth = Math.min(rect.width, rect.height);
 
             // Calculate offset within the actual graph element
-            const offsetX = moveEvent.clientX - rect.left - (rect.width - minWidth) / 2;
-            const offsetY = moveEvent.clientY - rect.top - (rect.height - minWidth) / 2;
+            const offsetX = moveEvent.clientX - rect.left - WINDOW_OFFSET / 2;
+            const offsetY = moveEvent.clientY - rect.top - (rect.height + WINDOW_OFFSET - minWidth) / 2;
+
+            console.log(offsetX, offsetY);
 
             // Normalize/Map the offset to canvas (128x128)
-            const mappedX = Math.max(Math.min(Math.round((offsetX / minWidth) * canvasWidth), 127), 0);
-            const mappedY = Math.max(Math.min(Math.round((offsetY / minWidth) * canvasHeight), 127), 0);
+            const mappedX = Math.max(Math.min(Math.floor((offsetX / (minWidth - WINDOW_OFFSET)) * canvasWidth), 127), 0);
+            const mappedY = Math.max(Math.min(Math.floor((offsetY / (minWidth - WINDOW_OFFSET)) * canvasHeight), 127), 0);
 
             const inputElement = document.getElementById(hiddenDivId);
 
@@ -63,7 +74,6 @@ window.dash_clientside.clientside = {
 
         // Ensure we have the graph div
         if (graphDiv) {
-
             graphDiv.onmousedown = function (downEvent) {
 
                 const rect = graphDiv.getBoundingClientRect();
