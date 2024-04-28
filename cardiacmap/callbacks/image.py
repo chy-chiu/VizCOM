@@ -164,6 +164,16 @@ def image_callbacks(app, signal_cache: Cache):
             return inputVal + 1
         else:
             return inputVal
+
+    # callback for fft heatmap
+    @app.callback(
+        Output(indexed_component_id("graph-fft", MATCH), "figure", allow_duplicate=True),
+        Input(indexed_component_id("image-tabs", MATCH), "active_tab"),
+        prevent_initial_call=True
+    )
+    def fft_callback(at):
+        if at == "fft-tab":
+            return px.imshow(DEFAULT_IMG, binary_string=True, title="TEST")
     
     # @app.callback(
     #     Output(
@@ -182,3 +192,6 @@ def image_callbacks(app, signal_cache: Cache):
     #     print(json.dumps(relayout_data, indent=2))
 
     #     return img_fig, mask_fig
+
+
+
