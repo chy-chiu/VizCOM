@@ -135,8 +135,11 @@ def image_callbacks(app, signal_cache: Cache):
                 if displayType == "Difference":
                     spatialAPDIdx -= 1
            
-            minBoundToUse = 0    
-            # show/calculate the frame to display
+            minBoundToUse = 0
+            
+            # get the frame to display
+            # select either minBound or minBoundDiff for use
+            # get the data range
             if displayType == "Value":
                 frame = (spatialAPDs[spatialAPDIdx])
 
@@ -151,12 +154,13 @@ def image_callbacks(app, signal_cache: Cache):
                 frame = (spatialAPDDiffs[spatialAPDIdx])
 
                 minBoundToUse = minBoundDiff
+                
                 minDataVal = spatialAPDDiffs.min()
                 maxDataVal = spatialAPDDiffs.max()
                 
             if minBound is None or maxBound is None:
                 # if bounds are not provided, autoscale to min and max
-                fig = px.imshow(frame, zmin=minDataVal, zmax=maxDataVal, binary_string=True)
+                fig = px.imshow(frame, zmin=minDataVal, zmax=maxDataVal, color_continuous_scale='gray')
             else:
                 # remove outliers
                 indices_under_range = frame < minBoundToUse
@@ -164,14 +168,15 @@ def image_callbacks(app, signal_cache: Cache):
                 frame[indices_under_range] = frame[indices_over_range] = 0
                 
                 # make frame data into an image
-                fig = px.imshow(frame, zmin=minBoundToUse, zmax=maxBound, binary_string=True)
-
+                fig = px.imshow(frame, zmin=minBoundToUse, zmax=maxBound, color_continuous_scale='gray')
+            
+            
             fig.update_layout(
-                showlegend=False,
+                showlegend=True,
                 xaxis=dict(visible=False),
                 yaxis=dict(visible=False),
                 margin=dict(l=5, r=5, t=5, b=5),
-                dragmode="orbit",
+                dragmode="drawline",
             )
                 
             return fig    
@@ -193,7 +198,7 @@ def image_callbacks(app, signal_cache: Cache):
             return inputVal + 1
         else:
             return inputVal
-    
+        
     # @app.callback(
     #     Output(
     #         indexed_component_id("graph-image", MATCH), "figure", allow_duplicate=True
