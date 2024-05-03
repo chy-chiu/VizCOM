@@ -9,10 +9,12 @@ from dash import ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc, htm
 from flask_caching import Cache
 
 from cardiacmap.data import CascadeDataFile, CascadeSignal
+from cardiacmap.transforms import fft
 
 DEFAULT_IMG = np.zeros((128, 128))
 
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
+
 
 # helper function to pad an array with zeros until it is rectangular
 def pad(array, targetWidth):
@@ -21,6 +23,7 @@ def pad(array, targetWidth):
         zeros = np.zeros(numZeros)
         array[i] = np.concatenate((array[i], zeros))
     return np.asarray(array)
+
 
 def image_callbacks(app, signal_cache: Cache):
     # Key image is used only for position exploration and annotation.
@@ -69,9 +72,7 @@ def image_callbacks(app, signal_cache: Cache):
         # # Add modebar buttons
         # mask_fig.show()
 
-
         return img_fig, mask_fig
-
 
     @app.callback(
         Output(
@@ -90,25 +91,25 @@ def image_callbacks(app, signal_cache: Cache):
             sig_id = ctx.triggered_id["index"]
 
             active_signal: CascadeSignal = signal_cache.get(sig_id)
-            
+
             if active_signal:
                 spatialAPDs = []
                 # check if we've done this before
-                if len(active_signal.spatial_apds) == 0:   
+                if len(active_signal.spatial_apds) == 0:
                     # calculate spatial apd plot
                     active_apds = active_signal.apds
-                    
+
                     # check if apds have been calculated
                     if len(active_apds) == 0:
                         print("No APDs Calculated")
                         return px.imshow(DEFAULT_IMG, binary_string=True, title="No APDs Calculated")
-                    
+
                     # get largest apd list (each pixel has its own)
                     max_apd_size = len(max(active_apds, key=len))
 
                     # extend every pixel with zeros until each pixel has len of max_apd_size (rectangular)
                     spatialAPDs = pad(active_apds, max_apd_size)
-                    
+
                     # reshape and save
                     spatialAPDs = spatialAPDs.reshape((128, 128, max_apd_size))
                     spatialAPDs = np.moveaxis(spatialAPDs, -1, 0)
@@ -118,7 +119,7 @@ def image_callbacks(app, signal_cache: Cache):
                 else:
                     # if its been calculated already, load it
                     spatialAPDs = active_signal.spatial_apds
-                
+
                 # show/calculate the frame to display
                 if displayType == "Value":
                     frame = (spatialAPDs[spatialAPDIdx])
@@ -128,12 +129,12 @@ def image_callbacks(app, signal_cache: Cache):
                     frame0 = (spatialAPDs[spatialAPDIdx])
                     frame1 = (spatialAPDs[spatialAPDIdx + 1])
                     frame = frame1 - frame0
-                
+
                 # remove outliers
                 indices_under_range = frame < minBound
                 indices_over_range = frame > maxBound
                 frame[indices_under_range] = frame[indices_over_range] = 0
-                
+
                 # make frame data into an image
                 fig = px.imshow(frame, zmin=minBound, zmax=maxBound, binary_string=True)
 
@@ -144,10 +145,10 @@ def image_callbacks(app, signal_cache: Cache):
                     margin=dict(l=5, r=5, t=5, b=5),
                     dragmode="orbit",
                 )
-                
-                return fig    
+
+                return fig
         return px.imshow(DEFAULT_IMG, binary_string=True)
-    
+
     @app.callback(
         Output(indexed_component_id("spatial-apd-index", MATCH), "children", allow_duplicate=True),
         Input(indexed_component_id("spatial-apd-index", MATCH), "children"),
@@ -158,9 +159,9 @@ def image_callbacks(app, signal_cache: Cache):
     def update_apd_spatial_plot_index(inputVal, prev, next):
         button_clicked = ctx.triggered_id["type"]
         print(button_clicked)
-        if(button_clicked == "prev-apd-button" and inputVal >= 1):
+        if (button_clicked == "prev-apd-button" and inputVal >= 1):
             return inputVal - 1
-        if(button_clicked == "next-apd-button"):
+        if (button_clicked == "next-apd-button"):
             return inputVal + 1
         else:
             return inputVal
@@ -172,9 +173,14 @@ def image_callbacks(app, signal_cache: Cache):
         prevent_initial_call=True
     )
     def fft_callback(at):
-        if at == "fft-tab":
-            return px.imshow(DEFAULT_IMG, binary_string=True, title="TEST")
-    
+        sig_id = ctx.triggered_id["index"]
+        active_signal: CascadeSignal = signal_cache.get(sig_id)
+        if at == "fft-tab" and active_signal is not None:
+            # fft_arr = np.random.randint(1, 100, size=(128, 128))
+            fft_arr = fft(active_signal.transformed_data, 100)
+            return px.imshow(fft_arr)
+        return px.imshow(DEFAULT_IMG, binary_string=True, title="Load dataset > click FFT tab")
+
     # @app.callback(
     #     Output(
     #         indexed_component_id("graph-image", MATCH), "figure", allow_duplicate=True
@@ -192,6 +198,3 @@ def image_callbacks(app, signal_cache: Cache):
     #     print(json.dumps(relayout_data, indent=2))
 
     #     return img_fig, mask_fig
-
-
-
