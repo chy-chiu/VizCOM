@@ -11,6 +11,7 @@ from dash.dependencies import ClientsideFunction
 from flask_caching import Cache
 import flask
 import os
+import json
 
 # from cardiacmap.data import CascadeDataVoltage
 from cardiacmap.callbacks import (
@@ -58,12 +59,15 @@ signal_cache = Cache(app.server, config=SIGNAL_CACHE_CONFIG)
 2. Re-normalize data to 0 etc
 3. Further fixes on calcium mode including baseline drift stuff
 """
+with open("./settings.json", 'r') as f:
+    settings = f.read()
+    print(settings)
 
 app.layout = html.Div(
     [
         html.Div(
             [
-                dbc.Row(navbar()),
+                dbc.Row(navbar(json.loads(settings))),
                 dbc.Row(file_directory()),
                 dbc.Row(metadata_bar()),
                 dbc.Card(signal_viewer(0), className="signal-viewer"),
@@ -72,6 +76,7 @@ app.layout = html.Div(
                     id="calcium-dual-mode-window",
                     hidden=True,
                 ),
+                dcc.Store(id="settings-store", data=settings)
                 # Another div here for APD / DI graphing, and other tertiary graphs
             ],
         ),

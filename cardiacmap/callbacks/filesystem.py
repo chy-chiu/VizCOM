@@ -14,14 +14,31 @@ DUMMY_FILENAME = "put .dat files here"
 
 
 def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
+
+    @app.callback(
+        Output("settings-store", "data"), 
+        Output("data-folder-settings-modal", "value"),
+        Input("settings-confirm", "n_clicks"),
+        State("data-folder-settings-modal", "value")
+    )
+    def confirm_settings(_nclicks, data_path):
+        print(data_path)
+
+        settings_str = json.dumps({"path": data_path})
+        with open('./settings.json', 'w') as f:
+            f.write(settings_str)
+
+        return settings_str, data_path
+
     # Load data from specific directory
     @app.callback(
         Output("file-directory-dropdown", "options"),
         Input("refresh-folder-button", "n_clicks"),
+        State("settings-store", "data"), 
     )
-    def update_file_directory(_refresh_folder):
-        # TODO: Load this from settings.json
-        file_list = os.listdir("./data")
+    def update_file_directory(_refresh_folder, settings):
+        settings = json.loads(settings)
+        file_list = os.listdir(settings["path"])
 
         if DUMMY_FILENAME in file_list:
             file_list.pop(file_list.index(DUMMY_FILENAME))
@@ -37,13 +54,15 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
         Input("load-voltage-button", "n_clicks"),
         Input("load-calcium-button", "n_clicks"),
         State("file-directory-dropdown", "value"),
+        State("settings-store", "data"), 
     )
-    def load_file(_load_voltage, _load_calcium, filename: str):
+    def load_file(_load_voltage, _load_calcium, filename: str, settings):
         """This function loads a file from either system or file cache. It also updates the signal cache.
 
         Args:
             file_idx (str): file name
         """
+        settings = json.loads(settings)
 
         dual_mode = False
 
@@ -67,7 +86,7 @@ def file_callbacks(app, file_cache: Cache, signal_cache: Cache):
         # If current file is not in the cache, load data
         if active_file is None:
             active_file = CascadeDataFile.load_data(
-                filepath=filename, dual_mode=dual_mode
+                filepath=filename, dual_mode=dual_mode, root_dir=settings["path"]
             )
 
             file_cache.set(filename, active_file)

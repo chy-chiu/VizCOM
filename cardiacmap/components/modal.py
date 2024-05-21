@@ -33,6 +33,28 @@ def radio_input_modal(modal_id, label, options, n, value):
         ]
     )
 
+def settings_modal(settings):
+    return dbc.Modal(
+            [
+                dbc.ModalHeader("Settings"),
+                dbc.ModalBody([
+                    dbc.Label("Data Folder"),
+                    dbc.Input(
+                        id="data-folder-settings-modal",
+                        type="text",
+                        value=settings.get("path"),
+                    ),
+                ]),
+                dbc.ModalFooter(
+                dbc.Button(
+                    "Confirm", id="settings-confirm"
+                )
+            ),
+            ],
+            id='settings-modal',
+            is_open=False,
+            
+        )
 
 def transform_modals(n):
     spatial_modal = dbc.Modal(

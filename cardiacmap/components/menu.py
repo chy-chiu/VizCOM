@@ -2,9 +2,12 @@
 
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+from cardiacmap.components.modal import settings_modal
 
+def navbar(settings):
+    if settings is None:
 
-def navbar():
+        settings = {}
     return dbc.NavbarSimple(
         children=[
             html.Div(
@@ -17,6 +20,8 @@ def navbar():
                     "margin-left": "1vw",
                 },
             ),
+            dbc.NavItem(dbc.Button("Settings", id="settings-button")),
+            settings_modal(settings)
         ],
         links_left=True,
         brand="CardiacOpticalMapper",

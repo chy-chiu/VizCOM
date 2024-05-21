@@ -230,8 +230,8 @@ class CascadeDataFile:
         self.signals = signals
 
     @classmethod
-    def load_data(cls, filepath, dual_mode=False):
-        file_metadata, sigarray = CascadeDataFile.from_dat(filepath)
+    def load_data(cls, filepath, root_dir, dual_mode=False):
+        file_metadata, sigarray = CascadeDataFile.from_dat(filepath, root_dir)
 
         signals = {}
 
@@ -298,7 +298,7 @@ class CascadeDataFile:
         return signal_traces
 
     @staticmethod
-    def from_dat(filepath: str) -> np.ndarray:
+    def from_dat(filepath: str, root_dir: str) -> np.ndarray:
         """Load data from .dat files irrespective of mode
 
         Args:
@@ -308,7 +308,7 @@ class CascadeDataFile:
             file_metadata: dict of metadata
             imarray: numpy array of size (frame, H, W)
         """
-        script_dir = os.path.abspath("./data")
+        script_dir = os.path.abspath(root_dir)
         f_path = os.path.join(script_dir, filepath)
         file = open(f_path, "rb")
 

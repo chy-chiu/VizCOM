@@ -12,6 +12,14 @@ def modal_callbacks(app: Dash):
         if n1 or n2:
             return not is_open
         return is_open
+    
+    app.callback(
+        Output("settings-modal", "is_open"),
+        Input("settings-button", "n_clicks"),
+        Input("settings-confirm", "n_clicks"),
+        State("settings-modal", "is_open"),
+        prevent_initial_call=True,
+    )(toggle_modal_2way)
 
     app.callback(
         Output({"type": "spatial-avg-modal", "index": MATCH}, "is_open"),
