@@ -9,6 +9,8 @@ import plotly.express as px
 from dash import ALL, MATCH, Dash, Input, Output, State, callback, ctx, dcc, html
 from dash.dependencies import ClientsideFunction
 from flask_caching import Cache
+import flask
+import os
 
 # from cardiacmap.data import CascadeDataVoltage
 from cardiacmap.callbacks import (
@@ -17,6 +19,7 @@ from cardiacmap.callbacks import (
     modal_callbacks,
     signal_callbacks,
     transform_callbacks,
+    video_callbacks
 )
 from cardiacmap.components import file_directory, metadata_bar, navbar, signal_viewer
 
@@ -84,6 +87,11 @@ app.layout = html.Div(
     ]
 )
 
+@app.server.route('/.videos/<path:path>')
+def serve_static(path):
+    root_dir = os.getcwd()
+    return flask.send_from_directory(os.path.join(root_dir, '.videos'), path)
+
 # This input is not directly used but triggers the clientside callback execution on load.
 app.clientside_callback(
     ClientsideFunction(namespace="clientside", function_name="setup_drag_listener"),
@@ -98,6 +106,7 @@ image_callbacks(app, signal_cache)
 signal_callbacks(app, signal_cache)
 modal_callbacks(app)
 transform_callbacks(app, signal_cache)
+video_callbacks(app, signal_cache)
 
 
 def open_browser():
