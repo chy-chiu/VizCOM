@@ -164,16 +164,17 @@ def transform_callbacks(app, signal_cache: Cache):
         State(indexed_component_id("baseline-period", MATCH), "value"),
         State(indexed_component_id("baseline-threshold", MATCH), "value"),
         State(indexed_component_id("baseline-mode", MATCH), "value"),
+        State(indexed_component_id("alternans-toggle", MATCH), "value"),
         prevent_initial_call=True,
     )
-    def remove_baseline_drift(_, period, threshold, mode):
+    def remove_baseline_drift(_, period, threshold, mode, alternans):
         sig_id = ctx.triggered_id["index"]
 
         active_signal: CascadeSignal = signal_cache.get(sig_id)
 
         if active_signal:
             if mode == "Period":
-                active_signal.calc_baseline(mode, period)
+                active_signal.calc_baseline(mode, period, alternans)
             elif mode == "Threshold":
                 active_signal.calc_baseline(mode, threshold)
 

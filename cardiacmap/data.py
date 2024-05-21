@@ -44,6 +44,7 @@ class CascadeSignal:
     position: np.ndarray
     mask: List[Tuple[int, int]]
     mask_arr: np.ndarray
+    spatial_apds = []
 
     def __init__(self, signal: np.ndarray) -> None:
         self.base_data = deepcopy(signal)
@@ -57,7 +58,7 @@ class CascadeSignal:
 
         ## APD / DI variables
         self.apdThreshold = 0
-        self.apdDIThresholdIdxs = []
+        self.apdDIThresholdIdxs = []    # TODO: Can this be cleared after confirmation?
         self.apdIndicators = []
         self.apds = []
         self.apd_indices = []
@@ -66,6 +67,7 @@ class CascadeSignal:
         self.mask = []
         self.mask_arr = None
         self.show_apd_threshold = False
+        self.spatial_apds = []
 
     def perform_average(
         self,
@@ -116,8 +118,8 @@ class CascadeSignal:
     def normalize(self):
         self.transformed_data = NormalizeData(self.transformed_data)
 
-    def calc_baseline(self, method, methodValue):
-        print("Calculating baseline", method, methodValue)
+    def calc_baseline(self, method, methodValue, alternans):
+        print("Calculating baseline", method, methodValue, alternans)
         data = self.transformed_data
         t = np.arange(len(data))
         threads = (
@@ -127,7 +129,7 @@ class CascadeSignal:
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
         self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, method, methodValue, threads
+            t, dataSwapped, method, methodValue, threads, alternans
         )
 
     def remove_baseline_drift(self):

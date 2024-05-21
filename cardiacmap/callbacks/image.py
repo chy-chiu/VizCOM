@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from types import NoneType
 from typing import Tuple, Union
 
 import numpy as np
@@ -34,6 +35,13 @@ POSITION_TRACKER_RADIUS = 1
 
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
+# helper function to pad an array with zeros until it is rectangular
+def pad(array, targetWidth):
+    for i in range(len(array)):
+        numZeros = targetWidth - len(array[i])
+        zeros = np.zeros(numZeros)
+        array[i] = np.concatenate((array[i], zeros))
+    return np.asarray(array)
 
 def get_position_shape(signal_position):
     x = signal_position["x"]
@@ -118,6 +126,132 @@ def image_callbacks(app: Dash, signal_cache: Cache):
 
         return img_fig, mask_fig
 
+
+    @app.callback(
+        Output(
+            indexed_component_id("graph-apd-spatial", MATCH), "figure", allow_duplicate=True
+        ),
+        Input(indexed_component_id("image-tabs", MATCH), "active_tab"),
+        Input(indexed_component_id("spatial-apd-index", MATCH), "value"),
+        Input(indexed_component_id("spatial-apd-select", MATCH), "value"),
+        State(indexed_component_id("min-bound-apd", MATCH), "value"),
+        State(indexed_component_id("min-bound-apd-diff", MATCH), "value"),
+        State(indexed_component_id("max-bound-apd", MATCH), "value"),
+        prevent_initial_call=True,
+    )
+    def apd_spatial_plot(at, spatialAPDIdx, displayType, minBound, minBoundDiff, maxBound):
+        if at == "apd-spatial-tab":
+
+            sig_id = ctx.triggered_id["index"]
+            spatial_apd_id = 1000                            # using signal cache here, sig_id+1000 to avoid key conflicts
+            spatial_apd_diff_id = 2000
+            
+            spatialAPDs = None
+
+            active_spatial_apds = signal_cache.get(sig_id + spatial_apd_id)
+            if active_spatial_apds is not None and len(active_spatial_apds) > 0:
+                spatialAPDs = active_spatial_apds
+            else:
+                active_signal: CascadeSignal = signal_cache.get(sig_id)
+            
+                if active_signal:   
+                    # calculate spatial apd plot
+                    active_apds = active_signal.apds
+                    
+                    # check if apds have been calculated
+                    if len(active_apds) == 0:
+                        print("No APDs Calculated")
+                        return px.imshow(DEFAULT_IMG, binary_string=True, title="No APDs Calculated")
+                    
+                    # get largest apd list (each pixel has its own)
+                    max_apd_size = len(max(active_apds, key=len))
+
+                    # extend every pixel with zeros until each pixel has len of max_apd_size (rectangular)
+                    spatialAPDs = pad(active_apds, max_apd_size)
+                    
+                    # reshape and save
+                    spatialAPDs = spatialAPDs.reshape((128, 128, max_apd_size))
+                    spatialAPDs = np.moveaxis(spatialAPDs, -1, 0)
+                    
+                    spatialAPDDiffs = np.diff(spatialAPDs, axis=0)
+
+                    signal_cache.set(sig_id + spatial_apd_id, spatialAPDs)
+                    signal_cache.set(sig_id + spatial_apd_diff_id, spatialAPDDiffs)
+
+            if spatialAPDs is None:
+                print("No Active Signal")
+                return px.imshow(DEFAULT_IMG, binary_string=True, title="No Active Signal")
+
+            # ensure index is within limits
+            if spatialAPDIdx >= len(spatialAPDs):
+                spatialAPDIdx = len(spatialAPDs) - 1
+                if displayType == "Difference":
+                    spatialAPDIdx -= 1
+           
+            minBoundToUse = 0
+            
+            # get the frame to display
+            # select either minBound or minBoundDiff for use
+            # get the data range
+            if displayType == "Value":
+                frame = (spatialAPDs[spatialAPDIdx])
+
+                minBoundToUse = minBound
+                
+                minDataVal = spatialAPDs.min()
+                maxDataVal = spatialAPDs.max()
+
+            elif displayType == "Difference":
+                spatialAPDDiffs = signal_cache.get(sig_id + spatial_apd_diff_id)
+                
+                frame = (spatialAPDDiffs[spatialAPDIdx])
+
+                minBoundToUse = minBoundDiff
+                
+                minDataVal = spatialAPDDiffs.min()
+                maxDataVal = spatialAPDDiffs.max()
+                
+            if minBound is None or maxBound is None:
+                # if bounds are not provided, autoscale to min and max
+                fig = px.imshow(frame, zmin=minDataVal, zmax=maxDataVal, color_continuous_scale='gray')
+            else:
+                # remove outliers
+                indices_under_range = frame < minBoundToUse
+                indices_over_range = frame > maxBound
+                frame[indices_under_range] = frame[indices_over_range] = 0
+                
+                # make frame data into an image
+                fig = px.imshow(frame, zmin=minBoundToUse, zmax=maxBound, color_continuous_scale='gray')
+            
+            
+            fig.update_layout(
+                showlegend=True,
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                margin=dict(l=5, r=5, t=5, b=5),
+                dragmode="drawline",
+            )
+                
+            return fig    
+        return px.imshow(DEFAULT_IMG, binary_string=True)
+    
+    @app.callback(
+        Output(indexed_component_id("spatial-apd-index", MATCH), "value", allow_duplicate=True),
+        Input(indexed_component_id("spatial-apd-index", MATCH), "value"),
+        Input(indexed_component_id("prev-apd-button", MATCH), "n_clicks"),
+        Input(indexed_component_id("next-apd-button", MATCH), "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def update_apd_spatial_plot_index(inputVal, prev, next):
+        button_clicked = ctx.triggered_id["type"]
+        print(button_clicked)
+        if(button_clicked == "prev-apd-button" and inputVal >= 1):
+            return inputVal - 1
+        if(button_clicked == "next-apd-button"):
+            return inputVal + 1
+        else:
+            return inputVal
+        
     def process_point_string(point_string: str):
 
         # Removing the 'M' at the beginning and 'Z' at the end
