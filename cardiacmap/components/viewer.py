@@ -97,6 +97,14 @@ def apd_spatial_display(n):
     ], style={'width': 'auto'})
 
 
+def fft_display(n):
+    return (dbc.Col(
+        children=[
+            dcc.Graph(id=indexed_component_id("graph-fft", n))
+        ]
+    ))
+
+
 # Image viewport has three tabs, each has its own display tab
 def image_viewport(n):
     return dbc.Col(
@@ -107,6 +115,7 @@ def image_viewport(n):
                 dbc.Tab(video_display(n), label="Video"),
                 dbc.Tab(apd_plot_display(n), label="APD/DI Plot", tab_id="apd-di-tab"),
                 dbc.Tab(apd_spatial_display(n), label="APD Spatial", tab_id="apd-spatial-tab"),
+                dbc.Tab(fft_display(n), label="FFT", tab_id="fft-tab"),
             ],
             id=indexed_component_id("image-tabs", n)
         ),
