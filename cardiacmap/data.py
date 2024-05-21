@@ -308,8 +308,8 @@ class CascadeDataFile:
             file_metadata: dict of metadata
             imarray: numpy array of size (frame, H, W)
         """
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        f_path = os.path.join(script_dir, "data", filepath)
+        script_dir = os.path.abspath("./data")
+        f_path = os.path.join(script_dir, filepath)
         file = open(f_path, "rb")
 
         endian = "<"
