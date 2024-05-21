@@ -6,6 +6,12 @@ def modal_callbacks(app: Dash):
         if n:
             return not is_open
         return is_open
+    
+    # i just didnt wanna write a seperate callback to close the settings modal
+    def toggle_modal_2way(n1, n2, is_open):
+        if n1 or n2:
+            return not is_open
+        return is_open
 
     app.callback(
         Output({"type": "spatial-avg-modal", "index": MATCH}, "is_open"),
@@ -45,6 +51,7 @@ def modal_callbacks(app: Dash):
     app.callback(
         Output({"type": "spatial-apd-settings-modal", "index": MATCH}, "is_open"),
         Input({"type": "spatial-apd-settings-button", "index": MATCH}, "n_clicks"),
+        Input({"type": "spatial-apd-settings-confirm", "index": MATCH}, "n_clicks"),
         State({"type": "spatial-apd-settings-modal", "index": MATCH}, "is_open"),
         prevent_initial_call=True,
-    )(toggle_modal)
+    )(toggle_modal_2way)

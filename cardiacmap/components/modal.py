@@ -6,14 +6,14 @@ from dash import html
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
 
-def numerical_input_modal(modal_id, modal_text, n, value):
+def numerical_input_modal(modal_id, modal_text, n, value, minVal=0):
     return html.Div(
         [
-            html.P(modal_text),
+            dbc.Label(modal_text),
             dbc.Input(
                 id=indexed_component_id(modal_id, n),
                 type="number",
-                min=0,
+                min=minVal,
                 value=value,
             ),
         ],
@@ -135,6 +135,14 @@ def transform_modals(n):
                         value="Period",
                         n=n,
                     ),
+                    dbc.Checklist(
+                        options=[
+                            {"label": "Alternans", "value": 1},
+                        ],
+                        value=[],
+                        id=indexed_component_id("alternans-toggle", n),
+                        switch=True,
+                    ),
                     numerical_input_modal(
                         modal_id="baseline-period", modal_text="Period", n=n, value=50
                     ),
@@ -181,10 +189,13 @@ def transform_modals(n):
             dbc.ModalBody(
                 [
                     numerical_input_modal(
-                        modal_id="min-bound-apd", modal_text="Min Bound", n=n, value=0
+                        modal_id="min-bound-apd-diff", modal_text="Min Bound (Difference)", n=n, value=None, minVal=None
                     ),
                     numerical_input_modal(
-                        modal_id="max-bound-apd", modal_text="Max Bound", n=n, value=10000
+                        modal_id="min-bound-apd", modal_text="Min Bound (Value)", n=n, value=None
+                    ),
+                    numerical_input_modal(
+                        modal_id="max-bound-apd", modal_text="Max Bound", n=n, value=None
                     ),
                 ]
             ),

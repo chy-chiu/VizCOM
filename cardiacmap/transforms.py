@@ -135,7 +135,7 @@ def useUniform(arr, sig, radius=1, axes=-1):
     return uniform_filter(arr, size=2 * radius + 1, axes=axes)
 
 
-def GetMins(t, data, method, methodValue, threads):
+def GetMins(t, data, method, methodValue, threads, alternans):
     """Function for calculating the baseline of the data for each xy pair
     Args:
         t (array): list of t values from 0 to len(data)
@@ -147,7 +147,8 @@ def GetMins(t, data, method, methodValue, threads):
     yLen = len(data)
     xLen = len(data[0])
     tLen = len(data[0][0])
-    baselineX = [0 for j in range(yLen * xLen)]
+    
+    baselineX = [0 for j in range(yLen * xLen)]    
     baselineY = baselineX.copy()
 
     if method == "Threshold":
@@ -177,13 +178,13 @@ def GetMins(t, data, method, methodValue, threads):
             for x in range(xLen):
                 index = y * yLen + x
                 d = data[y][x]
-                getMinsByPeriod(t, d, baselineX, baselineY, index, offset, pIdx)
+                getMinsByPeriod(t, d, baselineX, baselineY, index, offset, pIdx, alternans)
 
     else:
         raise ValueError("getMins method must be Threshold or Period. Was:", method)
 
-    baselineX = np.array(baselineX)
-    baselineY = np.array(baselineY)
+    # baselineX = np.array(baselineX)
+    # baselineY = np.array(baselineY)
 
     return baselineX, baselineY
 
@@ -225,7 +226,7 @@ def getMinsByThresholdThread(threshold, t, d, xOut, yOut, outIndex):
     return 0
 
 
-def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
+def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx, alternans):
     """Function called by getMins when method = 'period'
     Args:
         t (array): list of t values from 0 to len(data)
@@ -258,6 +259,20 @@ def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx):
 
     # for each period index, convert to index in d
     minsIndex = np.add(minsIndex, offset)
+    
+    # check alternans    
+    if alternans:
+        xVals = t[minsIndex]
+        first8Mins = xVals[0:8]
+        beatLengths = np.diff(first8Mins)
+        oddBeatAvg = np.mean(beatLengths[0:8:2])
+        evenBeatAvg = np.mean(beatLengths[1:9:2])
+        
+        # get rid of odd/even beat mins (keep the longer beats)
+        if evenBeatAvg < oddBeatAvg:
+            minsIndex = minsIndex[::2]
+        else:
+            minsIndex = minsIndex[1::2]
 
     # set output
     xOut[outIndex] = t[minsIndex]

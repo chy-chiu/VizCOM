@@ -56,7 +56,7 @@ def apd_plot_display(n):
 def apd_spatial_display(n):
     
     return dbc.Col(children=[
-                dcc.RadioItems(
+                dbc.RadioItems(
                     ['Value', 'Difference'], 'Value',
                     inline=True,
                     id=indexed_component_id("spatial-apd-select", n),
@@ -73,8 +73,11 @@ def apd_spatial_display(n):
                             class_name="button-viewer",
                         ),
                         html.Div(
-                            0, id=indexed_component_id("spatial-apd-index", n), 
-                            style={'width': '3em'}
+                            [
+                                dbc.Input(type="number", value=0, min=0, step=1, 
+                                          id=indexed_component_id("spatial-apd-index", n)),
+                            ], 
+                            style={'width': '6em', 'padding-top': '10px'}
                         ),
                         dbc.Button(
                             [">"],
@@ -91,7 +94,7 @@ def apd_spatial_display(n):
                     ],
                     id=indexed_component_id("spatial-apd-buttons", n)
                 )
-    ], width=10)
+    ], style={'width': 'auto'})
 
 
 def fft_display(n):
