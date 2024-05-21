@@ -210,3 +210,40 @@ def transform_modals(n):
     return html.Div(
         [spatial_modal, time_modal, trim_modal, baseline_modal, apd_di_modal, spatial_apd_settings_modal]
     )
+
+def video_modals(n):
+
+    render_modal = dbc.Modal(
+        [
+            # TODO: Heatmap color, framerate etc.
+            dbc.ModalHeader("Rendering Options"),
+            dbc.ModalBody(
+                [
+                    radio_input_modal(
+                        modal_id="normalization-mode",
+                        label="Choose Normalization:",
+                        options=[
+                            {"label": "Raw", "value": "Raw"},
+                            {"label": "Normalized", "value": "Normalized"},
+                        ],
+                        value="Raw",
+                        n=n,
+                    ),
+                    radio_input_modal(
+                        modal_id="data-source",
+                        label="Choose Signal Source:",
+                        options=[
+                            {"label": "Base Signal", "value": "Base Signal"},
+                            {"label": "Transformed Signal", "value": "Transformed Signal"},
+                        ],
+                        value="Base Signal",
+                        n=n,
+                    ),
+                ]
+            )
+        ],
+        id=indexed_component_id(f"rendering-modal", n),
+        is_open=False,
+    )
+
+    return html.Div(render_modal)

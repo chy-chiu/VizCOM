@@ -1,10 +1,11 @@
 import dash_bootstrap_components as dbc
 from dash import html
+from dash import dcc, html
 
 indexed_component_id = lambda idx, n: {"type": idx, "index": n}
 
 
-def button_bar(n):
+def signal_button_bar(n):
     return dbc.Row(
         [
             dbc.Button(
@@ -98,7 +99,61 @@ def button_bar(n):
                 class_name="button-viewer",
             ),
         ],
-        id="button-bar-{n}".format(n=n),
+        id="signal-button-bar-{n}".format(n=n),
+        style={
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+        },
+    )
+
+
+def mask_button_bar(n):
+
+    return dbc.Row(
+        [
+            dbc.Button(
+                [html.I(className="bi bi-check"), "  Confirm Mask"],
+                id=indexed_component_id("confirm-mask-button", n),
+                color="light",
+                class_name="button-viewer",
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-arrow-clockwise"), "  Reset Mask"],
+                id=indexed_component_id("reset-mask-button", n),
+                color="light",
+                class_name="button-viewer",
+            ),
+        ],
+        id="mask-button-bar-{n}".format(n=n),
+        style={
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+        },
+    )
+
+
+def video_button_bar(n):
+
+    return dbc.Row(
+        [
+            dbc.Button(
+                [html.I(className="bi bi-check"), "  Render Video"],
+                id=indexed_component_id("render-video-button", n),
+                color="light",
+                class_name="button-viewer",
+            ),
+            dcc.Dropdown(
+                options=[],
+                value="",
+                id=indexed_component_id("video-dropdown-button", n),
+                searchable=False,
+                style={"width": "60%"},
+            ),
+            # style={"display": "inline-block", "margin-right": "10px"},
+        ],
+        id="video-button-bar-{n}".format(n=n),
         style={
             "display": "flex",
             "align-items": "center",

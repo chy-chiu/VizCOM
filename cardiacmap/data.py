@@ -8,7 +8,8 @@ import struct
 import sys
 from copy import deepcopy
 from locale import normalize
-from typing import Dict, List
+from typing import Dict, List, Tuple
+import cv2
 
 import numpy as np
 
@@ -40,6 +41,9 @@ class CascadeSignal:
     span_Y: int = 128
     base_data: np.ndarray
     transformed_data: np.ndarray
+    position: np.ndarray
+    mask: List[Tuple[int, int]]
+    mask_arr: np.ndarray
     spatial_apds = []
 
     def __init__(self, signal: np.ndarray) -> None:
@@ -60,6 +64,8 @@ class CascadeSignal:
         self.apd_indices = []
         self.dis = []
         self.di_indices = []
+        self.mask = []
+        self.mask_arr = None
         self.show_apd_threshold = False
         self.spatial_apds = []
 
@@ -68,17 +74,17 @@ class CascadeSignal:
         type,
         sig,
         rad,
-        mask=None,
         mode="Gaussian",
     ):
         if type == "time":
+            print(self.transformed_data.shape)
             self.transformed_data = TimeAverage(
-                self.transformed_data, sig, rad, mask, mode
+                self.transformed_data, sig, rad, self.mask_arr, mode
             )
 
         elif type == "spatial":
             self.transformed_data = SpatialAverage(
-                self.transformed_data, sig, rad, mask, mode
+                self.transformed_data, sig, rad, self.mask_arr, mode
             )
 
         return
@@ -171,7 +177,13 @@ class CascadeSignal:
         # Take the middle as the key frame for now
         key_frame_idx = self.span_T // 2
 
-        return self.base_data[key_frame_idx]
+        key_frame = self.base_data[key_frame_idx]
+
+        if self.mask_arr is not None:
+
+            key_frame = key_frame * self.mask_arr
+
+        return key_frame
 
     def get_curr_signal(self):
         return self.transformed_data

@@ -53,10 +53,10 @@ window.dash_clientside.clientside = {
             const minWidth = Math.min(rect.width, rect.height);
 
             // Calculate offset within the actual graph element
-            const offsetX = moveEvent.clientX - rect.left - WINDOW_OFFSET / 2;
+            const offsetX = moveEvent.clientX - rect.left - (rect.width + WINDOW_OFFSET - minWidth) / 2;
             const offsetY = moveEvent.clientY - rect.top - (rect.height + WINDOW_OFFSET - minWidth) / 2;
 
-            console.log(offsetX, offsetY);
+            // console.log(offsetX, offsetY);
 
             // Normalize/Map the offset to canvas (128x128)
             const mappedX = Math.max(Math.min(Math.floor((offsetX / (minWidth - WINDOW_OFFSET)) * canvasWidth), 127), 0);

@@ -9,8 +9,13 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 from dash import Dash, Input, Output, callback, dcc, html
 from dash_extensions import EventListener
+import dash_player
 
-from cardiacmap.components.buttons import button_bar
+from cardiacmap.components.buttons import (
+    signal_button_bar,
+    mask_button_bar,
+    video_button_bar,
+)
 from cardiacmap.components.modal import transform_modals
 
 event_change = {"event": "drag-change", "props": ["type", "srcElement.innerText"]}
@@ -30,79 +35,94 @@ def img_drag_display(n):
 
 def img_mask_display(n):
 
-    return dcc.Graph(
-        id=indexed_component_id("graph-mask", n),
-        config={
-            "modeBarButtonsToAdd": [
-                "drawclosedpath",
-                "eraseshape",
-            ]
-        },
-    )
+    return [
+        mask_button_bar(n),
+        dbc.Row(
+            dcc.Graph(
+                id=indexed_component_id("graph-mask", n),
+                config={
+                    "modeBarButtonsToAdd": [
+                        "drawclosedpath",
+                        "eraseshape",
+                    ]
+                },
+            )
+        ),
+    ]
 
 
 def video_display(n):
 
-    return dcc.Graph(
-        id=indexed_component_id("graph-video", n),
-    )
+    return [
+        video_button_bar(n),
+        dbc.Row(
+            html.Video(src='/.videos/video_1.mp4',controls=True)
+        ),
+    ]
+
 
 def apd_plot_display(n):
-    
+
     return dcc.Graph(
-                id=indexed_component_id("graph-apd-plot", n),
+        id=indexed_component_id("graph-apd-plot", n),
     )
 
+
 def apd_spatial_display(n):
-    
-    return dbc.Col(children=[
-                dbc.RadioItems(
-                    ['Value', 'Difference'], 'Value',
-                    inline=True,
-                    id=indexed_component_id("spatial-apd-select", n),
-                ),
-                dcc.Graph(
-                    id=indexed_component_id("graph-apd-spatial", n),
-                ),
-                dbc.Row(
-                    children=[
-                        dbc.Button(
-                            ["<"],
-                            id=indexed_component_id("prev-apd-button", n),
-                            color="light",
-                            class_name="button-viewer",
-                        ),
-                        html.Div(
-                            [
-                                dbc.Input(type="number", value=0, min=0, step=1, 
-                                          id=indexed_component_id("spatial-apd-index", n)),
-                            ], 
-                            style={'width': '6em', 'padding-top': '10px'}
-                        ),
-                        dbc.Button(
-                            [">"],
-                            id=indexed_component_id("next-apd-button", n),
-                            color="light",
-                            class_name="button-viewer",
-                        ),
-                        dbc.Button(
-                            [html.I(className="bi bi-gear-fill")],
-                            id=indexed_component_id("spatial-apd-settings-button", n),
-                            color="light",
-                            class_name="button-viewer",
-                        ),
-                    ],
-                    id=indexed_component_id("spatial-apd-buttons", n)
-                )
-    ], style={'width': 'auto'})
+
+    return dbc.Col(
+        children=[
+            dbc.RadioItems(
+                ["Value", "Difference"],
+                "Value",
+                inline=True,
+                id=indexed_component_id("spatial-apd-select", n),
+            ),
+            dcc.Graph(
+                id=indexed_component_id("graph-apd-spatial", n),
+            ),
+            dbc.Row(
+                children=[
+                    dbc.Button(
+                        ["<"],
+                        id=indexed_component_id("prev-apd-button", n),
+                        color="light",
+                        class_name="button-viewer",
+                    ),
+                    html.Div(
+                        [
+                            dbc.Input(
+                                type="number",
+                                value=0,
+                                min=0,
+                                step=1,
+                                id=indexed_component_id("spatial-apd-index", n),
+                            ),
+                        ],
+                        style={"width": "6em", "padding-top": "10px"},
+                    ),
+                    dbc.Button(
+                        [">"],
+                        id=indexed_component_id("next-apd-button", n),
+                        color="light",
+                        class_name="button-viewer",
+                    ),
+                    dbc.Button(
+                        [html.I(className="bi bi-gear-fill")],
+                        id=indexed_component_id("spatial-apd-settings-button", n),
+                        color="light",
+                        class_name="button-viewer",
+                    ),
+                ],
+                id=indexed_component_id("spatial-apd-buttons", n),
+            ),
+        ],
+        style={"width": "auto"},
+    )
 
 
 def fft_display(n):
-    return (dbc.Col(
-        children=[
-            dcc.Graph(id=indexed_component_id("graph-fft", n))
-        ]
-    ))
+    return dbc.Col(children=[dcc.Graph(id=indexed_component_id("graph-fft", n))])
 
 
 # Image viewport has three tabs, each has its own display tab
@@ -114,12 +134,16 @@ def image_viewport(n):
                 dbc.Tab(img_mask_display(n), label="Mask"),
                 dbc.Tab(video_display(n), label="Video"),
                 dbc.Tab(apd_plot_display(n), label="APD/DI Plot", tab_id="apd-di-tab"),
-                dbc.Tab(apd_spatial_display(n), label="APD Spatial", tab_id="apd-spatial-tab"),
+                dbc.Tab(
+                    apd_spatial_display(n),
+                    label="APD Spatial",
+                    tab_id="apd-spatial-tab",
+                ),
                 dbc.Tab(fft_display(n), label="FFT", tab_id="fft-tab"),
             ],
-            id=indexed_component_id("image-tabs", n)
+            id=indexed_component_id("image-tabs", n),
         ),
-        width={"size": 2, "order": 1},
+        width={"size": 3, "order": 1},
         # style={"padding-bottom": "100%", "position": "relative"},
         id=indexed_component_id("col-image", n),
     )
@@ -127,7 +151,7 @@ def image_viewport(n):
 
 def signal_viewport(n):
     return dbc.Col(
-        [button_bar(n), dcc.Graph(id=indexed_component_id("graph-signal", n))],
+        [signal_button_bar(n), dcc.Graph(id=indexed_component_id("graph-signal", n))],
         # html.Div(
         #     [
         #         # dcc.Slider(
