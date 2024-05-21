@@ -113,7 +113,7 @@ def open_browser():
     webbrowser.open_new("http://localhost:{}".format(DASH_APP_PORT))
 
 
-DEBUG = True
+DEBUG = False
 
 if __name__ == "__main__":
     if not DEBUG:
