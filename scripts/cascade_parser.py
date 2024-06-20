@@ -2,8 +2,9 @@
 
 import argparse
 import io
-import struct
 import pickle
+import struct
+
 import numpy as np
 
 CHUNK_SIZE = 100000
