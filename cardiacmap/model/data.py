@@ -4,6 +4,7 @@ import os
 import pickle
 import struct
 import sys
+import psutil
 from copy import deepcopy
 from locale import normalize
 from typing import Dict, List, Tuple
@@ -59,8 +60,8 @@ class CascadeDataFile:
         self.signals = signals
 
     @classmethod
-    def load_data(cls, filepath, dual_mode=False):
-        file_metadata, sigarray = CascadeDataFile.from_dat(filepath)
+    def load_data(cls, filepath, largeFilePopup, dual_mode=False):
+        file_metadata, sigarray = CascadeDataFile.from_dat(filepath, largeFilePopup)
 
         signals = {}
 
@@ -125,13 +126,41 @@ class CascadeDataFile:
                 signal_traces[(k, i)] = signal[:, i, :]
 
         return signal_traces
+    
+    @staticmethod
+    def large_file_check(filepath, _callback):
+        """Check filepath against available RAM
+        Args:
+            filepath(str): Input file path
+        Returns:
+            tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
+        """
+        USAGE_THRESHOLD = .5
+        freeMem = psutil.virtual_memory()[1]
+        estDataSize = os.path.getsize(filepath) * 4 # estimate conversion to float16 and 2 data sets (raw and transformed)
+                                                    # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
+        
+        usePercentage = estDataSize / freeMem
+        
+        # use 50% threshold to leave room for apd, di, fft, etc.
+        if usePercentage > USAGE_THRESHOLD:
+            maxFrames = int((freeMem * .5)/1040000) # AGAIN, VERY ROUGH ESTIMATE BASED ON 5k FRAMES @ 650MB
+            
+            start, end = _callback(maxFrames) #pauses execution until popup is closed
+
+            skip = start
+            size = end - start
+            
+            return (skip, size)
+        return (0, 0)
 
     @staticmethod
-    def from_dat(filepath: str) -> np.ndarray:
+    def from_dat(filepath: str, largeFilePopup) -> np.ndarray:
         """Load data from .dat files irrespective of mode
 
         Args:
             filepath (str): Input file path
+            largeFilePopup (func): callback function to open popup window for larger-than-memory files 
 
         Returns:
             file_metadata: dict of metadata
@@ -189,14 +218,21 @@ class CascadeDataFile:
             file_metadata["metadata"] = file.read(971).decode().rstrip("\x00")
 
             skip_bytes = 8
-
-        sigarray = np.frombuffer(file.read(), dtype="uint16")
+            
         skip = skip_bytes // 2
-
+        
+        trimFrames = CascadeDataFile.large_file_check(filepath, largeFilePopup)
+        if trimFrames[1] == 0:
+            sigarray = np.frombuffer(file.read(), dtype="float16")
+        else:
+            file.read(trimFrames[0] * 2 * span_X * span_Y + trimFrames[0] * skip_bytes) # skip
+            sigarray = np.frombuffer(file.read(trimFrames[1] * 2 * span_X * span_Y + trimFrames[1] * skip_bytes), dtype="float16" ) # read   
+            span_T = trimFrames[1] # set new spanT
+            
         sigarray = sigarray.reshape(span_T, -1)[:, :-skip].reshape(
             span_T, span_X, span_Y
         )
-
+        
         file_metadata["span_T"] = span_T
         file_metadata["span_X"] = span_X
         file_metadata["span_Y"] = span_Y

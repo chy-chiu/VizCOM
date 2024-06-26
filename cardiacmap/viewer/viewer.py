@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMainWindow,
     QMenu,
@@ -321,6 +322,10 @@ class ImageSignalViewer(QWidget):
 
         print("test")
 
+class PopupWindow(QInputDialog):
+    def __init__(self):
+        QInputDialog.__init__(self)
+        
 
 class CardiacMapWindow(QMainWindow):
     # This is the main window that allows you to open a new widget etc.
@@ -346,7 +351,15 @@ class CardiacMapWindow(QMainWindow):
         self.file_menu.addAction(self.load_calcium_action)
 
         self.docks = []
-
+        
+    def largeFilePopUp(self, tLen):
+        print("t len:", tLen)
+        self.filePopup = PopupWindow()
+        start = self.filePopup.getInt(self, "File Too Large", "Enter Start Frame:", minValue=0, maxValue=tLen)[0]
+        end = self.filePopup.getInt(self, "File Too Large", "Enter End Frame:", minValue=start+1, maxValue=tLen)[0]
+        
+        return start, end
+        
     def create_viewer(self, signal=None, calcium_mode=False):
 
         filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
@@ -355,7 +368,7 @@ class CardiacMapWindow(QMainWindow):
 
             filename = os.path.split(filepath)[-1]
 
-            cascade_file = CascadeDataFile.load_data(filepath, dual_mode=calcium_mode)
+            cascade_file = CascadeDataFile.load_data(filepath, self.largeFilePopUp, dual_mode=calcium_mode)
 
             if calcium_mode:
 
@@ -403,18 +416,18 @@ if __name__ == "__main__":
     #     "2011-08-23_Exp000_Rec112_Cam1-Blue.dat"
     # )
 
-    cascade_file = CascadeDataFile.load_data(
-        "2011-08-23_Exp000_Rec112_Cam1-Blue.dat",
-        "C:\\Users\\Chris\\repos\\pyui_sandbox\\data",
-    )
+    # cascade_file = CascadeDataFile.load_data(
+    #     "2011-08-23_Exp000_Rec112_Cam1-Blue.dat",
+    #     "C:\\Users\\Chris\\repos\\pyui_sandbox\\data",
+    # )
 
-    signal = cascade_file.signals[0]
+    # signal = cascade_file.signals[0]
 
-    viewer = ImageSignalViewer(signal)
+    # viewer = ImageSignalViewer(signal)
 
-    viewer.show()
+    # viewer.show()
 
-    # main_window = CardiacMapWindow()
-    # main_window.show()
+    main_window = CardiacMapWindow()
+    main_window.show()
 
     sys.exit(app.exec())
