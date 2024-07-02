@@ -201,38 +201,9 @@ def getMinsByPeriod(t, d, xOut, yOut, outIndex, offset, periodIdx, alternans):
 
 
 def NormalizeData(data):
-    # data = np.moveaxis(data, 0, -1)
-    # constants to normalize data to
-    # RES_MIN = 0
-    # RES_RANGE = 10000
+    data = data - data.min(axis=0)
 
-    # get mins and maxes
-    # dataMaxes = np.amax(data, axis=2)
-    dataMins = np.min(data, axis=0)
-
-    print(dataMins)
-
-    # # subtract mins from both data and maxes
-    # norm = dataMaxes - dataMins
-
-    # dataMins = np.expand_dims(dataMins, 2)
-    # dataMinusMins = np.subtract(data, dataMins)
-
-    data -= np.expand_dims(dataMins, 0)
-
-    # # normalize [0 - 1]
-    # res = dataMinusMins / norm[:, :, np.newaxis]
-
-    # # output data array will be in range [RES_MIN, RES_MIN + RES_RANGE]
-    # res *= RES_RANGE
-    # res += RES_MIN
-
-    # res = np.moveaxis(res, -1, 0)
-
-    # print(data.dtype)
-    # print(data[0, 0, :])
-
-    return data
+    return data / data.max(axis=0)
 
 
 def fft(signal, sampling_rate):

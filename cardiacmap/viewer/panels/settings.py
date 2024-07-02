@@ -1,23 +1,7 @@
-import os
-import sys
-from functools import partial
 
-import numpy as np
-import pyqtgraph as pg
-from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
-from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from pyqtgraph.parametertree import Parameter, ParameterTree
-from PySide6 import QtCore, QtWidgets
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
-                               QLabel, QMainWindow, QMenu, QMenuBar,
-                               QPushButton, QSplitter, QTabWidget, QToolButton,
-                               QVBoxLayout, QWidget)
-
-from cardiacmap.model.signal import CascadeSignal
-from cardiacmap.model.data import CascadeDataFile
-
+from pyqtgraph.parametertree import ParameterTree
+from PySide6 import QtWidgets
+from PySide6.QtWidgets import (QHBoxLayout, QPushButton, QWidget)
 
 class ParameterWidget(QWidget):
     def __init__(self, params):
@@ -65,4 +49,4 @@ class ParameterWidget(QWidget):
         else:
             self.toggle.setText("▶")
             self.resize(1000, self.height())
-            self.setMinimumWidth(250)
+            self.setMinimumWidth(500)

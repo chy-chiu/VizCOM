@@ -1,20 +1,20 @@
-import argparse
-import io
-import os
-import pickle
-import struct
-import sys
 from copy import deepcopy
-from locale import normalize
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Literal
 
 import cv2
 import numpy as np
 
-from cardiacmap.transforms import (CalculateAPD_DI, GetIntersectionsAPD_DI,
-                                   GetMins, InvertSignal, NormalizeData,
-                                   RemoveBaselineDrift, SpatialAverage,
-                                   TimeAverage, TrimSignal)
+from cardiacmap.transforms import (
+    CalculateAPD_DI,
+    GetIntersectionsAPD_DI,
+    GetMins,
+    InvertSignal,
+    NormalizeData,
+    RemoveBaselineDrift,
+    SpatialAverage,
+    TimeAverage,
+    TrimSignal,
+)
 
 
 class CascadeSignal:
@@ -37,10 +37,28 @@ class CascadeSignal:
     mask_arr: np.ndarray
     spatial_apds = []
 
-    def __init__(self, signal: np.ndarray) -> None:
+    def __init__(
+        self,
+        signal: np.ndarray,
+        metadata: Dict[str, str],
+        channel: Literal["Single", "Odd", "Even"],
+    ):
+
+        self.metadata = metadata
+        self.channel = channel
+
+        signal = signal.transpose(0, 2, 1)
+
+        # This is the single source of truth that will be referred to again
         self.base_data = deepcopy(signal)
+
+        # Variable to hold the data signal for transformations
         self.transformed_data = deepcopy(signal)
+
+        # This is the base image data
         self.image_data = (signal - signal.min()) / signal.max()
+
+        # This is the length of the data
         self.span_T = len(signal)
 
         ## Baseline drift variables
@@ -50,26 +68,27 @@ class CascadeSignal:
 
         ## APD / DI variables
         self.apdThreshold = 0
-        self.apdDIThresholdIdxs = []    # TODO: Can this be cleared after confirmation?
+        self.apdDIThresholdIdxs = []  # TODO: Can this be cleared after confirmation?
         self.apdIndicators = []
         self.apds = []
         self.apd_indices = []
         self.dis = []
         self.di_indices = []
-        self.mask = []
-        self.mask_arr = None
         self.show_apd_threshold = False
         self.spatial_apds = []
 
+        # Mask to isolate relevant bits of the signal only
+        self.mask = []
+        self.mask_arr = None
+
     def perform_average(
         self,
-        type,
+        type: Literal["time", "spatial"],
         sig,
         rad,
-        mode="Gaussian",
+        mode: Literal["Gaussian", "Uniform"]="Gaussian",
     ):
         if type == "time":
-            print(self.transformed_data.shape)
             self.transformed_data = TimeAverage(
                 self.transformed_data, sig, rad, self.mask_arr, mode
             )
@@ -179,7 +198,7 @@ class CascadeSignal:
             key_frame = key_frame * self.mask_arr
 
         return key_frame
-    
+
     def apply_mask(self, mask_arr):
         self.mask_arr = mask_arr
         self.transformed_data = self.transformed_data * self.mask_arr
@@ -187,4 +206,3 @@ class CascadeSignal:
 
     def get_curr_signal(self):
         return self.transformed_data
-

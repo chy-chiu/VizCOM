@@ -4,174 +4,32 @@ from functools import partial
 
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
-from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from pyqtgraph.parametertree import Parameter, ParameterTree
-from PySide6 import QtCore, QtWidgets, QtGui
+from pyqtgraph.parametertree import Parameter
+from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (
-    QApplication,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPushButton,
-    QSplitter,
-    QTabWidget,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-    QToolBar,
-    QPlainTextEdit,
-)
+from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
+                               QInputDialog, QLabel, QMainWindow, QMenu,
+                               QMenuBar, QPlainTextEdit, QPushButton,
+                               QSplitter, QTabWidget, QToolBar, QToolButton,
+                               QVBoxLayout, QWidget)
 
+from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.signal import CascadeSignal
-from cardiacmap.model.data import CascadeDataFile
+from cardiacmap.viewer.panels import PositionView, MetadataPanel, SignalPanel, AnnotateView
 
-from cardiacmap.viewer.parameter import ParameterWidget
+from typing import Literal
 
-
-class DraggablePlot(pg.PlotItem):
-
-    # Draggable PlotItem that takes in a callback function.
-    def __init__(self, callback):
-        super().__init__()
-        self.callback = callback
-
-    def mouseClickEvent(self, event: MouseDragEvent):
-        pos = self.vb.mapSceneToView(event.scenePos())
-
-        self.callback(int(pos.x()), int(pos.y()))
-        return event.pos()
-
-    def mouseDragEvent(self, event: MouseDragEvent):
-
-        pos = self.vb.mapSceneToView(event.scenePos())
-
-        self.callback(int(pos.x()), int(pos.y()))
-        return event.pos()
-
-    def hoverEvent(self, event: HoverEvent):
-        if not event.isExit():
-            # the mouse is hovering over the image; make sure no other items
-            # will receive left click/drag events from here.
-            event.acceptDrags(Qt.MouseButton.LeftButton)
-
-
-class PositionTab(QWidget):
-
-    def __init__(self, position_callback):
-
-        super().__init__()
-
-        self.init_image_view()
-        # self.init_player_bar()
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.image_view)
-        # layout.addWidget(self.player_bar)
-        self.setLayout(layout)
-
-        self.position_callback = position_callback
-
-    def init_image_view(self):
-
-        # Set up Image View
-        view = DraggablePlot(self.update_position)
-        self.image_view = pg.ImageView(view=view)
-        self.image_view.view.enableAutoRange(enable=True)
-        self.image_view.view.setMouseEnabled(False, False)
-
-        self.image_view.view.setRange(
-            xRange=(-2, IMAGE_SIZE + 2), yRange=(-2, IMAGE_SIZE + 2)
-        )
-
-        # Hide UI stuff not needed
-        self.image_view.ui.roiBtn.hide()
-        self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.histogram.hide()
-
-        self.image_view.view.showAxes(False)
-        self.image_view.view.invertY(True)
-
-        # Draggable Red Dot
-        # Add posiiton marker
-        self.position_marker = pg.ScatterPlotItem(
-            pos=[[0, 0]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
-        )
-
-        self.image_view.getView().addItem(self.position_marker)
-
-        return self.image_view
-
-    def init_player_bar(self):
-        self.player_bar = QToolBar()
-
-        play_button = QPushButton("Play")
-        forward_button = QPushButton("Play")
-        back_button = QPushButton("Play")
-        skip_frames = QtWidgets.QSpinBox()
-        skip_frames.setFixedWidth(80)
-        skip_frames.setMaximum(10000)
-        skip_frames.setValue(500)
-        skip_frames.setSingleStep(10)
-        skip_frames.setStyleSheet(
-            """QSpinBox
-            {
-                border: 1px solid;
-            }
-
-            QSpinBox::up-button
-            {
-                min-width: 5px;
-                min-height: 5px;
-                subcontrol-origin: margin;
-                subcontrol-position: right;
-                top: -5px;
-                right: 0px;
-            }
-
-            QSpinBox::down-button
-            {
-                min-width: 5px;
-                min-height: 5px;
-                subcontrol-origin: margin;
-                subcontrol-position: right;
-                bottom: -5px;
-                right: 0px;
-            }"""
-        )
-
-        colormap = QToolButton()
-        normalize = QToolButton()
-
-        play_button.clicked.connect(self.image_view.play(rate=100))
-        # forward_button.clicked.connect(self.image_view.)
-
-        self.player_bar.addWidget(play_button)
-        self.player_bar.addWidget(forward_button)
-        # self.player_bar.addAction()
-        self.player_bar.addWidget(back_button)
-        self.player_bar.addWidget(skip_frames)
-        self.player_bar.addWidget(colormap)
-        self.player_bar.addWidget(normalize)
-
-    def update_position(self, x, y):
-
-        y = np.clip(y, 0, IMAGE_SIZE - 1)
-        x = np.clip(x, 0, IMAGE_SIZE - 1)
-
-        self.update_marker(x, y)
-        self.position_callback(x, y)
-
-    def update_marker(self, x, y):
-        self.position_marker.setData(pos=[[x, y]])
-
+TITLE_STYLE = """QDockWidget::title
+{
+font-family: "Roboto Lt";
+font-size: 18pt;
+background: #DCDCDC;
+padding-left: 10px;
+padding-top: 4px;
+}
+"""
+    
 
 # class AnnotateView(QtWidgets.QWidget):
 
@@ -184,148 +42,232 @@ class PositionTab(QWidget):
 #         remove_roi_button = QPushButton("Remove Mask")
 #         confirm_roi_button = QPushButton("Confirm Mask")
 
-IMAGE_SIZE = 128
 
 
-class SignalWidget(QWidget):
-
-    def __init__(self, parent):
-
-        super().__init__(parent=parent)
-
-        self.parent = parent
-
-        self.resize(600, self.height())
-
-        self.init_button_bar()
-        self.init_label()
-
-        self.plot = pg.PlotWidget()
-        self.data: pg.PlotDataItem = self.plot.plot()
-
-        splitter = QSplitter()
-        splitter.setOrientation(Qt.Orientation.Vertical)
-        splitter.addWidget(self.label)
-        splitter.addWidget(self.button_bar)
-        splitter.addWidget(self.plot)
-        splitter.setStyleSheet(
-            """QSplitter::handle {
-                background-color: grey;
-                width: 2
-            }"""
-        )
-
-        layout = QHBoxLayout()
-        layout.addWidget(splitter)
-        self.setLayout(layout)
-
-    def init_button_bar(self):
-        self.button_bar = QToolBar()
-
-        trim = QAction("Trim", self)
-        time_average = QAction("Time Average", self)
-        spatial_average = QAction("Spatial Average", self)
-
-        self.button_bar.addAction(trim)
-        self.button_bar.addAction(time_average)
-        self.button_bar.addAction(spatial_average)
-
-        # For some reason stylesheet here doesn't show text as black
-        self.button_bar.setStyleSheet("QToolButton:!hover {color:black;}")
-
-        trim.triggered.connect(self.parent.test)
-
-    def init_label(self):
-        self.label = QWidget()
-        layout = QHBoxLayout()
-
-        # TODO: Add real metadata + refactor this nicely later to use QFormLayout
-        layout.addWidget(QLabel("File:\nFrames:\nOdd / Even:"))
-        layout.addWidget(QLabel("test.dat\n5000\nSingle Channel"))
-        layout.addStretch()
-
-        self.label.setLayout(layout)
-
-
-class ImageSignalViewer(QWidget):
+class ImageSignalViewer(QMainWindow):
 
     def __init__(self, signal: CascadeSignal):
 
         super().__init__()
 
-        self.resize(1200, 400)
+        self.resize(1200, 600)
 
-        # TODO: Refactor here
         self.signal = signal
-        self.array = self.signal.base_data.transpose(0, 2, 1)
+        self.x = 0
+        self.y = 0
+        
+        self.setStyleSheet(TITLE_STYLE)
+        # Create settings param
+        # TODO: Refactor parameter creation to settings or something
+        spatial_params = [
+            {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
+            {"name": "Radius", "type": "int", "value": 6, "limits": (0, 100)},
+            {"name": "Mode", "type": "list", "value": "Gaussian", "limits": ["Gaussian", "Uniform"]},
+        ]
+
+        time_params = [
+            {"name": "Sigma", "type": "int", "value": 4, "limits": (0, 100)},
+            {"name": "Radius", "type": "int", "value": 3, "limits": (0, 100)},
+            {"name": "Mode", "type": "list", "value": "Gaussian", "limits": ["Gaussian", "Uniform"]},
+        ]
+
+        trim_params = [
+            {"name": "Left", "type": "int", "value": 100, "limits": (0, 10000)},
+            {"name": "Right", "type": "int", "value": 100, "limits": (0, 10000)},
+        ]
+
+        drift_params = [
+            {"name": "Method", "type": "list", "value": "Period", "limits": ["Period", "Threshold"]},
+            {"name": "Alternans (Period)", "type": "bool", "value": True,},
+            {"name": "Period", "type": "int", "value": 50, "limits": (0, 1000)},
+            {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
+        ]
+
+        apd_params = [
+            {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
+        ]
+
+        self.trim_params = Parameter.create(name="Trim Parameters", type="group", children=trim_params)
+        self.spatial_params = Parameter.create(name="Spatial Average", type="group", children=spatial_params)
+        self.time_params = Parameter.create(name="Time Average", type="group", children=time_params)
+        self.baseline_params = Parameter.create(name="Baseline Drift", type="group", children=drift_params)
+        self.apd_params = Parameter.create(name="Baseline Drift", type="group", children=apd_params)
+        self.params_parent = Parameter.create(name="Parameters", type="group", children=[self.spatial_params, self.time_params, self.trim_params, self.baseline_params])
+
+        self.metadata_panel = MetadataPanel(signal, self)
 
         # Create viewer tabs
-        self.position_tab = PositionTab(position_callback=self.update_signal_plot)
+        self.position_tab = PositionView(self)
         self.position_tab.image_view.setImage(
-            self.array, autoLevels=True, autoRange=False
+            self.signal.image_data, autoLevels=True, autoRange=False
         )
+
+        # self.annotate_tab = AnnotateView(self)
 
         self.image_tabs = QTabWidget()
         size_policy = QtWidgets.QSizePolicy()
-        size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Preferred)
-        size_policy.setHeightForWidth(True)
+        size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
+        # size_policy.setHeightForWidth(True)
         self.image_tabs.setSizePolicy(size_policy)
-        self.image_tabs.setMinimumWidth(256)
-        self.image_tabs.setMaximumWidth(1024)
+        self.image_tabs.setMinimumWidth(380)
+        self.image_tabs.setMinimumHeight(500)
+        # self.image_tabs.setMaximumWidth(1024)
 
-        self.image_tabs.addTab(self.position_tab, "Image / Video")
+        self.image_tabs.addTab(self.position_tab, "Position")
+        # self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
         # Create Signal View
-        self.signal_view = SignalWidget(self)
-
-        # Create settings widget
-        # TODO: Refactor here
-        params = [
-            {"name": "Parameter 1", "type": "int", "value": 10, "limits": (0, 100)},
-            {
-                "name": "Parameter 2",
-                "type": "float",
-                "value": 0.5,
-                "limits": (0.0, 1.0),
-            },
-            {"name": "Parameter 3", "type": "bool", "value": True},
-        ]
-
-        self.params = Parameter.create(name="parameters", type="group", children=params)
-        # self.params2 = Parameter.create(name="parameters", type="group", children=params)
-        
-        # self.params_parent = Parameter.create(name="parent", type="group", children={'name': 'test', 'type': 'group', 'value':self.params})
-
-        print(self.params['Parameter 1'])
-
-        settings_widget = ParameterWidget(self.params)
+        self.signal_panel = SignalPanel(self)
 
         # Create main layout
         self.splitter = QSplitter()
         self.splitter.addWidget(self.image_tabs)
-        self.splitter.addWidget(self.signal_view)
-        self.splitter.addWidget(settings_widget)
+        self.splitter.addWidget(self.signal_panel)
 
         for i in range(self.splitter.count()):
             self.splitter.setCollapsible(i, False)
         layout = QHBoxLayout()
         layout.addWidget(self.splitter)
 
+        self.signal_dock = QDockWidget("Signal View", self)
+        self.image_dock = QDockWidget("Image View", self)
+        self.metadata_dock = QDockWidget()
+        
+        self.signal_dock.setWidget(self.signal_panel)
+        self.image_dock.setWidget(self.image_tabs)
+        self.metadata_dock.setWidget(self.metadata_panel)
+        self.metadata_dock.setFloating(False)
+
+
+        self.setCentralWidget(self.metadata_panel)
+        # self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.metadata_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+        self.image_dock.resize(400, 1000)
         self.setLayout(layout)
 
-    def update_signal_plot(self, x, y):
+        self.signal.normalize()
+        self.update_signal_plot()
 
-        signal = self.array[:, y, x]
-        self.signal_view.data.setData(signal)
+    def update_signal_plot(self):
 
-    def test(self):
+        signal_data = self.signal.transformed_data[:, self.y, self.x]
+        self.signal_panel.signal_data.setData(signal_data)
+        self.metadata_panel.position_label.setText(f"{self.x}, {self.y}\n\n")
 
-        print("test")
+        if self.signal.show_baseline:
+            baseline_idx = self.x * self.signal.span_X + self.y
+
+            bX = self.signal.baselineX[baseline_idx]
+            bY = self.signal.baselineY[baseline_idx]
+
+            self.signal_panel.baseline_data.setData(bX, bY)
+        else:
+            self.signal_panel.baseline_data.setData()
+
+        if self.signal.show_apd_threshold:
+
+            sig_idx = self.x * self.signal.span_X + self.y
+            indices, thresh = self.signal.get_apd_threshold()
+
+            tX = indices[sig_idx]
+            tY = [thresh for t in tX]
+
+            self.signal_panel.apd_data.setData(tX, tY)
+        else:
+            self.signal_panel.apd_data.setData()
+
+
+    def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize"]):
+        # Calls a transform function within the signal item
+
+        if transform == "spatial_average":
+            sigma = self.spatial_params.child('Sigma').value()
+            radius = self.spatial_params.child('Radius').value()
+            mode = self.spatial_params.child('Mode').value()
+            self.signal.perform_average(type="spatial", sig=sigma, rad=radius, mode=mode)
+            self.signal.normalize()
+
+        elif transform == "time_average":
+            sigma = self.time_params.child('Sigma').value()
+            radius = self.time_params.child('Radius').value()
+            mode = self.time_params.child('Mode').value()
+            self.signal.perform_average(type="time", sig=sigma, rad=radius, mode=mode)
+            self.signal.normalize()
+
+        elif transform == "trim":
+            left = self.trim_params.child('Left').value()
+            right = self.trim_params.child('Right').value()
+            self.signal.trim_data(startTrim=left, endTrim=right)
+
+        elif transform == "normalize":
+            self.signal.normalize()
+        
+        elif transform == "reset":
+            self.signal.reset_data()
+            self.signal.normalize()    
+        
+        self.update_signal_plot()
+        self.position_tab.update_data()
+
+    def calculate_baseline_drift(self, action: Literal["calculate", "confirm", "reset"]):
+
+        method = self.baseline_params.child("Method").value()
+        period = self.baseline_params.child("Period").value()
+        threshold = self.baseline_params.child("Threshold").value()
+        alternans = self.baseline_params.child("Alternans (Period)").value()
+
+        if action == "calculate":
+            if method == "Period":
+                self.signal.calc_baseline(method, period, alternans)
+            elif method == "Threshold":
+                self.signal.calc_baseline(method, threshold)
+
+            self.signal_panel.confirm_baseline_drift.setEnabled(True)
+            self.signal_panel.reset_baseline_drift.setEnabled(True)
+            
+            self.signal.show_baseline = True
+        else:
+            if action == "confirm":
+                self.signal.remove_baseline_drift()
+
+            self.signal.reset_baseline()
+            self.signal.show_baseline = False
+
+            self.signal_panel.confirm_baseline_drift.setEnabled(False)
+            self.signal_panel.reset_baseline_drift.setEnabled(False)
+            
+        self.update_signal_plot()
+
+    def calculate_apd(self, action: Literal["calculate", "confirm", "reset"]):
+
+        threshold = self.apd_params.child("Threshold").value()
+        
+        if action == "calculate":
+            self.signal.calc_apd_di_threshold(threshold)
+
+            self.signal_panel.confirm_apd.setEnabled(True)
+            self.signal_panel.reset_apd.setEnabled(True)
+            
+            self.signal.show_apd_threshold = True
+        else:
+            if action == "confirm":
+                self.signal.calc_apd_di()
+
+            self.signal.reset_apd_di()
+            self.signal.show_apd_threshold = False
+
+            self.signal_panel.confirm_apd.setEnabled(False)
+            self.signal_panel.reset_apd.setEnabled(False)
+            
+        self.update_signal_plot()
+
 
 class PopupWindow(QInputDialog):
     def __init__(self):
         QInputDialog.__init__(self)
-        
+
 
 class CardiacMapWindow(QMainWindow):
     # This is the main window that allows you to open a new widget etc.
@@ -351,15 +293,23 @@ class CardiacMapWindow(QMainWindow):
         self.file_menu.addAction(self.load_calcium_action)
 
         self.docks = []
-        
+
     def largeFilePopUp(self, tLen):
         print("t len:", tLen)
         self.filePopup = PopupWindow()
-        start = self.filePopup.getInt(self, "File Too Large", "Enter Start Frame:", minValue=0, maxValue=tLen)[0]
-        end = self.filePopup.getInt(self, "File Too Large", "Enter End Frame:", minValue=start+1, maxValue=tLen)[0]
-        
+        start = self.filePopup.getInt(
+            self, "File Too Large", "Enter Start Frame:", minValue=0, maxValue=tLen
+        )[0]
+        end = self.filePopup.getInt(
+            self,
+            "File Too Large",
+            "Enter End Frame:",
+            minValue=start + 1,
+            maxValue=tLen,
+        )[0]
+
         return start, end
-        
+
     def create_viewer(self, signal=None, calcium_mode=False):
 
         filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
@@ -368,12 +318,14 @@ class CardiacMapWindow(QMainWindow):
 
             filename = os.path.split(filepath)[-1]
 
-            cascade_file = CascadeDataFile.load_data(filepath, self.largeFilePopUp, dual_mode=calcium_mode)
+            signals = load_cascade_file(
+                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+            )
 
             if calcium_mode:
 
-                signal_odd = cascade_file.signals[1]
-                signal_even = cascade_file.signals[0]
+                signal_odd = signals[0]
+                signal_even = signals[1]
 
                 for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
                     viewer = ImageSignalViewer(signal)
@@ -386,7 +338,7 @@ class CardiacMapWindow(QMainWindow):
                     self.docks.append(dock)
 
             else:
-                signal = cascade_file.signals[0]
+                signal = signals[0]
 
                 viewer = ImageSignalViewer(signal)
 
@@ -397,37 +349,19 @@ class CardiacMapWindow(QMainWindow):
                 self.addDockWidget(Qt.RightDockWidgetArea, dock)
                 self.docks.append(dock)
 
-    def create_plot_widget(self):
-        plot_widget = pg.PlotWidget()
-        plot_data = [1, 2, 3, 4, 5]
-        plot_widget.plot(plot_data)
-        container = QWidget()
-        layout = QVBoxLayout()
-        layout.addWidget(plot_widget)
-        container.setLayout(layout)
-        return container
-
-
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # datafile, sigarray = CascadeDataFile.from_dat(
-    #     "2011-08-23_Exp000_Rec112_Cam1-Blue.dat"
-    # )
+    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+        
+    signal = signals[0]
 
-    # cascade_file = CascadeDataFile.load_data(
-    #     "2011-08-23_Exp000_Rec112_Cam1-Blue.dat",
-    #     "C:\\Users\\Chris\\repos\\pyui_sandbox\\data",
-    # )
+    viewer = ImageSignalViewer(signal)
 
-    # signal = cascade_file.signals[0]
+    viewer.show()
 
-    # viewer = ImageSignalViewer(signal)
-
-    # viewer.show()
-
-    main_window = CardiacMapWindow()
-    main_window.show()
+    # main_window = CardiacMapWindow()
+    # main_window.show()
 
     sys.exit(app.exec())
