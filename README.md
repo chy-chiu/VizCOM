@@ -4,7 +4,7 @@ CS8903 - Cardiac Optical Mapping - Prof. Elizabeth Cherry
 ## Overview
 This is a rewrite of the cardiac optical mapping software for better performance and maintainability.
 
-This software is mostly built upon Plotly Dash, a Python framework for interactive data visualization
+This software is mostly built upon Qt (PySide6) and pyqtgraph, a Python framework for interactive data visualization
 
 ## Development
 1. Git clone this repo
