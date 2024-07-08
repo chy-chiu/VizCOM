@@ -46,9 +46,13 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     """
     # interpolate baseline
     interp = np.interp(t, minsX, minsY)
+    
     # subtract interpolation from data
     res = np.subtract(d, interp)
+    
+    # set any negative values to 0
+    res[res < 0] = 0
+
     # store result
     output[outputIndex] = res
-    # return success
     return 0

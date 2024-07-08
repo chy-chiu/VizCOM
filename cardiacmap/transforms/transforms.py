@@ -11,11 +11,10 @@ def InvertSignal(arr):
     Args:
         arr (array): data
     Returns:
-        newArr: results, each data point is equal to: -(value) -1
-                                                    i.e. np.invert([6, 0]) -> [-7, -1]
+        newArr: -data
     """
 
-    newArr = np.invert(arr)
+    newArr = np.multiply(arr, -1)
     return newArr
 
 
