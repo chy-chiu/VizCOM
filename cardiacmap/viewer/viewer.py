@@ -157,7 +157,7 @@ class ImageSignalViewer(QMainWindow):
         self.metadata_panel.position_label.setText(f"{self.x}, {self.y}\n\n")
 
         if self.signal.show_baseline:
-            baseline_idx = self.x * self.signal.span_X + self.y
+            baseline_idx = self.y * self.signal.span_Y + self.x
 
             bX = self.signal.baselineX[baseline_idx]
             bY = self.signal.baselineY[baseline_idx]
@@ -168,7 +168,7 @@ class ImageSignalViewer(QMainWindow):
 
         if self.signal.show_apd_threshold:
 
-            sig_idx = self.x * self.signal.span_X + self.y
+            sig_idx = self.y * self.signal.span_Y + self.x
             indices, thresh = self.signal.get_apd_threshold()
 
             tX = indices[sig_idx]
