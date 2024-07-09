@@ -29,19 +29,6 @@ padding-left: 10px;
 padding-top: 4px;
 }
 """
-    
-
-# class AnnotateView(QtWidgets.QWidget):
-
-#     def __init__(self, array):
-
-#         # Button Layout
-#         button_layout = QHBoxLayout()
-#         add_roi_button = QPushButton("Add Mask")
-#         add_roi_button.setCheckable(True)
-#         remove_roi_button = QPushButton("Remove Mask")
-#         confirm_roi_button = QPushButton("Confirm Mask")
-
 
 
 class ImageSignalViewer(QMainWindow):
@@ -102,20 +89,18 @@ class ImageSignalViewer(QMainWindow):
             self.signal.image_data, autoLevels=True, autoRange=False
         )
 
-        # self.annotate_tab = AnnotateView(self)
+        self.annotate_tab = AnnotateView(self)
 
         self.image_tabs = QTabWidget()
         size_policy = QtWidgets.QSizePolicy()
         size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
-        # size_policy.setHeightForWidth(True)
         self.image_tabs.setSizePolicy(size_policy)
         self.image_tabs.setMinimumWidth(380)
         self.image_tabs.setMinimumHeight(500)
-        # self.image_tabs.setMaximumWidth(1024)
 
         self.image_tabs.addTab(self.position_tab, "Position")
-        # self.image_tabs.addTab(self.annotate_tab, "Annotate")
+        self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
         # Create Signal View
         self.signal_panel = SignalPanel(self)
@@ -139,7 +124,6 @@ class ImageSignalViewer(QMainWindow):
         self.metadata_dock.setWidget(self.metadata_panel)
         self.metadata_dock.setFloating(False)
 
-
         self.setCentralWidget(self.metadata_panel)
         # self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.metadata_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
@@ -152,12 +136,12 @@ class ImageSignalViewer(QMainWindow):
 
     def update_signal_plot(self):
 
-        signal_data = self.signal.transformed_data[:, self.y, self.x]
+        signal_data = self.signal.transformed_data[:, self.x, self.y]
         self.signal_panel.signal_data.setData(signal_data)
         self.metadata_panel.position_label.setText(f"{self.x}, {self.y}\n\n")
 
         if self.signal.show_baseline:
-            baseline_idx = self.y * self.signal.span_Y + self.x
+            baseline_idx = self.x * self.signal.span_X + self.y
 
             bX = self.signal.baselineX[baseline_idx]
             bY = self.signal.baselineY[baseline_idx]
@@ -168,7 +152,7 @@ class ImageSignalViewer(QMainWindow):
 
         if self.signal.show_apd_threshold:
 
-            sig_idx = self.y * self.signal.span_Y + self.x
+            sig_idx = self.x * self.signal.span_X + self.y
             indices, thresh = self.signal.get_apd_threshold()
 
             tX = indices[sig_idx]
@@ -353,15 +337,15 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
         
-    # signal = signals[0]
+    signal = signals[0]
 
-    # viewer = ImageSignalViewer(signal)
+    viewer = ImageSignalViewer(signal)
 
-    # viewer.show()
+    viewer.show()
 
-    main_window = CardiacMapWindow()
-    main_window.show()
+    # main_window = CardiacMapWindow()
+    # main_window.show()
 
     sys.exit(app.exec())
