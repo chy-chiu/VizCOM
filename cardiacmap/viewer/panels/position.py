@@ -171,7 +171,7 @@ class PositionView(QWidget):
 
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
-        self.show_marker.checkStateChanged.connect(self.toggle_marker)
+        self.show_marker.stateChanged.connect(self.toggle_marker)
         
         self.colormap_bar.addWidget(QLabel("Data: "))
         self.colormap_bar.addWidget(self.normalize)
@@ -202,16 +202,17 @@ class PositionView(QWidget):
 
         mode = self.normalize.currentText() or "Base"
         cmap_name = self.colormap.currentText() or "gray"
-        
+
         if mode=="Base":
             self.image_view.setImage(
-                self.parent.signal.image_data, autoLevels=True, autoRange=False
+                self.parent.signal.image_data, autoLevels=False, autoRange=False
             )
         elif mode=="Transformed":
             self.image_view.setImage(
-                self.parent.signal.transformed_data, autoLevels=True, autoRange=False
+                self.parent.signal.transformed_data, autoLevels=False, autoRange=False
             )
-
+        
+        print(cmap_name)
         cm = pg.colormap.get(cmap_name, source="matplotlib")
         
         self.image_view.setColorMap(cm)

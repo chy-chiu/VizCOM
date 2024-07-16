@@ -37,6 +37,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.img_view: pg.ImageView = pg.ImageView(view=pg.PlotItem())
         
         self.img_view.view.enableAutoRange(enable=False)
+        self.img_view.view.showAxes(False)
         self.img_view.view.setMouseEnabled(False, False)
         self.img_view.view.setRange(xRange=(-2, 128), yRange=(-2, 128))
 
@@ -119,9 +120,9 @@ class AnnotateView(QtWidgets.QWidget):
         self.roi.setPoints(self.points)
         mask = self.get_roi_mask((IMAGE_SIZE, IMAGE_SIZE))
         self.parent.signal.apply_mask(mask)
+        self.parent.update_signal_plot()
+        self.parent.position_tab.update_data()
 
-        
-        print(mask)
         # mask = resize(mask, (128, 128), order=0)
 
         self.image_data = self.parent.signal.image_data

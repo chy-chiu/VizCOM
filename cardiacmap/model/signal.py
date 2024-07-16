@@ -215,7 +215,10 @@ class CascadeSignal:
 
     def apply_mask(self, mask_arr):
         self.mask_arr = mask_arr
-        self.transformed_data = self.transformed_data * self.mask_arr
+        print(mask_arr.shape)
+        print(self.transformed_data.shape)
+        print(self.image_data.shape)
+        self.transformed_data = self.transformed_data * np.expand_dims(self.mask_arr, 0)
         self.image_data = self.image_data * self.mask_arr
 
     def get_curr_signal(self):
