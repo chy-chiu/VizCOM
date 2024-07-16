@@ -128,7 +128,7 @@ def large_file_check(filepath, _callback, fileLen):
     Returns:
         tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
     """
-    USAGE_THRESHOLD = 0
+    USAGE_THRESHOLD = .5
     freeMem = psutil.virtual_memory()[1]
     estDataSize = os.path.getsize(filepath) * 4 # estimate conversion to float16 and 2 data sets (raw and transformed)
                                                 # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
