@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.signal import CascadeSignal
-from cardiacmap.viewer.panels import PositionView, MetadataPanel, SignalPanel, AnnotateView
+from cardiacmap.viewer.panels import PositionView, MetadataPanel, SpatialPlotView, SignalPanel, StackingPositionView, AnnotateView
 
 from typing import Literal
 
@@ -59,6 +59,12 @@ class ImageSignalViewer(QMainWindow):
         self.setStyleSheet(TITLE_STYLE)
         # Create settings param
         # TODO: Refactor parameter creation to settings or something
+        stacking_params = [
+            {"name": "Starting Frame", "type": "int", "value": 0, "limits": (0, 100000)},
+            {"name": "Period Length", "type": "int", "value": 50, "limits": (0, 1000)},
+            {"name": "# of Beats", "type": "int", "value": 5, "limits": (0, 30)},
+            {"name": "Mode", "type": "list", "value": "Hard Cuts", "limits": ["Hard Cuts", "Find Mins"]},
+        ]
         spatial_params = [
             {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
             {"name": "Radius", "type": "int", "value": 6, "limits": (0, 100)},
@@ -87,6 +93,7 @@ class ImageSignalViewer(QMainWindow):
             {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
         ]
 
+        self.stacking_params = Parameter.create(name="Stacking Parameters", type="group", children=stacking_params)
         self.trim_params = Parameter.create(name="Trim Parameters", type="group", children=trim_params)
         self.spatial_params = Parameter.create(name="Spatial Average", type="group", children=spatial_params)
         self.time_params = Parameter.create(name="Time Average", type="group", children=time_params)
@@ -206,7 +213,11 @@ class ImageSignalViewer(QMainWindow):
         
         elif transform == "reset":
             self.signal.reset_data()
-            self.signal.normalize()    
+            self.signal.normalize() 
+            
+        elif transform == "invert":
+            self.signal.invert_data()
+            self.signal.normalize() 
         
         self.update_signal_plot()
         self.position_tab.update_data()
@@ -231,6 +242,8 @@ class ImageSignalViewer(QMainWindow):
         else:
             if action == "confirm":
                 self.signal.remove_baseline_drift()
+                self.signal.normalize()
+
 
             self.signal.reset_baseline()
             self.signal.show_baseline = False
@@ -254,20 +267,41 @@ class ImageSignalViewer(QMainWindow):
         else:
             if action == "confirm":
                 self.signal.calc_apd_di()
-
-            self.signal.reset_apd_di()
+                self.signal_panel.spatialPlotApdDi.setVisible(True)
+                self.signal_panel.spatialPlotApdDi.setEnabled(True)
+            else:
+                self.signal.reset_apd_di()
+                
             self.signal.show_apd_threshold = False
 
             self.signal_panel.confirm_apd.setEnabled(False)
             self.signal_panel.reset_apd.setEnabled(False)
             
         self.update_signal_plot()
+        
+    def plot_apd_spatial(self):
+        apd = self.signal.get_spatial_apds()
+        di = self.signal.get_spatial_dis()
+        #print(np.array(self.signal.dis).shape)
+        self.apd_spatial_plot = SpatialPlotWindow(apd, di)
+        self.apd_spatial_plot.show()
+        
+    def perform_stacking(self):
+        start = int(self.stacking_params.child("Starting Frame").value())
+        period = int(self.stacking_params.child("Period Length").value())
+        beats = int(self.stacking_params.child("# of Beats").value())
+        mode = self.stacking_params.child("Mode").value()
+        if mode == 'Hard Cuts':
+            mode = 0
+        elif mode == 'Find Mins':
+            mode = 1
 
-
-class PopupWindow(QInputDialog):
-    def __init__(self):
-        QInputDialog.__init__(self)
-
+        image = self.signal.transformed_data[0]
+        # DO STACKING
+        stack = self.signal.performStacking(period, beats, start, mode)
+        print("STACKING:", start, period, beats, mode)
+        self.stacking_window = StackingWindow(image, stack)
+        self.stacking_window.show()
 
 class CardiacMapWindow(QMainWindow):
     # This is the main window that allows you to open a new widget etc.
@@ -294,16 +328,26 @@ class CardiacMapWindow(QMainWindow):
 
         self.docks = []
 
-    def largeFilePopUp(self, tLen):
-        print("t len:", tLen)
+    def largeFilePopUp(self, tLen, maxFrames):
+        print("Max Possible Frames:", maxFrames)
         self.filePopup = PopupWindow()
         start = self.filePopup.getInt(
-            self, "File Too Large", "Enter Start Frame:", minValue=0, maxValue=tLen
+            self, 
+            "File Too Large", 
+            "Enter Start Frame (0, " + str(tLen) + "):",
+            minValue=0, 
+            maxValue=tLen
         )[0]
+        
+        if start + maxFrames >= tLen:
+            maxInput = tLen
+        else:
+            maxInput = start + maxFrames
+            
         end = self.filePopup.getInt(
             self,
             "File Too Large",
-            "Enter End Frame:",
+            "Enter End Frame (" + str(start+1) + ", " + str(maxInput) + "):",
             minValue=start + 1,
             maxValue=tLen,
         )[0]
@@ -348,6 +392,104 @@ class CardiacMapWindow(QMainWindow):
                 # dock.setFixedSize(IMAGE_SIZE * 3.05, IMAGE_SIZE * 1.1)
                 self.addDockWidget(Qt.RightDockWidgetArea, dock)
                 self.docks.append(dock)
+
+class PopupWindow(QInputDialog):
+    def __init__(self):
+        QInputDialog.__init__(self)
+
+class SpatialPlotWindow(QMainWindow):
+    def __init__(self, apdData = None, diData = None):
+        QMainWindow.__init__(self)
+        self.data = [apdData, diData]
+        apd_mode = 0
+        di_mode = 1
+        # Create viewer tabs
+        self.APD_tab = SpatialPlotView(self, apd_mode)
+        self.DI_tab = SpatialPlotView(self, di_mode)
+
+        self.image_tabs = QTabWidget()
+        self.image_tabs.addTab(self.APD_tab, "APD Plot")
+        self.image_tabs.addTab(self.DI_tab, "DI Plot")
+
+        # Create Signal Views
+        self.APD_signal_tab = SignalPanel(self, False)
+        self.DI_signal_tab = SignalPanel(self, False)
+
+        self.signal_tabs = QTabWidget()
+        self.signal_tabs.addTab(self.APD_signal_tab, "APD Signal")
+        self.signal_tabs.addTab(self.DI_signal_tab, "DI Signal")
+        
+        # Create main layout
+        self.splitter = QSplitter()
+        self.splitter.addWidget(self.image_tabs)
+        self.splitter.addWidget(self.signal_tabs)
+
+        for i in range(self.splitter.count()):
+            self.splitter.setCollapsible(i, False)
+        layout = QHBoxLayout()
+        layout.addWidget(self.splitter)
+
+        self.signal_dock = QDockWidget("Signal View", self)
+        self.image_dock = QDockWidget("Image View", self)
+        
+        self.signal_dock.setWidget(self.signal_tabs)
+        self.image_dock.setWidget(self.image_tabs)
+
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+        self.image_dock.resize(400, 1000)
+        self.setLayout(layout)
+        
+    def update_graph(self):
+        pass
+ 
+class StackingWindow(QMainWindow):
+    def __init__(self, img_data, stack_data):
+        QMainWindow.__init__(self)
+        self.img_data = img_data
+        self.data = stack_data
+
+        # Create viewer tabs
+        self.image_tab = StackingPositionView(self, img_data) # ----------------------------
+
+        self.image_tabs = QTabWidget()
+        self.image_tabs.addTab(self.image_tab, "Image")
+
+        # Create Signal Views
+        self.signal_tab = SignalPanel(self, False)
+
+        self.signal_tabs = QTabWidget()
+        self.signal_tabs.addTab(self.signal_tab, "Stack")
+        
+        # Create main layout
+        self.splitter = QSplitter()
+        self.splitter.addWidget(self.image_tabs)
+        self.splitter.addWidget(self.signal_tabs)
+
+        for i in range(self.splitter.count()):
+            self.splitter.setCollapsible(i, False)
+        layout = QHBoxLayout()
+        layout.addWidget(self.splitter)
+
+        self.signal_dock = QDockWidget("Signal View", self)
+        self.image_dock = QDockWidget("Image View", self)
+        
+        self.signal_dock.setWidget(self.signal_tabs)
+        self.image_dock.setWidget(self.image_tabs)
+
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+        self.image_dock.resize(400, 1000)
+        self.setLayout(layout)
+        
+        self.x = 0
+        self.y = 0
+        self.update_signal_plot()
+        
+    def update_signal_plot(self):
+        self.signal_tab.signal_data.setData(self.data[:, self.y, self.x])
+ 
+
 
 if __name__ == "__main__":
 

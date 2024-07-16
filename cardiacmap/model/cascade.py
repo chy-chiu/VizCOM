@@ -76,7 +76,7 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     # This reads the actual signal data    
     skip = skip_bytes // 2
     
-    trimFrames = large_file_check(filepath, largeFilePopup)
+    trimFrames = large_file_check(filepath, largeFilePopup, span_T)
     if trimFrames[1] == 0:
         sigarray = np.frombuffer(file.read(), dtype="uint16")
     else:
@@ -121,14 +121,14 @@ def load_cascade_file(filepath, largeFilePopup, dual_mode=False):
 
     return signals
 
-def large_file_check(filepath, _callback):
+def large_file_check(filepath, _callback, fileLen):
     """Helper method to check a Cascade file against available RAM to avoid OOM error
     Args:
         filepath(str): Input file path
     Returns:
         tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
     """
-    USAGE_THRESHOLD = .5
+    USAGE_THRESHOLD = 0
     freeMem = psutil.virtual_memory()[1]
     estDataSize = os.path.getsize(filepath) * 4 # estimate conversion to float16 and 2 data sets (raw and transformed)
                                                 # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
@@ -138,8 +138,8 @@ def large_file_check(filepath, _callback):
     # use 50% threshold to leave room for apd, di, fft, etc.
     if usePercentage > USAGE_THRESHOLD:
         maxFrames = int((freeMem * .5)/1040000) # AGAIN, VERY ROUGH ESTIMATE BASED ON 5k FRAMES @ 650MB
-        
-        start, end = _callback(maxFrames) #pauses execution until popup is closed
+            
+        start, end = _callback(fileLen, maxFrames) #pauses execution until popup is closed
 
         skip = start
         size = end - start

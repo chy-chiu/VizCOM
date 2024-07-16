@@ -1,8 +1,10 @@
 from copy import deepcopy
 from typing import Dict, List, Tuple, Literal
+from scipy.signal import find_peaks
 
 import cv2
 import numpy as np
+import itertools as it
 
 from cardiacmap.transforms import (
     CalculateAPD_DI,
@@ -177,9 +179,21 @@ class CascadeSignal:
 
     def get_apds(self):
         return self.apds, self.apd_indices
+    
+    def get_spatial_apds(self):
+        most_beats = len(max(self.apds, key=len))
+        spatialAPDs = self.pad(self.apds, most_beats)
+        spatialAPDs = spatialAPDs.reshape((self.span_Y, self.span_X, most_beats))
+        return np.moveaxis(spatialAPDs, -1, 0)
 
     def get_dis(self):
         return self.dis, self.di_indices
+    
+    def get_spatial_dis(self):
+        most_beats = len(max(self.dis, key=len))
+        spatialDIs = self.pad(self.dis, most_beats)
+        spatialDIs = spatialDIs.reshape((self.span_Y, self.span_X, most_beats))
+        return np.moveaxis(spatialDIs, -1, 0)
 
     def reset_apd_di(self):
         self.apdDIThresholdIdxs = self.apdIndicators = []
@@ -206,3 +220,80 @@ class CascadeSignal:
 
     def get_curr_signal(self):
         return self.transformed_data
+    
+    # helper function to pad an array with zeros until it is rectangular
+    def pad(self, array, targetWidth):
+        for i in range(len(array)):
+            numZeros = targetWidth - len(array[i])
+            zeros = np.zeros(numZeros)
+            array[i] = np.concatenate((array[i], zeros))
+        return np.asarray(array)
+    
+    def performStacking(self, periodLength, numPeriods, startingFrame, mode = 0):
+        data = self.transformed_data.copy()
+        # trim data
+        start = np.arange(startingFrame)
+        end = np.arange(startingFrame + (numPeriods+1) * periodLength, len(data))
+        trimIdx = np.concatenate((start, end))
+        data = np.delete(data, trimIdx, axis=0)
+    
+        # speeds computation
+        data = np.moveaxis(data, 0, -1)
+
+        minima = [[[] for j in range(len(data[0]))] for i in range(len(data))]
+        results = [[] for j in range(len(data[0]) * len(data))]
+        longestRes = 0
+        # stack each pixel
+        for y in range (len(data)):
+            for x in range(len(data[0])):
+                d = data[y][x]
+                result, minIdx = self.stack(d, periodLength, numPeriods, mode)
+                if len(result) > longestRes:
+                    longestRes = len(result)
+                # # display progress
+                # if ((y * 128 + x )% 1000 == 0):
+                #     print("pixel index: ", y * 128 + x)
+                results[y * self.span_Y + x] = result
+        
+        results = self.pad(results, longestRes)
+        results = results.reshape((128, 128, longestRes))
+        return np.moveaxis(results, -1, 0)
+    
+    def stack(self, data, periodLength, numPeriods, mode = 0):
+        # find minima
+        flipped = data * -1
+        match mode:
+            # find first min, then hard cuts
+            case 0:
+                firstPeriod = np.split(flipped, [periodLength])[0]
+                firstMin = np.argmax(firstPeriod)
+                #print(firstMin)
+                minima = [firstMin]
+                for i in range(numPeriods):
+                    minima += [(i * periodLength) + firstMin]
+                #print(len(firstPeriod), minima)
+            # find all mins
+            case 1:
+                minima = find_peaks(flipped, distance=int(periodLength * .75))[0]
+            case _:
+                minima = find_peaks(flipped, distance=int(periodLength * .75))[0]
+   
+        d = NormalizeData(data)
+
+        # slice data
+        slices = np.split(d, minima)
+        slices.pop(0)
+        slices.pop()
+    
+        # average all the slices (pad with 0s)
+        stacked = list(map(paddedAvg, it.zip_longest(*slices)))
+    
+        # add zeros to either side of the wave for display purposes
+        stacked.insert(0, 0)
+        stacked.append(0)
+ 
+        return stacked, minima
+    
+def paddedAvg(x):
+    x = [0 if i is None else i for i in x]
+    return sum(x, 0) / len(x)
