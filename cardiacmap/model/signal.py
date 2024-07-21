@@ -1,4 +1,5 @@
 from copy import deepcopy
+from locale import normalize
 from typing import Dict, List, Tuple, Literal
 from scipy.signal import find_peaks
 
@@ -232,13 +233,17 @@ class CascadeSignal:
             array[i] = np.concatenate((array[i], zeros))
         return np.asarray(array)
     
-    def performStacking(self, periodLength, numPeriods, startingFrame, mode = 0):
+    def performStacking(self, periodLength, numPeriods, startingFrame):
         data = self.transformed_data.copy()
         # trim data
         start = np.arange(startingFrame)
         end = np.arange(startingFrame + (numPeriods+1) * periodLength, len(data))
         trimIdx = np.concatenate((start, end))
         data = np.delete(data, trimIdx, axis=0)
+
+        smoothData = TimeAverage(data, 4, 3)
+        smoothData = SpatialAverage(smoothData, 8, 6)
+        smoothData = np.moveaxis(smoothData, 0, -1)
     
         # speeds computation
         data = np.moveaxis(data, 0, -1)
@@ -250,7 +255,9 @@ class CascadeSignal:
         for y in range (len(data)):
             for x in range(len(data[0])):
                 d = data[y][x]
-                result, minIdx = self.stack(d, periodLength, numPeriods, mode)
+                sD = smoothData[y][x]
+                result, minIdx = self.stack(d, sD, periodLength)
+                
                 if len(result) > longestRes:
                     longestRes = len(result)
                 # # display progress
@@ -260,31 +267,15 @@ class CascadeSignal:
         
         results = self.pad(results, longestRes)
         results = results.reshape((128, 128, longestRes))
-        return np.moveaxis(results, -1, 0)
+        results = np.moveaxis(results, -1, 0)
+        return NormalizeData(results)
     
-    def stack(self, data, periodLength, numPeriods, mode = 0):
-        # find minima
-        flipped = data * -1
-        match mode:
-            # find first min, then hard cuts
-            case 0:
-                firstPeriod = np.split(flipped, [periodLength])[0]
-                firstMin = np.argmax(firstPeriod)
-                #print(firstMin)
-                minima = [firstMin]
-                for i in range(numPeriods):
-                    minima += [(i * periodLength) + firstMin]
-                #print(len(firstPeriod), minima)
-            # find all mins
-            case 1:
-                minima = find_peaks(flipped, distance=int(periodLength * .75))[0]
-            case _:
-                minima = find_peaks(flipped, distance=int(periodLength * .75))[0]
-   
-        d = NormalizeData(data)
+    def stack(self, data, smoothData, periodLength):
+        minima = find_peaks(-smoothData, distance=int(periodLength * .75))[0]
 
         # slice data
-        slices = np.split(d, minima)
+        data = NormalizeData(data)
+        slices = np.split(data, minima)
         slices.pop(0)
         slices.pop()
     

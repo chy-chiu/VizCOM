@@ -47,10 +47,9 @@ class ImageSignalViewer(QMainWindow):
         # Create settings param
         # TODO: Refactor parameter creation to settings or something
         stacking_params = [
-            {"name": "Starting Frame", "type": "int", "value": 0, "limits": (0, 100000)},
-            {"name": "Period Length", "type": "int", "value": 50, "limits": (0, 1000)},
-            {"name": "# of Beats", "type": "int", "value": 5, "limits": (0, 30)},
-            {"name": "Mode", "type": "list", "value": "Hard Cuts", "limits": ["Hard Cuts", "Find Mins"]},
+            {"name": "Starting Frame", "type": "int", "value": 100, "limits": (0, 100000)},
+            {"name": "Period Length", "type": "int", "value": 60, "limits": (0, 1000)},
+            {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
         ]
         spatial_params = [
             {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
@@ -158,7 +157,7 @@ class ImageSignalViewer(QMainWindow):
             self.signal_panel.baseline_data.setData()
 
         if self.signal.show_apd_threshold:
-
+            
             sig_idx = self.x * self.signal.span_X + self.y
             indices, thresh = self.signal.get_apd_threshold()
 
@@ -274,16 +273,11 @@ class ImageSignalViewer(QMainWindow):
         start = int(self.stacking_params.child("Starting Frame").value())
         period = int(self.stacking_params.child("Period Length").value())
         beats = int(self.stacking_params.child("# of Beats").value())
-        mode = self.stacking_params.child("Mode").value()
-        if mode == 'Hard Cuts':
-            mode = 0
-        elif mode == 'Find Mins':
-            mode = 1
 
         image = self.signal.transformed_data[0]
         # DO STACKING
-        stack = self.signal.performStacking(period, beats, start, mode)
-        print("STACKING:", start, period, beats, mode)
+        stack = self.signal.performStacking(period, beats, start)
+        print("STACKING:", start, period, beats)
         self.stacking_window = StackingWindow(image, stack)
         self.stacking_window.show()
 
