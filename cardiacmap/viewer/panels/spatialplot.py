@@ -97,14 +97,13 @@ class SpatialPlotView(QWidget):
         self.setLayout(layout)
         
         self.update_data()
-
         # self.position_callback = position_callback
 
     def init_image_view(self):
 
         # Set up Image View
-        view = DraggablePlot(self.update_position)
-        self.image_view = pg.ImageView(view=view)
+        self.plot = DraggablePlot(self.update_position)
+        self.image_view = pg.ImageView(view=self.plot)
         self.image_view.view.enableAutoRange(enable=True)
         self.image_view.view.setMouseEnabled(False, False)
 
@@ -115,8 +114,7 @@ class SpatialPlotView(QWidget):
         # Hide UI stuff not needed
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.histogram.hide()
-
+        #self.image_view.ui.histogram.hide()
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
 
@@ -142,24 +140,57 @@ class SpatialPlotView(QWidget):
         self.frameIdx.setStyleSheet(SPINBOX_STYLE)
         self.frameIdx.valueChanged.connect(self.jump_frames)
         
+        self.diff_min = QtWidgets.QSpinBox()
+        self.diff_min.setFixedWidth(60)
+        self.diff_min.setMinimum(-100000)
+        self.diff_min.setMaximum(100000)
+        self.diff_min.setValue(np.min(np.diff(self.parent.data[self.mode])))
+        self.diff_min.setStyleSheet(SPINBOX_STYLE)
+        self.diff_min.valueChanged.connect(self.update_data)
+        
+        self.zero_val = QtWidgets.QSpinBox()
+        self.zero_val.setFixedWidth(60)
+        self.zero_val.setMinimum(-100000)
+        self.zero_val.setMaximum(100000)
+        self.zero_val.setValue(0)
+        self.zero_val.setStyleSheet(SPINBOX_STYLE)
+        self.zero_val.valueChanged.connect(self.update_data)
+        
+        self.max_val = QtWidgets.QSpinBox()
+        self.max_val.setFixedWidth(60)
+        self.max_val.setMinimum(-100000)
+        self.max_val.setMaximum(100000)
+        self.max_val.setValue(np.max(self.parent.data[self.mode]))
+        self.max_val.setStyleSheet(SPINBOX_STYLE)
+        self.max_val.valueChanged.connect(self.update_data)
+        
         self.beatNumber = self.frameIdx.value()
         
         self.player_bar.addWidget(QLabel("   Beat #: "))
         self.player_bar.addWidget(self.frameIdx)
+        
+        self.player_bar.addWidget(QLabel("   Minimum: "))
+        self.diff_min_spinbox = self.player_bar.addWidget(self.diff_min)
+        self.min_spinbox = self.player_bar.addWidget(self.zero_val)
+        
+        self.player_bar.addWidget(QLabel("   Maximum: "))
+        self.player_bar.addWidget(self.max_val)
 
-        self.colormap = QComboBox()
-        self.colormap.addItems(["gray", "hsv", "viridis", "plasma"])
-        # self.colormap.currentTextChanged.connect(self.update_data)
+        self.show_diff = QCheckBox()
+        self.show_diff.setChecked(False)
+        self.show_diff.checkStateChanged.connect(self.update_data)
 
-        self.show_marker = QCheckBox()
-        self.show_marker.setChecked(True)
-        self.show_marker.checkStateChanged.connect(self.toggle_marker)
+        self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
+        self.colormap_bar.addWidget(self.show_diff)
 
-        self.colormap_bar.addWidget(QLabel("   Colormap: "))
-        self.colormap_bar.addWidget(self.colormap)
-        self.colormap_bar.addWidget(QLabel("   Marker: "))
-        self.colormap_bar.addWidget(self.show_marker)
-
+    def update_ui(self):
+        if self.show_diff.isChecked():
+            self.diff_min_spinbox.setVisible(True)
+            self.min_spinbox.setVisible(False)
+        else:
+            self.diff_min_spinbox.setVisible(False)
+            self.min_spinbox.setVisible(True)
+    
     def jump_frames(self):
         if self.beatNumber < self.frameIdx.value():
             self.image_view.jumpFrames(1) 
@@ -173,31 +204,27 @@ class SpatialPlotView(QWidget):
 
         y = np.clip(y, 0, IMAGE_SIZE - 1)
         x = np.clip(x, 0, IMAGE_SIZE - 1)
-
-        self.update_marker(x, y)
         self.parent.x = x
         self.parent.y = y
         self.parent.update_graph()
 
     def update_data(self):
-        self.image_view.setImage(
-                self.parent.data[self.mode][self.frameIdx.value()], autoLevels=True, autoRange=False
-        )
+        self.update_ui()
+        
+        if self.show_diff.isChecked():
+            color_range = (self.diff_min.value(), self.max_val.value())
+            self.frameIdx.setMaximum(len(self.parent.data[self.mode][0]) - 2)
+            self.image_view.setImage(
+                    np.diff(self.parent.data[self.mode][self.frameIdx.value()]), levels=color_range, autoRange=False
+            )
+        else:
+            color_range = (self.zero_val.value(), self.max_val.value())
+            self.frameIdx.setMaximum(len(self.parent.data[self.mode][0]) - 1)
+            self.image_view.setImage(
+                    self.parent.data[self.mode][self.frameIdx.value()], levels=color_range, autoRange=False
+            )
         
         # print(self.frameIdx.value())
         # print(self.parent.data[self.mode].shape)
-        self.image_view.update()
-      
-    
-    def update_colormap(self):
-        cmap_name = self.colormap.currentText()
-
-        cm = pg.colormap.get(cmap_name, source="matplotlib")
         
-        self.image_view.setColorMap(cm)
-
-    def update_marker(self, x, y):
-        self.position_marker.setData(pos=[[x, y]])
-
-    def toggle_marker(self):
-        self.position_marker.setVisible(True) if self.show_marker.isChecked() else self.position_marker.setVisible(False)
+        self.image_view.update()
