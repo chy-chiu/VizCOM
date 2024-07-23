@@ -115,6 +115,7 @@ class SpatialPlotView(QWidget):
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
         #self.image_view.ui.histogram.hide()
+        self.image_view.ui.histogram.item.sigLevelChangeFinished.connect(self.update_spinbox_values)
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
 
@@ -183,13 +184,27 @@ class SpatialPlotView(QWidget):
         self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
         self.colormap_bar.addWidget(self.show_diff)
 
+    def update_spinbox_values(self):
+        levels = self.image_view.ui.histogram.item.getLevels()
+        
+        self.max_val.setValue((levels[1]))
+        if self.show_diff.isChecked():
+            self.diff_min.setValue(levels[0])
+        else:
+            self.zero_val.setValue(levels[0])
+        
+        
     def update_ui(self):
         if self.show_diff.isChecked():
             self.diff_min_spinbox.setVisible(True)
             self.min_spinbox.setVisible(False)
+            print(self.diff_min.value(), self.max_val.value())
+            #self.image_view.ui.histogram.item.setHistogramRange(self.diff_min.value(), self.max_val.value())
         else:
             self.diff_min_spinbox.setVisible(False)
             self.min_spinbox.setVisible(True)
+            print(self.zero_val.value(), self.max_val.value())
+            #self.image_view.ui.histogram.item.setHistogramRange(self.zero_val.value(), self.max_val.value())
     
     def jump_frames(self):
         if self.beatNumber < self.frameIdx.value():
