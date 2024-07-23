@@ -30,8 +30,8 @@ class SignalPanel(QWidget):
 
         self.plot = pg.PlotWidget()
         self.signal_data: pg.PlotDataItem = self.plot.plot()
-        self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'))
-        self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'))
+        self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'), symbol='o')
+        self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
 
         layout = QVBoxLayout()
         if toolbar: layout.addWidget(self.button_bar)
