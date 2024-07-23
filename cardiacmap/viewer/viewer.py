@@ -69,7 +69,7 @@ class ImageSignalViewer(QMainWindow):
         ]
 
         drift_params = [
-            {"name": "Method", "type": "list", "value": "Period", "limits": ["Period", "Threshold"]},
+            {"name": "Method", "type": "list", "value": "Period", "limits": ["Period"]},
             {"name": "Alternans (Period)", "type": "bool", "value": True,},
             {"name": "Period", "type": "int", "value": 50, "limits": (0, 1000)},
             {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
