@@ -190,6 +190,7 @@ class ImageSignalViewer(QMainWindow):
             left = self.trim_params.child('Left').value()
             right = self.trim_params.child('Right').value()
             self.signal.trim_data(startTrim=left, endTrim=right)
+            self.signal.normalize()
 
         elif transform == "normalize":
             self.signal.normalize()
