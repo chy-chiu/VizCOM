@@ -243,7 +243,8 @@ class CascadeSignal:
 
         smoothData = TimeAverage(data, 4, 3)
         smoothData = SpatialAverage(smoothData, 8, 6)
-        smoothData = np.moveaxis(smoothData, 0, -1)
+        derivative = np.gradient(smoothData, axis = 0)
+        derivative = np.moveaxis(derivative, 0, -1)
     
         # speeds computation
         data = np.moveaxis(data, 0, -1)
@@ -255,8 +256,8 @@ class CascadeSignal:
         for y in range (len(data)):
             for x in range(len(data[0])):
                 d = data[y][x]
-                sD = smoothData[y][x]
-                result, minIdx = self.stack(d, sD, periodLength)
+                dYdX = derivative[y][x]
+                result, minIdx = self.stack(d, dYdX, periodLength)
                 
                 if len(result) > longestRes:
                     longestRes = len(result)
@@ -270,9 +271,9 @@ class CascadeSignal:
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
     
-    def stack(self, data, smoothData, periodLength):
-        minima = find_peaks(-smoothData, distance=int(periodLength * .75))[0]
-
+    def stack(self, data, derivative, periodLength):
+        minima = find_peaks(derivative, distance=int(periodLength * .75))[0]
+        minima -= 2
         # slice data
         data = NormalizeData(data)
         slices = np.split(data, minima)
