@@ -92,4 +92,15 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
         # set masked points back to original value
         data = np.where(mask == 0, arr, data)
         return data.astype("int")
+    
+def useUniform(arr, sig, radius=1, axes=-1):
+    """Function to convert gaussian_filter inputs for a uniform_filter
+       Doing it this way avoids 4 if statements in Spatial/TimeAverage()
+    Args:
+        arr (array): data
+        sig (int): gaussian_filter takes this input, uniform does not, THIS PARAM IS IGNORED IN THIS FUNCTION
+        radius(int): radius of averaging, kernel width = 2*radius+1
+        axes (int, tuple): axes of averaging
+    """
+    return uniform_filter(arr, size=2 * radius + 1, axes=axes)
 
