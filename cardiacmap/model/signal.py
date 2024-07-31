@@ -268,7 +268,7 @@ class CascadeSignal:
                 d = data[y][x]
                 #print(len(d))
                 dYdX = derivative[y][x]
-                result, minIdx = self.stack(d, dYdX, freqs)
+                result, minIdx = self.stack(d, dYdX, freqs, numPeriods)
                 
                 if len(result) > longestRes:
                     longestRes = len(result)
@@ -282,7 +282,7 @@ class CascadeSignal:
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
     
-    def stack(self, data, derivative, freqs):
+    def stack(self, data, derivative, freqs, n):
         #FFT for period length
         fft = np.abs(np.fft.rfft(data))
         fft[0:5:]=0
@@ -294,6 +294,7 @@ class CascadeSignal:
         while len(peaks) > 0 and peaks[0] <= 0:
             peaks = peaks[1:]
 
+        peaks = peaks[0:n+1]
         # slice data
         data = NormalizeData(data)
         slices = np.split(data, peaks)
@@ -304,6 +305,7 @@ class CascadeSignal:
         slices.pop(0)
         slices.pop()
     
+        #print(len(slices))
         # average all the slices (pad with 0s)
         stacked = [0] + list(map(paddedAvg, it.zip_longest(*slices)))
  
