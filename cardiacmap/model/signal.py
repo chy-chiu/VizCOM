@@ -1,5 +1,4 @@
 from copy import deepcopy
-from locale import normalize
 from typing import Dict, List, Tuple, Literal
 from scipy.signal import find_peaks
 
@@ -63,6 +62,10 @@ class CascadeSignal:
 
         # This is the length of the data
         self.span_T = len(signal)
+        self.trimmed = [0, 0]
+        
+        # Inverted Flag, used when accessing base_data
+        self.inverted = False
 
         ## Baseline drift variables
         self.baselineX = []
@@ -122,8 +125,10 @@ class CascadeSignal:
 
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)
+        self.inverted = not self.inverted
 
     def trim_data(self, startTrim, endTrim):
+        self.trimmed = [self.trimmed[0] + startTrim, self.trimmed[1] + endTrim]
         self.transformed_data = TrimSignal(self.transformed_data, startTrim, endTrim)
 
     def reset_data(self):
@@ -233,20 +238,25 @@ class CascadeSignal:
             array[i] = np.concatenate((array[i], zeros))
         return np.asarray(array)
     
-    def performStacking(self, periodLength, numPeriods, startingFrame):
-        data = self.transformed_data.copy()
+    def performStacking(self, endingFrame, numPeriods, startingFrame):
+        if self.inverted:
+            data = -self.base_data
+        else:
+            data = self.base_data
+        derivative = np.gradient(self.transformed_data, axis = 0)
+        
         # trim data
-        start = np.arange(startingFrame)
-        end = np.arange(startingFrame + (numPeriods+1) * periodLength, len(data))
-        trimIdx = np.concatenate((start, end))
-        data = np.delete(data, trimIdx, axis=0)
+        if endingFrame > len(derivative) or endingFrame <= startingFrame:
+            endingFrame = len(derivative)
 
-        smoothData = TimeAverage(data, 4, 3)
-        smoothData = SpatialAverage(smoothData, 8, 6)
-        derivative = np.gradient(smoothData, axis = 0)
-        derivative = np.moveaxis(derivative, 0, -1)
-    
+        data = data[startingFrame + self.trimmed[0]:startingFrame + self.trimmed[0] + endingFrame]
+        derivative = derivative[startingFrame:startingFrame + endingFrame]
+        
+        #frequency map
+        freqs = np.fft.rfftfreq(len(data))
+        
         # speeds computation
+        derivative = np.moveaxis(derivative, 0, -1)
         data = np.moveaxis(data, 0, -1)
 
         minima = [[[] for j in range(len(data[0]))] for i in range(len(data))]
@@ -256,14 +266,15 @@ class CascadeSignal:
         for y in range (len(data)):
             for x in range(len(data[0])):
                 d = data[y][x]
+                #print(len(d))
                 dYdX = derivative[y][x]
-                result, minIdx = self.stack(d, dYdX, periodLength)
+                result, minIdx = self.stack(d, dYdX, freqs)
                 
                 if len(result) > longestRes:
                     longestRes = len(result)
-                # # display progress
-                # if ((y * 128 + x )% 1000 == 0):
-                #     print("pixel index: ", y * 128 + x)
+                # display progress
+                if ((y * 128 + x )% 1000 == 0):
+                    print("Stacking:", int(100 * (y * 128 + x)/(128*128)), "%")
                 results[y * self.span_Y + x] = result
         
         results = self.pad(results, longestRes)
@@ -271,23 +282,32 @@ class CascadeSignal:
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
     
-    def stack(self, data, derivative, periodLength):
-        minima = find_peaks(derivative, distance=int(periodLength * .75))[0]
-        minima -= 2
+    def stack(self, data, derivative, freqs):
+        #FFT for period length
+        fft = np.abs(np.fft.rfft(data))
+        fft[0:5:]=0
+        periodLen = 1/freqs[np.argmax(fft)]
+        
+        # Find derivative peaks and offset
+        peaks = find_peaks(derivative, distance = int(periodLen * .8))[0]
+        peaks -= int(periodLen * .1)
+        while len(peaks) > 0 and peaks[0] <= 0:
+            peaks = peaks[1:]
+
         # slice data
         data = NormalizeData(data)
-        slices = np.split(data, minima)
+        slices = np.split(data, peaks)
+        
+        if len(slices) < 3:
+            return [0], [0]
+        
         slices.pop(0)
         slices.pop()
     
         # average all the slices (pad with 0s)
-        stacked = list(map(paddedAvg, it.zip_longest(*slices)))
-    
-        # add zeros to either side of the wave for display purposes
-        stacked.insert(0, 0)
-        stacked.append(0)
+        stacked = [0] + list(map(paddedAvg, it.zip_longest(*slices)))
  
-        return stacked, minima
+        return stacked,  peaks
     
 def paddedAvg(x):
     x = [0 if i is None else i for i in x]
