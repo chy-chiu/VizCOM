@@ -49,6 +49,7 @@ class ImageSignalViewer(QMainWindow):
         stacking_params = [
             {"name": "Start Frame", "type": "int", "value": 0, "limits": (0, 100000)},
             {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
+            {"name": "Alternans", "type": "bool", "value": False,},
             {"name": "End Frame (Optional)", "type": "int", "value": signal.span_T, "limits": (0, signal.span_T)},
         ]
         spatial_params = [
@@ -70,7 +71,7 @@ class ImageSignalViewer(QMainWindow):
 
         drift_params = [
             {"name": "Method", "type": "list", "value": "Period", "limits": ["Period"]},
-            {"name": "Alternans (Period)", "type": "bool", "value": True,},
+            {"name": "Alternans (Period)", "type": "bool", "value": False,},
             {"name": "Period", "type": "int", "value": 50, "limits": (0, 1000)},
             {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
         ]
@@ -267,18 +268,19 @@ class ImageSignalViewer(QMainWindow):
         apd = self.signal.get_spatial_apds()
         di = self.signal.get_spatial_dis()
         #print(np.array(self.signal.dis).shape)
-        self.apd_spatial_plot = SpatialPlotWindow(apd, di)
+        self.apd_spatial_plot = SpatialPlotWindow(self, apd, di)
         self.apd_spatial_plot.show()
         
     def perform_stacking(self):
         start = int(self.stacking_params.child("Start Frame").value())
         end = int(self.stacking_params.child("End Frame (Optional)").value())
         beats = int(self.stacking_params.child("# of Beats").value())
+        alternans = self.stacking_params.child("Alternans").value()
 
         image = self.signal.transformed_data[0]
         # DO STACKING
         print("Stacking", beats, "beats")
-        stack = self.signal.performStacking(end, beats, start)
+        stack = self.signal.perform_stacking(start, end, beats, alternans)
         self.stacking_window = StackingWindow(image, stack)
         self.stacking_window.show()
 
@@ -378,8 +380,10 @@ class PopupWindow(QInputDialog):
         QInputDialog.__init__(self)
 
 class SpatialPlotWindow(QMainWindow):
-    def __init__(self, apdData = None, diData = None):
+    def __init__(self, parent, apdData = None, diData = None):
         QMainWindow.__init__(self)
+        self.parent = parent
+        self.x1 = self.y1 = self.x2 = self.y2 = 0
         self.data = [apdData, diData]
         apd_mode = 0
         di_mode = 1
@@ -393,11 +397,11 @@ class SpatialPlotWindow(QMainWindow):
 
         # Create Signal Views
         self.APD_signal_tab = SignalPanel(self, False)
-        self.DI_signal_tab = SignalPanel(self, False)
+        #self.DI_signal_tab = SignalPanel(self, False)
 
         self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.APD_signal_tab, "APD Signal")
-        self.signal_tabs.addTab(self.DI_signal_tab, "DI Signal")
+        self.signal_tabs.addTab(self.APD_signal_tab, "APD v.s. Linear Space")
+        #self.signal_tabs.addTab(self.DI_signal_tab, "DI v.s. Linear Space")
         
         # Create main layout
         self.splitter = QSplitter()
@@ -420,8 +424,12 @@ class SpatialPlotWindow(QMainWindow):
         self.image_dock.resize(400, 1000)
         self.setLayout(layout)
         
-    def update_graph(self):
-        pass
+    def update_graph(self, coords, beatNum):
+        img = self.data[0][beatNum+1]
+        data = []
+        for coord in coords:
+            data.append(img[coord[0]][coord[1]])
+        self.APD_signal_tab.signal_data.setData(data)  
  
 class StackingWindow(QMainWindow):
     def __init__(self, img_data, stack_data):

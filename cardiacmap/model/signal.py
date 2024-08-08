@@ -1,10 +1,10 @@
 from copy import deepcopy
 from typing import Dict, List, Tuple, Literal
-from scipy.signal import find_peaks
 
 import cv2
 import numpy as np
-import itertools as it
+
+from matplotlib import pyplot as plt
 
 from cardiacmap.transforms import (
     CalculateAPD_DI,
@@ -14,6 +14,7 @@ from cardiacmap.transforms import (
     NormalizeData,
     RemoveBaselineDrift,
     SpatialAverage,
+    Stacking,
     TimeAverage,
     TrimSignal,
 )
@@ -188,7 +189,7 @@ class CascadeSignal:
     
     def get_spatial_apds(self):
         most_beats = len(max(self.apds, key=len))
-        spatialAPDs = self.pad(self.apds, most_beats)
+        spatialAPDs = pad(self.apds, most_beats)
         spatialAPDs = spatialAPDs.reshape((self.span_Y, self.span_X, most_beats))
         return np.moveaxis(spatialAPDs, -1, 0)
 
@@ -197,7 +198,7 @@ class CascadeSignal:
     
     def get_spatial_dis(self):
         most_beats = len(max(self.dis, key=len))
-        spatialDIs = self.pad(self.dis, most_beats)
+        spatialDIs = pad(self.dis, most_beats)
         spatialDIs = spatialDIs.reshape((self.span_Y, self.span_X, most_beats))
         return np.moveaxis(spatialDIs, -1, 0)
 
@@ -230,15 +231,8 @@ class CascadeSignal:
     def get_curr_signal(self):
         return self.transformed_data
     
-    # helper function to pad an array with zeros until it is rectangular
-    def pad(self, array, targetWidth):
-        for i in range(len(array)):
-            numZeros = targetWidth - len(array[i])
-            zeros = np.zeros(numZeros)
-            array[i] = np.concatenate((array[i], zeros))
-        return np.asarray(array)
-    
-    def performStacking(self, endingFrame, numPeriods, startingFrame):
+    def perform_stacking(self, startingFrame, endingFrame, numPeriods, alternans):
+        # prep data
         if self.inverted:
             data = -self.base_data
         else:
@@ -248,69 +242,22 @@ class CascadeSignal:
         # trim data
         if endingFrame > len(derivative) or endingFrame <= startingFrame:
             endingFrame = len(derivative)
-
         data = data[startingFrame + self.trimmed[0]:startingFrame + self.trimmed[0] + endingFrame]
         derivative = derivative[startingFrame:startingFrame + endingFrame]
         
-        #frequency map
-        freqs = np.fft.rfftfreq(len(data))
+        # perform stacking
+        results, longestRes = Stacking(data, derivative, numPeriods, alternans)
         
-        # speeds computation
-        derivative = np.moveaxis(derivative, 0, -1)
-        data = np.moveaxis(data, 0, -1)
-
-        minima = [[[] for j in range(len(data[0]))] for i in range(len(data))]
-        results = [[] for j in range(len(data[0]) * len(data))]
-        longestRes = 0
-        # stack each pixel
-        for y in range (len(data)):
-            for x in range(len(data[0])):
-                d = data[y][x]
-                #print(len(d))
-                dYdX = derivative[y][x]
-                result, minIdx = self.stack(d, dYdX, freqs, numPeriods)
-                
-                if len(result) > longestRes:
-                    longestRes = len(result)
-                # display progress
-                if ((y * 128 + x )% 1000 == 0):
-                    print("Stacking:", int(100 * (y * 128 + x)/(128*128)), "%")
-                results[y * self.span_Y + x] = result
-        
-        results = self.pad(results, longestRes)
-        results = results.reshape((128, 128, longestRes))
+        # reshape for display
+        results = pad(results, longestRes)
+        results = results.reshape((self.span_Y, self.span_X, longestRes))
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
-    
-    def stack(self, data, derivative, freqs, n):
-        #FFT for period length
-        fft = np.abs(np.fft.rfft(data))
-        fft[0:5:]=0
-        periodLen = 1/freqs[np.argmax(fft)]
-        
-        # Find derivative peaks and offset
-        peaks = find_peaks(derivative, distance = int(periodLen * .8))[0]
-        peaks -= int(periodLen * .1)
-        while len(peaks) > 0 and peaks[0] <= 0:
-            peaks = peaks[1:]
 
-        peaks = peaks[0:n+1]
-        # slice data
-        data = NormalizeData(data)
-        slices = np.split(data, peaks)
-        
-        if len(slices) < 3:
-            return [0], [0]
-        
-        slices.pop(0)
-        slices.pop()
-    
-        #print(len(slices))
-        # average all the slices (pad with 0s)
-        stacked = [0] + list(map(paddedAvg, it.zip_longest(*slices)))
- 
-        return stacked,  peaks
-    
-def paddedAvg(x):
-    x = [0 if i is None else i for i in x]
-    return sum(x, 0) / len(x)
+# helper function to pad an array with zeros until it is rectangular
+def pad(array, targetWidth):
+    for i in range(len(array)):
+        numZeros = targetWidth - len(array[i])
+        zeros = np.zeros(numZeros)
+        array[i] = np.concatenate((array[i], zeros))
+    return np.asarray(array)
