@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
                                QVBoxLayout, QWidget, QComboBox, QCheckBox)
 
 from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
 from typing import Literal
 

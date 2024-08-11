@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
                                QVBoxLayout, QWidget)
 
 from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import PositionView, MetadataPanel, SpatialPlotView, SignalPanel, StackingPositionView, AnnotateView
 
 from typing import Literal

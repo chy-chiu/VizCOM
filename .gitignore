@@ -37,6 +37,7 @@ __pycache__
 
 build/
 dist/
+dash_app/
 
 # PyCharm
 .DS_Store

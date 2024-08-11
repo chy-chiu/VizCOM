@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QSplitter
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
 
 class MetadataPanel(QWidget):
