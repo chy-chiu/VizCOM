@@ -179,7 +179,7 @@ class SpatialPlotView(QWidget):
 
         self.show_diff = QCheckBox()
         self.show_diff.setChecked(False)
-        self.show_diff.checkStateChanged.connect(self.update_data)
+        self.show_diff.stateChanged.connect(self.update_data)
 
         self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
         self.colormap_bar.addWidget(self.show_diff)

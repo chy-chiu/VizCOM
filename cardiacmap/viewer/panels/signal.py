@@ -16,6 +16,34 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
 
 from cardiacmap.viewer.components import ParameterButton
 
+
+# p1.sigRangeChanged.connect(updateRegion)
+
+# region.setRegion([1000, 2000])
+
+# #cross hair
+# vLine = pg.InfiniteLine(angle=90, movable=False)
+# hLine = pg.InfiniteLine(angle=0, movable=False)
+# p1.addItem(vLine, ignoreBounds=True)
+# p1.addItem(hLine, ignoreBounds=True)
+
+# vb = p1.vb
+
+# def mouseMoved(evt):
+#     pos = evt
+#     if p1.sceneBoundingRect().contains(pos):
+#         mousePoint = vb.mapSceneToView(pos)
+#         index = int(mousePoint.x())
+#         if index > 0 and index < len(data1):
+#             label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
+#         vLine.setPos(mousePoint.x())
+#         hLine.setPos(mousePoint.y())
+
+
+
+# p1.scene().sigMouseMoved.connect(mouseMoved)
+
+
 class SignalPanel(QWidget):
 
     def __init__(self, parent, toolbar = True):
@@ -28,16 +56,21 @@ class SignalPanel(QWidget):
 
         if toolbar: self.init_transform_toolbar()
 
-        self.plot = pg.PlotWidget()
+        self.plot = pg.PlotWidget(view=pg.PlotItem())
         self.signal_data: pg.PlotDataItem = self.plot.plot()
         self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'), symbol='o')
         self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
+        
+        self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
+        self.plot.addItem(self.signal_marker, ignoreBounds=True)
 
         layout = QVBoxLayout()
         if toolbar: layout.addWidget(self.button_bar)
         layout.addWidget(self.plot)
         
         self.setLayout(layout)
+        
+        self.plot.scene().sigMouseMoved.connect(self.mouseMoved)
 
     def init_transform_toolbar(self):
         self.button_bar = QToolBar()
@@ -95,3 +128,18 @@ class SignalPanel(QWidget):
         self.button_bar.addWidget(self.stacking)
 
         self.button_bar.setStyleSheet("QToolButton:!hover {color:black;}")
+
+    def mouseMoved(self, evt):
+        pos = evt
+        if self.plot.sceneBoundingRect().contains(pos):
+            mousePoint = self.plot.view
+            print(type(mousePoint))
+            # index = int(mousePoint.x())
+            # print(index)
+            # if index > 0 and index < len(data1):
+            #     label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
+            # vLine.setPos(mousePoint.x())
+            # hLine.setPos(mousePoint.y())
+
+
+

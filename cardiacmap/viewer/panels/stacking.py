@@ -126,7 +126,7 @@ class StackingPositionView(QWidget):
     def init_player_bar(self):
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
-        self.show_marker.checkStateChanged.connect(self.toggle_marker)
+        self.show_marker.stateChanged.connect(self.toggle_marker)
         
     def update_position(self, x, y):
 

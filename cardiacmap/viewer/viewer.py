@@ -475,15 +475,15 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
         
-    # signal = signals[0]
+    signal = signals[0]
 
-    # viewer = ImageSignalViewer(signal)
+    viewer = ImageSignalViewer(signal)
 
-    # viewer.show()
+    viewer.show()
 
-    main_window = CardiacMapWindow()
-    main_window.show()
+    # main_window = CardiacMapWindow()
+    # main_window.show()
 
     sys.exit(app.exec())
