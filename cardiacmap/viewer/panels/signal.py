@@ -1,4 +1,3 @@
-from ast import Param
 import os
 import sys
 from functools import partial
@@ -8,7 +7,7 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget, QHBoxLayout,
                                QInputDialog, QLabel, QMainWindow, QMenu,
                                QMenuBar, QPlainTextEdit, QPushButton,
                                QSplitter, QTabWidget, QToolBar, QToolButton,
@@ -56,8 +55,10 @@ class SignalPanel(QWidget):
 
         if toolbar: self.init_transform_toolbar()
 
-        self.plot = pg.PlotWidget(view=pg.PlotItem())
-        self.signal_data: pg.PlotDataItem = self.plot.plot()
+        self.plot = pg.PlotWidget()
+        self.signal_data: pg.PlotDataItem = self.plot.plot(symbol='o', symbolSize=0)
+        self.signal_data.scatter.setData(tip=self.point_hover_tooltip)
+        
         self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'), symbol='o')
         self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
         
@@ -65,7 +66,9 @@ class SignalPanel(QWidget):
         self.plot.addItem(self.signal_marker, ignoreBounds=True)
 
         layout = QVBoxLayout()
-        if toolbar: layout.addWidget(self.button_bar)
+        if toolbar: 
+            layout.addWidget(self.transform_bar)
+            layout.addWidget(self.plotting_bar)
         layout.addWidget(self.plot)
         
         self.setLayout(layout)
@@ -73,7 +76,8 @@ class SignalPanel(QWidget):
         self.plot.scene().sigMouseMoved.connect(self.mouseMoved)
 
     def init_transform_toolbar(self):
-        self.button_bar = QToolBar()
+        self.transform_bar = QToolBar()
+        self.plotting_bar = QToolBar()
         
         reset = QAction("Reset", self)
         invert = QAction("Invert", self)
@@ -99,6 +103,11 @@ class SignalPanel(QWidget):
         self.spatialPlotApdDi = QAction("Spatial Plot", self)
         self.spatialPlotApdDi.setDisabled(True)
         self.spatialPlotApdDi.setVisible(False)
+        
+        self.show_points = QCheckBox()
+        self.show_points.setChecked(False)
+        self.show_points.stateChanged.connect(self.toggle_points)
+        self.show_points.stateChanged.connect(self.parent.update_signal_plot)
          
         reset.triggered.connect(partial(self.parent.signal_transform, transform="reset"))
         invert.triggered.connect(partial(self.parent.signal_transform, transform="invert"))
@@ -117,18 +126,21 @@ class SignalPanel(QWidget):
         self.confirm_apd.triggered.connect(partial(self.parent.calculate_apd, action="confirm"))
         self.reset_apd.triggered.connect(partial(self.parent.calculate_apd, action="reset"))
 
-        self.button_bar.addAction(reset)
-        self.button_bar.addAction(invert)
-        self.button_bar.addWidget(trim)
-        self.button_bar.addWidget(time_average)
-        self.button_bar.addWidget(spatial_average)
-        self.button_bar.addWidget(self.baseline_drift)
-        self.button_bar.addWidget(self.apd)
-        self.button_bar.addAction(self.spatialPlotApdDi)
-        self.button_bar.addWidget(self.stacking)
+        self.transform_bar.addAction(reset)
+        self.transform_bar.addAction(invert)
+        self.transform_bar.addWidget(trim)
+        self.transform_bar.addWidget(time_average)
+        self.transform_bar.addWidget(spatial_average)
+        self.transform_bar.addWidget(self.baseline_drift)
+        self.transform_bar.addWidget(self.apd)
+        self.plotting_bar.addWidget(self.stacking)
+        self.plotting_bar.addAction(self.spatialPlotApdDi)
+        self.plotting_bar.addWidget(QLabel("    Show Data Points: "))
+        self.plotting_bar.addWidget(self.show_points)
 
-        self.button_bar.setStyleSheet("QToolButton:!hover {color:black;}")
-
+        self.transform_bar.setStyleSheet("QToolButton:!hover {color:black;}")
+        self.plotting_bar.setStyleSheet("QToolButton:!hover {color:black;}")
+        
     def mouseMoved(self, evt):
         pos = evt
         if self.plot.sceneBoundingRect().contains(pos):
@@ -141,5 +153,22 @@ class SignalPanel(QWidget):
             # vLine.setPos(mousePoint.x())
             # hLine.setPos(mousePoint.y())
 
+    def toggle_points(self):
+        """Toggles size of signal_data.scatter points"""
+        if self.show_points.isChecked():           
+            # show
+            self.signal_data.setSymbolSize(10)
+            # make signal hoverable
+            self.signal_data.scatter.setData(hoverable=True)
+        else:          
+            # hide
+            self.signal_data.setSymbolSize(0)
+            # make signal unhoverable
+            self.signal_data.scatter.setData(hoverable=False)
 
-
+    def point_hover_tooltip(self, x, y, data):
+        """Called by signal_data.scatter when hovering over a point"""
+        tooltip = "x: " + str(x) + "\ny:" + str(y)
+        #print(tooltip)
+        return tooltip
+            
