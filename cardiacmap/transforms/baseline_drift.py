@@ -1,10 +1,6 @@
 import concurrent.futures as cf
-from types import NoneType
-
 import numpy as np
-from scipy.ndimage import gaussian_filter, uniform_filter
 from scipy.signal import find_peaks
-
 
 def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads):
     """Function to remove baseline drift from data
@@ -56,3 +52,92 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     # store result
     output[outputIndex] = res
     return 0
+
+def GetMins(t, data, prominence, periodLen, threshold, alternans, threads):
+    """Function for calculating the baseline of the data for each xy pair
+    Args:
+        t (array): list of t values from 0 to len(data)
+        data (array): data to process
+        periodLen (int): baseline period length
+        threshold (float): baseline  max threshold
+        threads (int): the number of threads to use
+    """
+    # set up output
+    yLen = len(data)
+    xLen = len(data[0])
+    baselineX = [0 for j in range(yLen * xLen)]
+    baselineY = baselineX.copy()
+    
+    # set up params
+    dst = .75 * periodLen
+    if dst < 1:
+        dst = 1
+    if prominence == 0:
+        prominence = .1
+    params = dict({'alternans': alternans, 
+                   'threshold': threshold, 
+                   'distance': dst, 
+                   'prominence': prominence})
+    
+    # run a thread for each signal
+    executor = cf.ThreadPoolExecutor(max_workers=threads)
+    for y in range(yLen):
+        for x in range(xLen):
+            index = y * yLen + x
+            d = data[y][x]
+            executor.submit(
+                    getMinsThread,
+                    t, d, baselineX, baselineY, index, params
+                )
+    executor.shutdown(wait=True)
+    
+    return baselineX, baselineY
+
+def getMinsThread(t, d, xOut, yOut, outIndex, params):
+    """Function called by GetMins for a single signal
+    Args:
+        t (array): list of t values from 0 to len(data)
+        d (array): data (one signal) to process
+        xOut (array): the output for the baseline X values
+        yOut (array): the output for the baseline Y values
+        outIndex (int): where in the output arrays to store results
+        params (dict): params for peak finding
+            alternans (bool): use alternans
+            distance (int): minimum distance between baseline points (75% of the period length)
+            prominence (float): minimum peak prominance to be considered for the baseline
+            threshold (float): maximal value to be considered for the baseline
+    """
+    # find peaks
+    minsIndex = find_peaks(-d, distance=params['distance'], prominence=params['prominence'])[0]
+    
+    # check threshold
+    if 0 < params['threshold'] < 1:
+        # find indices where minima is > threshold
+        minsY = d[minsIndex]
+        badMinsIndex = np.argwhere(minsY > params['threshold'])
+
+        # if all mins are invalid
+        if len(badMinsIndex) == len(minsIndex):
+            # ignore threshold
+            print("ERR: No minima found below threshold:", params['threshold'],'. Param Ignored.')
+        else:
+            #otherwise, get rid of bad indicies
+            minsIndex = np.delete(minsIndex, badMinsIndex)
+            
+    # check alternans
+    if params['alternans']:
+        xVals = t[minsIndex]
+        first8Mins = xVals[0:8]
+        beatLengths = np.diff(first8Mins)
+        oddBeatAvg = np.mean(beatLengths[0:8:2])
+        evenBeatAvg = np.mean(beatLengths[1:9:2])
+
+        # get rid of odd/even beat mins (keep the longer beats)
+        if evenBeatAvg < oddBeatAvg:
+            minsIndex = minsIndex[::2]
+        else:
+            minsIndex = minsIndex[1::2]
+
+    # set output
+    xOut[outIndex] = t[minsIndex]
+    yOut[outIndex] = d[minsIndex]
