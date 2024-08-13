@@ -15,37 +15,9 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget, QH
 
 from cardiacmap.viewer.components import ParameterButton
 
-
-# p1.sigRangeChanged.connect(updateRegion)
-
-# region.setRegion([1000, 2000])
-
-# #cross hair
-# vLine = pg.InfiniteLine(angle=90, movable=False)
-# hLine = pg.InfiniteLine(angle=0, movable=False)
-# p1.addItem(vLine, ignoreBounds=True)
-# p1.addItem(hLine, ignoreBounds=True)
-
-# vb = p1.vb
-
-# def mouseMoved(evt):
-#     pos = evt
-#     if p1.sceneBoundingRect().contains(pos):
-#         mousePoint = vb.mapSceneToView(pos)
-#         index = int(mousePoint.x())
-#         if index > 0 and index < len(data1):
-#             label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
-#         vLine.setPos(mousePoint.x())
-#         hLine.setPos(mousePoint.y())
-
-
-
-# p1.scene().sigMouseMoved.connect(mouseMoved)
-
-
 class SignalPanel(QWidget):
 
-    def __init__(self, parent, toolbar = True):
+    def __init__(self, parent, toolbar=True, show_signal_marker=True):
 
         super().__init__(parent=parent)
 
@@ -53,9 +25,10 @@ class SignalPanel(QWidget):
 
         self.resize(1000, self.height())
 
-        if toolbar: self.init_transform_toolbar()
+        if toolbar: self.init_toolbars()
 
         self.plot = pg.PlotWidget()
+        self.plot_item = self.plot.getPlotItem()
         self.signal_data: pg.PlotDataItem = self.plot.plot(symbol='o', symbolSize=0)
         self.signal_data.scatter.setData(tip=self.point_hover_tooltip)
         
@@ -63,6 +36,13 @@ class SignalPanel(QWidget):
         self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
         
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
+        self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
+        self.signal_marker_toggle = True
+        self.signal_marker.setVisible(show_signal_marker)
+        self.signal_marker.sigPositionChanged.connect(self.parent.update_signal_value)
+
+        self.frame_idx = 0
+
         self.plot.addItem(self.signal_marker, ignoreBounds=True)
 
         layout = QVBoxLayout()
@@ -75,7 +55,7 @@ class SignalPanel(QWidget):
         
         self.plot.scene().sigMouseMoved.connect(self.mouseMoved)
 
-    def init_transform_toolbar(self):
+    def init_toolbars(self):
         self.transform_bar = QToolBar()
         self.plotting_bar = QToolBar()
         
@@ -87,28 +67,38 @@ class SignalPanel(QWidget):
         spatial_average = ParameterButton("Spatial Average", self.parent.spatial_params)
         trim = ParameterButton("Trim", self.parent.trim_params)
         
-        
+        # Baseline drift button
         self.confirm_baseline_drift = QAction("Confirm")
         self.confirm_baseline_drift.setDisabled(True)
         self.reset_baseline_drift = QAction("Reset")
         self.reset_baseline_drift.setDisabled(True)
         self.baseline_drift = ParameterButton("Calculate Baseline Drift", self.parent.baseline_params, actions=[self.confirm_baseline_drift, self.reset_baseline_drift])
         
+        # APD Button
         self.confirm_apd = QAction("Confirm")
         self.confirm_apd.setDisabled(True)
         self.reset_apd = QAction("Reset")
         self.reset_apd.setDisabled(True)
         self.apd = ParameterButton("Calculate APD / DI", self.parent.apd_params, actions=[self.confirm_apd, self.reset_apd])
         
+        # Spatial plot - APD / DI button
         self.spatialPlotApdDi = QAction("Spatial Plot", self)
         self.spatialPlotApdDi.setDisabled(True)
         self.spatialPlotApdDi.setVisible(False)
         
+        # Display data points
         self.show_points = QCheckBox()
         self.show_points.setChecked(False)
         self.show_points.stateChanged.connect(self.toggle_points)
         self.show_points.stateChanged.connect(self.parent.update_signal_plot)
+
+        self.show_signal_marker = QCheckBox()
+        self.show_signal_marker.setChecked(True)
+        self.show_signal_marker.stateChanged.connect(self.toggle_signal)
+        self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+
          
+        # QActions triggers - connect
         reset.triggered.connect(partial(self.parent.signal_transform, transform="reset"))
         invert.triggered.connect(partial(self.parent.signal_transform, transform="invert"))
         spatial_average.pressed.connect(partial(self.parent.signal_transform, transform="spatial_average"))
@@ -133,23 +123,32 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(spatial_average)
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.apd)
+
         self.plotting_bar.addWidget(self.stacking)
         self.plotting_bar.addAction(self.spatialPlotApdDi)
         self.plotting_bar.addWidget(QLabel("    Show Data Points: "))
         self.plotting_bar.addWidget(self.show_points)
+        self.plotting_bar.addWidget(QLabel("    Show Signal Marker: "))
+        self.plotting_bar.addWidget(self.show_signal_marker)
 
         self.transform_bar.setStyleSheet("QToolButton:!hover {color:black;}")
         self.plotting_bar.setStyleSheet("QToolButton:!hover {color:black;}")
+
         
     def mouseMoved(self, evt):
         pos = evt
         if self.plot.sceneBoundingRect().contains(pos):
-            mousePoint = self.plot.view
-            print(type(mousePoint))
-            # index = int(mousePoint.x())
-            # print(index)
-            # if index > 0 and index < len(data1):
-            #     label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
+            mousePoint = self.plot_item.vb.mapSceneToView(pos)
+            signal_y = self.signal_data.getData()[1]
+            idx = int(mousePoint.x())
+            if idx > 0 and idx < len(signal_y):
+                # print(signal_y[idx])
+                if self.signal_marker_toggle: 
+                    self.frame_idx = idx
+                    self.signal_marker.setX(idx)
+                    self.parent.update_signal_value(None, idx=idx)
+
+                # label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
             # vLine.setPos(mousePoint.x())
             # hLine.setPos(mousePoint.y())
 
@@ -165,6 +164,13 @@ class SignalPanel(QWidget):
             self.signal_data.setSymbolSize(0)
             # make signal unhoverable
             self.signal_data.scatter.setData(hoverable=False)
+    
+    def toggle_signal_follow(self):
+        self.signal_marker_toggle = not self.signal_marker_toggle
+
+    def toggle_signal(self):
+        self.signal_marker.setVisible(self.show_signal_marker.isChecked())
+        self.signal_marker_toggle = False
 
     def point_hover_tooltip(self, x, y, data):
         """Called by signal_data.scatter when hovering over a point"""

@@ -132,7 +132,6 @@ class ImageSignalViewer(QMainWindow):
         self.metadata_dock.setFloating(False)
 
         self.setCentralWidget(self.metadata_panel)
-        # self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.metadata_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
         self.image_dock.resize(400, 1000)
@@ -141,11 +140,21 @@ class ImageSignalViewer(QMainWindow):
         self.signal.normalize()
         self.update_signal_plot()
 
+    def update_signal_value(self, evt, idx=None):
+
+        if self.signal_panel.signal_marker:
+            if not idx:
+                idx = int(self.signal_panel.signal_marker.getXPos())
+            self.metadata_panel.frame_index.setText(str(idx))
+            self.metadata_panel.signal_value.setText(f"{self.signal_panel.signal_data.getData()[1][idx]:.3f}")
+
     def update_signal_plot(self):
 
         signal_data = self.signal.transformed_data[:, self.x, self.y]
         self.signal_panel.signal_data.setData(signal_data)
-        self.metadata_panel.position_label.setText(f"{self.x}, {self.y}\n\n")
+        self.metadata_panel.img_position.setText(f"{self.x}, {self.y}")
+
+        self.update_signal_value(None, idx=self.signal_panel.frame_idx)
 
         if self.signal.show_baseline:
             baseline_idx = self.x * self.signal.span_X + self.y
@@ -170,7 +179,7 @@ class ImageSignalViewer(QMainWindow):
             self.signal_panel.apd_data.setData()
 
 
-    def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize"]):
+    def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize", "reset", "invert"]):
         # Calls a transform function within the signal item
 
         if transform == "spatial_average":
