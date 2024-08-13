@@ -70,10 +70,10 @@ class ImageSignalViewer(QMainWindow):
         ]
 
         drift_params = [
-            {"name": "Method", "type": "list", "value": "Period", "limits": ["Period"]},
-            {"name": "Alternans (Period)", "type": "bool", "value": False,},
-            {"name": "Period", "type": "int", "value": 50, "limits": (0, 1000)},
-            {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
+            {"name": "Alternans", "type": "bool", "value": False,},
+            {"name": "Prominence", "type": "float", "value": .1, "limits": (0, 1)},
+            {"name": "Period Len", "type": "int", "value": 0, "limits": (0, 1000)},
+            {"name": "Threshold", "type": "float", "value": 0, "limits": (0, 1)},
         ]
 
         apd_params = [
@@ -218,17 +218,13 @@ class ImageSignalViewer(QMainWindow):
         self.position_tab.update_data()
 
     def calculate_baseline_drift(self, action: Literal["calculate", "confirm", "reset"]):
-
-        method = self.baseline_params.child("Method").value()
-        period = self.baseline_params.child("Period").value()
+        period = self.baseline_params.child("Period Len").value()
+        prominence = self.baseline_params.child("Prominence").value()
         threshold = self.baseline_params.child("Threshold").value()
-        alternans = self.baseline_params.child("Alternans (Period)").value()
+        alternans = self.baseline_params.child("Alternans").value()
 
         if action == "calculate":
-            if method == "Period":
-                self.signal.calc_baseline(method, period, alternans)
-            elif method == "Threshold":
-                self.signal.calc_baseline(method, threshold)
+            self.signal.calc_baseline(period, threshold, prominence, alternans)
 
             self.signal_panel.confirm_baseline_drift.setEnabled(True)
             self.signal_panel.reset_baseline_drift.setEnabled(True)

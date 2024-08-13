@@ -141,19 +141,15 @@ class CascadeSignal:
     def normalize(self):
         self.transformed_data = NormalizeData(self.transformed_data)
 
-    def calc_baseline(self, method, methodValue, alternans):
-        print("Calculating baseline", method, methodValue, alternans)
+    def calc_baseline(self, periodLen, threshold, prominence, alternans):
+        print("Calculating baseline:", periodLen, threshold, prominence, alternans)
         data = self.transformed_data
         t = np.arange(len(data))
-        threads = (
-            8  # this seems to be optimal thread count, needs more testing to confirm
-        )
+        threads = 4
 
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
-        self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, method, methodValue, threads, alternans
-        )
+        self.baselineX, self.baselineY = GetMins(t, dataSwapped, prominence, periodLen, threshold, alternans, threads)
 
     def remove_baseline_drift(self):
         data = self.transformed_data
