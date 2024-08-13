@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QSplitter
-from cardiacmap.model.signal import CascadeSignal
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QSplitter, QFormLayout
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
 
 class MetadataPanel(QWidget):
@@ -12,11 +12,27 @@ class MetadataPanel(QWidget):
         self.signal = signal
         metadata = self.signal.metadata
         # TODO: Refactor this nicely later using QFormLayout
-        label_layout.addWidget(QLabel("File:\nFrames:\nChannel:"))
-        label_layout.addWidget(QLabel(f"{metadata['filename']}\n{self.parent.signal.span_T}\n{self.parent.signal.channel}"))
-        label_layout.addWidget(QLabel("    Position (x, y):\n\n"))
-        self.position_label = QLabel(f"{self.parent.x}, {self.parent.y}\n\n")
-        label_layout.addWidget(self.position_label)
+
+        self.filename = QLabel(metadata['filename'])
+        self.frames = QLabel(str(self.parent.signal.span_T))
+        self.channel = QLabel(self.parent.signal.channel)
+
+        self.img_position = QLabel(f"{self.parent.x}, {self.parent.y}\n\n")
+        self.frame_index = QLabel("0")
+        self.signal_value = QLabel("0")
+
+        left_col = QFormLayout()
+        left_col.addRow(QLabel("File: "), self.filename)
+        left_col.addRow(QLabel("Frames: "), self.frames)
+        left_col.addRow(QLabel("Channel: "), self.channel)
+
+        mid_col = QFormLayout()
+        mid_col.addRow(QLabel("Position (x, y): "), self.img_position)
+        mid_col.addRow(QLabel("Frame Index: "), self.frame_index)
+        mid_col.addRow(QLabel("Signal Value: "), self.signal_value)
+
+        label_layout.addLayout(left_col)
+        label_layout.addLayout(mid_col)
         label_layout.addStretch()
 
         label = QWidget()

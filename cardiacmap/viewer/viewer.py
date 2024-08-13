@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
                                QVBoxLayout, QWidget)
 
 from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import PositionView, MetadataPanel, SpatialPlotView, SignalPanel, StackingPositionView, AnnotateView
 
 from typing import Literal
@@ -90,6 +90,9 @@ class ImageSignalViewer(QMainWindow):
 
         self.metadata_panel = MetadataPanel(signal, self)
 
+        # Create Signal View
+        self.signal_panel = SignalPanel(self)
+
         # Create viewer tabs
         self.position_tab = PositionView(self)
         self.position_tab.image_view.setImage(
@@ -109,8 +112,6 @@ class ImageSignalViewer(QMainWindow):
         self.image_tabs.addTab(self.position_tab, "Position")
         self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
-        # Create Signal View
-        self.signal_panel = SignalPanel(self)
 
         # Create main layout
         self.splitter = QSplitter()
@@ -132,7 +133,6 @@ class ImageSignalViewer(QMainWindow):
         self.metadata_dock.setFloating(False)
 
         self.setCentralWidget(self.metadata_panel)
-        # self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.metadata_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
         self.image_dock.resize(400, 1000)
@@ -141,11 +141,21 @@ class ImageSignalViewer(QMainWindow):
         self.signal.normalize()
         self.update_signal_plot()
 
+    def update_signal_value(self, evt, idx=None):
+
+        if self.signal_panel.signal_marker:
+            if not idx:
+                idx = int(self.signal_panel.signal_marker.getXPos())
+            self.metadata_panel.frame_index.setText(str(idx))
+            self.metadata_panel.signal_value.setText(f"{self.signal_panel.signal_data.getData()[1][idx]:.3f}")
+
     def update_signal_plot(self):
 
         signal_data = self.signal.transformed_data[:, self.x, self.y]
         self.signal_panel.signal_data.setData(signal_data)
-        self.metadata_panel.position_label.setText(f"{self.x}, {self.y}\n\n")
+        self.metadata_panel.img_position.setText(f"{self.x}, {self.y}")
+
+        self.update_signal_value(None, idx=self.signal_panel.frame_idx)
 
         if self.signal.show_baseline:
             baseline_idx = self.x * self.signal.span_X + self.y
@@ -170,7 +180,7 @@ class ImageSignalViewer(QMainWindow):
             self.signal_panel.apd_data.setData()
 
 
-    def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize"]):
+    def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize", "reset", "invert"]):
         # Calls a transform function within the signal item
 
         if transform == "spatial_average":
@@ -392,7 +402,7 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.addTab(self.DI_tab, "DI Plot")
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, False)
+        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
         #self.DI_signal_tab = SignalPanel(self, False)
 
         self.signal_tabs = QTabWidget()
@@ -426,6 +436,9 @@ class SpatialPlotWindow(QMainWindow):
         for coord in coords:
             data.append(img[coord[0]][coord[1]])
         self.APD_signal_tab.signal_data.setData(data)  
+
+    def update_signal_value(self, evt, idx=None):
+        return
  
 class StackingWindow(QMainWindow):
     def __init__(self, img_data, stack_data):
@@ -440,7 +453,7 @@ class StackingWindow(QMainWindow):
         self.image_tabs.addTab(self.image_tab, "Image")
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.signal_tab, "Stack")
@@ -473,21 +486,23 @@ class StackingWindow(QMainWindow):
     def update_signal_plot(self):
         self.signal_tab.signal_data.setData(self.data[:, self.y, self.x])
  
+    def update_signal_value(self, evt, idx=None):
+        return
 
 
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
         
-    # signal = signals[0]
+    signal = signals[0]
 
-    # viewer = ImageSignalViewer(signal)
+    viewer = ImageSignalViewer(signal)
 
-    # viewer.show()
+    viewer.show()
 
-    main_window = CardiacMapWindow()
-    main_window.show()
+    # main_window = CardiacMapWindow()
+    # main_window.show()
 
     sys.exit(app.exec())

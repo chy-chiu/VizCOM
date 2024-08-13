@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
                                QVBoxLayout, QWidget, QComboBox, QCheckBox)
 
 from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
 from typing import Literal
 
@@ -210,7 +210,7 @@ class SpatialPlotView(QWidget):
 
         self.show_diff = QCheckBox()
         self.show_diff.setChecked(False)
-        self.show_diff.checkStateChanged.connect(self.update_data)
+        self.show_diff.stateChanged.connect(self.update_data)
 
         self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
         self.colormap_bar.addWidget(self.show_diff)

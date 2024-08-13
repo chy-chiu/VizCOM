@@ -4,7 +4,7 @@ import struct
 import numpy as np
 import psutil
 
-from cardiacmap.model.signal import CascadeSignal
+from cardiacmap.model.data import CascadeSignal
 
 def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     """Load raw data from cascade .dat files. Returns a 3D signal array. Can be used in load_cascade_file 

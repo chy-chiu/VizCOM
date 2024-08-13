@@ -117,7 +117,7 @@ class CascadeSignal:
     def calc_apd_di(self):
         self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
             self.apdDIThresholdIdxs, self.apdIndicators
-        )
+          )
 
     def reset_apd_di(self):
         self.apdDIThresholdIdxs = self.apdIndicators = []
