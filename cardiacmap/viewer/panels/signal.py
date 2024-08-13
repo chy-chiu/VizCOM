@@ -17,7 +17,7 @@ from cardiacmap.viewer.components import ParameterButton
 
 class SignalPanel(QWidget):
 
-    def __init__(self, parent, toolbar=True, show_signal_marker=True):
+    def __init__(self, parent, toolbar=True, signal_marker=True):
 
         super().__init__(parent=parent)
 
@@ -38,7 +38,7 @@ class SignalPanel(QWidget):
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
         self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
         self.signal_marker_toggle = True
-        self.signal_marker.setVisible(show_signal_marker)
+        self.signal_marker.setVisible(signal_marker)
         self.signal_marker.sigPositionChanged.connect(self.parent.update_signal_value)
 
         self.frame_idx = 0
@@ -144,13 +144,13 @@ class SignalPanel(QWidget):
             if idx > 0 and idx < len(signal_y):
                 # print(signal_y[idx])
                 if self.signal_marker_toggle: 
-                    self.frame_idx = idx
-                    self.signal_marker.setX(idx)
-                    self.parent.update_signal_value(None, idx=idx)
+                    self.update_signal_marker(idx)
 
-                # label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
-            # vLine.setPos(mousePoint.x())
-            # hLine.setPos(mousePoint.y())
+    def update_signal_marker(self, idx):
+        self.frame_idx = idx
+        self.signal_marker.setX(idx)
+        self.parent.update_signal_value(None, idx=idx)
+
 
     def toggle_points(self):
         """Toggles size of signal_data.scatter points"""
@@ -174,7 +174,6 @@ class SignalPanel(QWidget):
 
     def point_hover_tooltip(self, x, y, data):
         """Called by signal_data.scatter when hovering over a point"""
-        tooltip = "x: " + str(x) + "\ny:" + str(y)
-        #print(tooltip)
+        tooltip = "x: " + str(int(x)) + "\ny: " + f"{y:.3f}"
         return tooltip
             

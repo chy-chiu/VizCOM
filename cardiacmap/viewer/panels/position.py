@@ -121,6 +121,8 @@ class PositionView(QWidget):
 
         self.image_view.getView().addItem(self.position_marker)
 
+        self.image_view.sigTimeChanged.connect(self.parent.signal_panel.update_signal_marker)
+
         return self.image_view
 
     def init_player_bar(self):

@@ -90,6 +90,9 @@ class ImageSignalViewer(QMainWindow):
 
         self.metadata_panel = MetadataPanel(signal, self)
 
+        # Create Signal View
+        self.signal_panel = SignalPanel(self)
+
         # Create viewer tabs
         self.position_tab = PositionView(self)
         self.position_tab.image_view.setImage(
@@ -109,8 +112,6 @@ class ImageSignalViewer(QMainWindow):
         self.image_tabs.addTab(self.position_tab, "Position")
         self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
-        # Create Signal View
-        self.signal_panel = SignalPanel(self)
 
         # Create main layout
         self.splitter = QSplitter()
@@ -405,7 +406,7 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.addTab(self.DI_tab, "DI Plot")
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, False)
+        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
         #self.DI_signal_tab = SignalPanel(self, False)
 
         self.signal_tabs = QTabWidget()
@@ -439,6 +440,9 @@ class SpatialPlotWindow(QMainWindow):
         for coord in coords:
             data.append(img[coord[0]][coord[1]])
         self.APD_signal_tab.signal_data.setData(data)  
+
+    def update_signal_value(self, evt, idx=None):
+        return
  
 class StackingWindow(QMainWindow):
     def __init__(self, img_data, stack_data):
@@ -453,7 +457,7 @@ class StackingWindow(QMainWindow):
         self.image_tabs.addTab(self.image_tab, "Image")
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.signal_tab, "Stack")
@@ -486,6 +490,8 @@ class StackingWindow(QMainWindow):
     def update_signal_plot(self):
         self.signal_tab.signal_data.setData(self.data[:, self.y, self.x])
  
+    def update_signal_value(self, evt, idx=None):
+        return
 
 
 if __name__ == "__main__":
