@@ -82,7 +82,7 @@ class SignalPanel(QWidget):
         self.apd = ParameterButton("Calculate APD / DI", self.parent.apd_params, actions=[self.confirm_apd, self.reset_apd])
         
         # Spatial plot - APD / DI button
-        self.spatialPlotApdDi = QAction("Spatial Plot", self)
+        self.spatialPlotApdDi = QAction("APD/DI Plots", self)
         self.spatialPlotApdDi.setDisabled(True)
         self.spatialPlotApdDi.setVisible(False)
         

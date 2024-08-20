@@ -16,7 +16,16 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
-from cardiacmap.viewer.panels import PositionView, MetadataPanel, SpatialPlotView, SignalPanel, StackingPositionView, AnnotateView
+from cardiacmap.viewer.panels import (
+    PositionView,
+    MetadataPanel,
+    ScatterPlotView,
+    ScatterPanel,
+    SpatialPlotView,
+    SignalPanel,
+    StackingPositionView,
+    AnnotateView
+)
 
 from typing import Literal
 
@@ -274,7 +283,7 @@ class ImageSignalViewer(QMainWindow):
         apd = self.signal.get_spatial_apds()
         di = self.signal.get_spatial_dis()
         #print(np.array(self.signal.dis).shape)
-        self.apd_spatial_plot = SpatialPlotWindow(self, apd, di)
+        self.apd_spatial_plot = SpatialPlotWindow(self, apd, di, self.signal.apdIndicators)
         self.apd_spatial_plot.show()
         
     def perform_stacking(self):
@@ -386,28 +395,33 @@ class PopupWindow(QInputDialog):
         QInputDialog.__init__(self)
 
 class SpatialPlotWindow(QMainWindow):
-    def __init__(self, parent, apdData = None, diData = None):
+    def __init__(self, parent, apdData = None, diData = None, flags = None):
         QMainWindow.__init__(self)
         self.parent = parent
         self.x1 = self.y1 = self.x2 = self.y2 = 0
         self.data = [apdData, diData]
+        self.flags = flags
         apd_mode = 0
         di_mode = 1
         # Create viewer tabs
-        self.APD_tab = SpatialPlotView(self, apd_mode)
-        self.DI_tab = SpatialPlotView(self, di_mode)
+        self.APD_view_tab = SpatialPlotView(self, apd_mode)
+        self.DI_view_tab = SpatialPlotView(self, di_mode)
+        self.restitution_view_tab = ScatterPlotView(self)
 
         self.image_tabs = QTabWidget()
-        self.image_tabs.addTab(self.APD_tab, "APD Plot")
-        self.image_tabs.addTab(self.DI_tab, "DI Plot")
+        self.image_tabs.addTab(self.APD_view_tab, "Spatial APDs")
+        self.image_tabs.addTab(self.DI_view_tab, "Spatial DIs")
+        self.image_tabs.addTab(self.restitution_view_tab, "Spatial Restitution")
 
         # Create Signal Views
         self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
         #self.DI_signal_tab = SignalPanel(self, False)
+        self.restitution_tab = ScatterPanel(self)
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.APD_signal_tab, "APD v.s. Linear Space")
         #self.signal_tabs.addTab(self.DI_signal_tab, "DI v.s. Linear Space")
+        self.signal_tabs.addTab(self.restitution_tab, "APD v.s. DI")
         
         # Create main layout
         self.splitter = QSplitter()
@@ -494,15 +508,15 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
         
-    signal = signals[0]
+    # signal = signals[0]
 
-    viewer = ImageSignalViewer(signal)
+    # viewer = ImageSignalViewer(signal)
 
-    viewer.show()
+    # viewer.show()
 
-    # main_window = CardiacMapWindow()
-    # main_window.show()
+    main_window = CardiacMapWindow()
+    main_window.show()
 
     sys.exit(app.exec())
