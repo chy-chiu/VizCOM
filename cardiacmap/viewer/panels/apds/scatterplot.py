@@ -39,7 +39,7 @@ class ScatterDragPlot(pg.PlotItem):
             
 class ScatterPanel(QWidget):
     # scatter plot widget
-    # displays restitution
+    # displays APD vs DI
     def __init__(self, parent):
         super().__init__(parent=parent)
         
@@ -55,11 +55,16 @@ class ScatterPanel(QWidget):
         self.setLayout(layout)
         
     def init_plot(self):
-        print('init plot')
         # Set up Image View
         self.plot = pg.PlotWidget()
         self.plot_item: pg.PlotDataItem = self.plot.plot(pen=None, symbol='o', symbolSize=6)
         self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        
+        # set up axes
+        leftAxis: pg.AxisItem = self.plot.getPlotItem().getAxis('left')
+        bottomAxis: pg.AxisItem = self.plot.getPlotItem().getAxis('bottom')
+        leftAxis.setLabel(text= "Action Potential Duration (ms)")
+        bottomAxis.setLabel(text= "Diastolic Interval (ms)")
         
         
         self.update_plot(0, 0)
@@ -144,4 +149,4 @@ class ScatterPlotView(QWidget):
          
     def update_scatter(self, x, y):
         # call update_plot in ScatterPanel
-        self.parent.restitution_tab.update_plot(x, y)
+        self.parent.APD_DI_tab.update_plot(x, y)

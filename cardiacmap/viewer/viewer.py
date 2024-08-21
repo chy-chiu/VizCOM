@@ -414,22 +414,27 @@ class SpatialPlotWindow(QMainWindow):
         # Create viewer tabs
         self.APD_view_tab = SpatialPlotView(self, apd_mode)
         self.DI_view_tab = SpatialPlotView(self, di_mode)
-        self.restitution_view_tab = ScatterPlotView(self)
+        self.APD_DI_view_tab = ScatterPlotView(self)
 
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.APD_view_tab, "Spatial APDs")
         self.image_tabs.addTab(self.DI_view_tab, "Spatial DIs")
-        self.image_tabs.addTab(self.restitution_view_tab, "Spatial Restitution")
+        self.image_tabs.addTab(self.APD_DI_view_tab, "APD v.s. DI")
 
         # Create Signal Views
         self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        # set up axes
+        leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis('left')
+        bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis('bottom')
+        leftAxis.setLabel(text= "Action Potential Duration (ms)")
+        bottomAxis.setLabel(text= "Linear Space (px)")
         #self.DI_signal_tab = SignalPanel(self, False)
-        self.restitution_tab = ScatterPanel(self)
+        self.APD_DI_tab = ScatterPanel(self)
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.APD_signal_tab, "APD v.s. Linear Space")
         #self.signal_tabs.addTab(self.DI_signal_tab, "DI v.s. Linear Space")
-        self.signal_tabs.addTab(self.restitution_tab, "APD v.s. DI")
+        self.signal_tabs.addTab(self.APD_DI_tab, "APD v.s. DI")
         
         # Create main layout
         self.splitter = QSplitter()
@@ -477,6 +482,12 @@ class StackingWindow(QMainWindow):
 
         # Create Signal Views
         self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        
+        # set up axes
+        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('left')
+        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('bottom')
+        leftAxis.setLabel(text= "Average Relative Voltage")
+        bottomAxis.setLabel(text= "Time (ms)")
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.signal_tab, "Stack")

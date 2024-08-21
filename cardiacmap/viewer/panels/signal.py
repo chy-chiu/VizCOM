@@ -54,6 +54,13 @@ class SignalPanel(QWidget):
 
         self.plot = pg.PlotWidget()
         self.plot_item = self.plot.getPlotItem()
+        
+        # set up axes
+        leftAxis: pg.AxisItem = self.plot_item.getAxis('left')
+        bottomAxis: pg.AxisItem = self.plot_item.getAxis('bottom')
+        leftAxis.setLabel(text= "Relative Voltage")
+        bottomAxis.setLabel(text= "Time (ms)")
+        
         self.signal_data: pg.PlotDataItem = self.plot.plot(symbol='o', symbolSize=0)
         self.signal_data.scatter.setData(tip=self.point_hover_tooltip)
         
