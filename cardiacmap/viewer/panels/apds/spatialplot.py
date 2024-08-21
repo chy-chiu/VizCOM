@@ -48,9 +48,8 @@ SPINBOX_STYLE = """QSpinBox
 
 IMAGE_SIZE = 128
 
-class DraggablePlot(pg.PlotItem):
-
-    # Draggable PlotItem that takes in a callback function.
+class SpatialDragPlot(pg.PlotItem):
+    # Position Plot used by APD/DI v.s. Space Plots
     def __init__(self, parent, sCallback, eCallback):
         super().__init__()
         self.sCallback = sCallback
@@ -69,7 +68,7 @@ class DraggablePlot(pg.PlotItem):
             pos = self.vb.mapSceneToView(event.scenePos())
             self.eCallback(int(pos.x()), int(pos.y()))
             
-            # get intersecting coords of line on release
+            # get coordinates that intersect the line
             xDiff = self.parent.x2 - self.parent.x1
             yDiff = self.parent.y2 - self.parent.y1
             maxDiff = max(abs(xDiff), abs(yDiff))
@@ -91,11 +90,10 @@ class DraggablePlot(pg.PlotItem):
         pass
 
     def hoverEvent(self, event: HoverEvent):
-        event.acceptDrags(Qt.MouseButton.LeftButton)
-        # if not event.isExit():
-        #     # the mouse is hovering over the image; make sure no other items
-        #     # will receive left click/drag events from here.
-        #     event.acceptDrags(Qt.MouseButton.LeftButton)
+        if not event.isExit():
+            # the mouse is hovering over the image; make sure no other items
+            # will receive left click/drag events from here.
+            event.acceptDrags(Qt.MouseButton.LeftButton)
 
 class SpatialPlotView(QWidget):
 
@@ -124,7 +122,7 @@ class SpatialPlotView(QWidget):
     def init_image_view(self):
 
         # Set up Image View
-        self.plot = DraggablePlot(self, self.line_start, self.line_end)
+        self.plot = SpatialDragPlot(self, self.line_start, self.line_end)
         self.image_view = pg.ImageView(view=self.plot)
         self.image_view.view.enableAutoRange(enable=True)
         self.image_view.view.setMouseEnabled(False, False)
@@ -141,8 +139,7 @@ class SpatialPlotView(QWidget):
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
 
-        # Draggable Red Dot
-        # Add posiiton marker
+        # Draggable red dots
         self.startPoint = pg.ScatterPlotItem(
             pos=[[32, 32]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
@@ -237,6 +234,7 @@ class SpatialPlotView(QWidget):
         
         
     def update_ui(self):
+        # show proper min
         if self.show_diff.isChecked():
             self.diff_min_spinbox.setVisible(True)
             self.min_spinbox.setVisible(False)
