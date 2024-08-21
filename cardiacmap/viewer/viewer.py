@@ -148,7 +148,7 @@ class ImageSignalViewer(QMainWindow):
         self.setLayout(layout)
 
         self.signal.normalize()
-        self.update_signal_plot()
+        self.ms_changed() # initialize plot with scaled x values
 
     def update_signal_value(self, evt, idx=None):
 
@@ -161,7 +161,10 @@ class ImageSignalViewer(QMainWindow):
     def update_signal_plot(self):
 
         signal_data = self.signal.transformed_data[:, self.x, self.y]
-        self.signal_panel.signal_data.setData(signal_data)
+        
+        xs = self.xVals[0: len(signal_data)] # ensure len(xs) == len(signal_data)
+        self.signal_panel.signal_data.setData(x = xs, y=signal_data)
+        
         self.metadata_panel.img_position.setText(f"{self.x}, {self.y}")
 
         self.update_signal_value(None, idx=self.signal_panel.frame_idx)
@@ -169,7 +172,7 @@ class ImageSignalViewer(QMainWindow):
         if self.signal.show_baseline:
             baseline_idx = self.x * self.signal.span_X + self.y
 
-            bX = self.signal.baselineX[baseline_idx]
+            bX = self.signal.baselineX[baseline_idx] * self.ms
             bY = self.signal.baselineY[baseline_idx]
 
             self.signal_panel.baseline_data.setData(bX, bY)
@@ -181,14 +184,19 @@ class ImageSignalViewer(QMainWindow):
             sig_idx = self.x * self.signal.span_X + self.y
             indices, thresh = self.signal.get_apd_threshold()
 
-            tX = indices[sig_idx]
+            tX = indices[sig_idx] * self.ms
             tY = [thresh for t in tX]
 
             self.signal_panel.apd_data.setData(tX, tY)
         else:
             self.signal_panel.apd_data.setData()
-
-
+            
+    def ms_changed(self):
+        self.ms = self.signal_panel.ms_per_frame.value()
+        self.xVals = np.arange(0, self.ms * self.signal.span_T, self.ms)
+        print("updated ms:", self.ms)
+        self.update_signal_plot()
+        
     def signal_transform(self, transform: Literal["spatial_average", "time_average", "trim", "normalize", "reset", "invert"]):
         # Calls a transform function within the signal item
 
@@ -207,8 +215,8 @@ class ImageSignalViewer(QMainWindow):
             self.signal.normalize()
 
         elif transform == "trim":
-            left = self.trim_params.child('Left').value()
-            right = self.trim_params.child('Right').value()
+            left = int(self.trim_params.child('Left').value() / self.ms)
+            right = int(self.trim_params.child('Right').value() / self.ms)
             self.signal.trim_data(startTrim=left, endTrim=right)
             self.signal.normalize()
 
@@ -227,7 +235,7 @@ class ImageSignalViewer(QMainWindow):
         self.position_tab.update_data()
 
     def calculate_baseline_drift(self, action: Literal["calculate", "confirm", "reset"]):
-        period = self.baseline_params.child("Period Len").value()
+        period = int(self.baseline_params.child("Period Len").value() / self.ms)
         prominence = self.baseline_params.child("Prominence").value()
         threshold = self.baseline_params.child("Threshold").value()
         alternans = self.baseline_params.child("Alternans").value()
@@ -280,8 +288,8 @@ class ImageSignalViewer(QMainWindow):
         self.update_signal_plot()
         
     def plot_apd_spatial(self):
-        apd = self.signal.get_spatial_apds()
-        di = self.signal.get_spatial_dis()
+        apd = self.signal.get_spatial_apds() * self.ms
+        di = self.signal.get_spatial_dis() * self.ms
         #print(np.array(self.signal.dis).shape)
         self.apd_spatial_plot = SpatialPlotWindow(self, apd, di, self.signal.apdIndicators)
         self.apd_spatial_plot.show()
@@ -296,7 +304,7 @@ class ImageSignalViewer(QMainWindow):
         # DO STACKING
         print("Stacking", beats, "beats")
         stack = self.signal.perform_stacking(start, end, beats, alternans)
-        self.stacking_window = StackingWindow(image, stack)
+        self.stacking_window = StackingWindow(image, stack, self.xVals[0:len(stack)])
         self.stacking_window.show()
 
 class CardiacMapWindow(QMainWindow):
@@ -455,10 +463,11 @@ class SpatialPlotWindow(QMainWindow):
         return
  
 class StackingWindow(QMainWindow):
-    def __init__(self, img_data, stack_data):
+    def __init__(self, img_data, stack_data, xVals):
         QMainWindow.__init__(self)
         self.img_data = img_data
         self.data = stack_data
+        self.xVals = xVals
 
         # Create viewer tabs
         self.image_tab = StackingPositionView(self, img_data) # ----------------------------
@@ -498,7 +507,7 @@ class StackingWindow(QMainWindow):
         self.update_signal_plot()
         
     def update_signal_plot(self):
-        self.signal_tab.signal_data.setData(self.data[:, self.y, self.x])
+        self.signal_tab.signal_data.setData(x = self.xVals, y = self.data[:, self.y, self.x])
  
     def update_signal_value(self, evt, idx=None):
         return

@@ -15,6 +15,31 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget, QH
 
 from cardiacmap.viewer.components import ParameterButton
 
+SPINBOX_STYLE = """QSpinBox
+            {
+                border: 1px solid;
+            }
+
+            QSpinBox::up-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                top: -5px;
+                right: 0px;
+            }
+
+            QSpinBox::down-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                bottom: -5px;
+                right: 0px;
+            }"""
+
 class SignalPanel(QWidget):
 
     def __init__(self, parent, toolbar=True, signal_marker=True):
@@ -96,6 +121,15 @@ class SignalPanel(QWidget):
         self.show_signal_marker.setChecked(True)
         self.show_signal_marker.stateChanged.connect(self.toggle_signal)
         self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+        
+        # frame to ms conversion
+        self.ms_per_frame = QtWidgets.QSpinBox()
+        self.ms_per_frame.setMinimumWidth(30)
+        self.ms_per_frame.setMaximumWidth(60)
+        self.ms_per_frame.setMaximum(500)
+        self.ms_per_frame.setValue(2)
+        self.ms_per_frame.setStyleSheet(SPINBOX_STYLE)
+        self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
 
          
         # QActions triggers - connect
@@ -130,6 +164,9 @@ class SignalPanel(QWidget):
         self.plotting_bar.addWidget(self.show_points)
         self.plotting_bar.addWidget(QLabel("    Show Signal Marker: "))
         self.plotting_bar.addWidget(self.show_signal_marker)
+        self.plotting_bar.addWidget(QLabel("    "))
+        self.plotting_bar.addWidget(self.ms_per_frame)
+        self.plotting_bar.addWidget(QLabel("ms per frame"))
 
         self.transform_bar.setStyleSheet("QToolButton:!hover {color:black;}")
         self.plotting_bar.setStyleSheet("QToolButton:!hover {color:black;}")
