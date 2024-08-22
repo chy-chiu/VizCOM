@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
+from cardiacmap.viewer.components import Spinbox
 from typing import Literal
 
 SPINBOX_STYLE = """QSpinBox
@@ -47,6 +48,9 @@ SPINBOX_STYLE = """QSpinBox
             }"""
 
 IMAGE_SIZE = 128
+INITIAL_POSITION = (64, 64)
+POSITION_MARKER_SIZE = 5
+VIEWPORT_MARGIN = 2
 
 class DraggablePlot(pg.PlotItem):
 
@@ -102,7 +106,7 @@ class PositionView(QWidget):
         self.image_view.view.setMouseEnabled(False, False)
 
         self.image_view.view.setRange(
-            xRange=(-2, IMAGE_SIZE + 2), yRange=(-2, IMAGE_SIZE + 2)
+            xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN), yRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN)
         )
 
         # Hide UI stuff not needed
@@ -116,7 +120,7 @@ class PositionView(QWidget):
         # Draggable Red Dot
         # Add posiiton marker
         self.position_marker = pg.ScatterPlotItem(
-            pos=[[0, 0]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[INITIAL_POSITION], size=POSITION_MARKER_SIZE, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
 
         self.image_view.getView().addItem(self.position_marker)
@@ -133,25 +137,14 @@ class PositionView(QWidget):
         forward_button = QAction("⏭", self)
         back_button = QAction("⏮", self)
 
-        self.skiprate = QtWidgets.QSpinBox()
-        self.skiprate.setFixedWidth(60)
-        self.skiprate.setMaximum(10000)
-        self.skiprate.setValue(100)
-        self.skiprate.setSingleStep(10)
-        self.skiprate.setStyleSheet(SPINBOX_STYLE)
-
-        self.framerate = QtWidgets.QSpinBox()
-        self.framerate.setFixedWidth(60)
-        self.framerate.setMaximum(1000)
-        self.framerate.setValue(500)
-        self.framerate.setSingleStep(10)
-        self.framerate.setStyleSheet(SPINBOX_STYLE)
-
+        self.skiprate = Spinbox(min=1, max=10000, val=10, min_width=60, max_width=60, step=10)
+          
         play_button.triggered.connect(self.image_view.togglePause)
         forward_button.triggered.connect(partial(self.jump_frames, forward=True))
         back_button.triggered.connect(partial(self.jump_frames, forward=False))
 
         # Need to update it for the first time first
+        self.framerate = Spinbox(min=1, max=10000, val=500, min_width=60, max_width=60, step=10)
         self.update_framerate()
         self.framerate.valueChanged.connect(self.update_framerate)
 
@@ -168,7 +161,7 @@ class PositionView(QWidget):
         self.normalize.currentTextChanged.connect(self.update_data)
         
         self.colormap = QComboBox()
-        self.colormap.addItems(["gray", "hsv", "viridis", "plasma"])
+        self.colormap.addItems(["gray", "hsv", "viridis", "plasma", "nipy_spectral"])
         self.colormap.currentTextChanged.connect(self.update_data)
 
         self.show_marker = QCheckBox()

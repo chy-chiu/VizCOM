@@ -38,7 +38,7 @@ class MetadataPanel(QWidget):
         label = QWidget()
         label.setLayout(label_layout)
 
-        settings_widget = ParameterWidget(self.parent.params_parent)
+        settings_widget = ParameterWidget(self.parent.settings)
 
         splitter = QSplitter()
 

@@ -1,6 +1,6 @@
 import sys
 from PySide6 import QtWidgets
-from cardiacmap.viewer.viewer import CardiacMapWindow
+from cardiacmap.viewer.windows import CardiacMapWindow
 
 if __name__ == "__main__":
 
