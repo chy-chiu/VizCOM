@@ -1,7 +1,7 @@
 import sys
 
 import numpy as np
-import pyqtgraph as pg
+import pyqtgraph as pq
 from pyqtgraph.GraphicsScene.mouseEvents import MouseDragEvent
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import (
@@ -41,7 +41,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.button_layout.addWidget(self.confirm_mask_button)
         self.button_layout.addWidget(self.reset_mask_button)
 
-        self.img_view: pg.ImageView = pg.ImageView(view=pg.PlotItem())
+        self.img_view: pq.ImageView = pq.ImageView(view=pq.PlotItem())
 
         self.img_view.view.enableAutoRange(enable=False)
         self.img_view.view.showAxes(False)
@@ -99,7 +99,7 @@ class AnnotateView(QtWidgets.QWidget):
             if self.roi is not None:
                 self.img_view.removeItem(self.roi)
 
-            self.roi = pg.PolyLineROI(self.points, closed=True)
+            self.roi = pq.PolyLineROI(self.points, closed=True)
             self.img_view.addItem(self.roi)
 
     def remove_roi(self):
@@ -140,7 +140,7 @@ class AnnotateView(QtWidgets.QWidget):
 
         self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
 
-        # self.img_view.getImageItem().setTransform(pg.QtGui.QTransform.fromScale(4, 4))
+        # self.img_view.getImageItem().setTransform(pq.QtGui.QTransform.fromScale(4, 4))
         # self.img_view.setFixedSize(512, 512)
 
     def get_roi_mask(self, shape):

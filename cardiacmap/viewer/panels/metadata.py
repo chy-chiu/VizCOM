@@ -14,12 +14,12 @@ class MetadataPanel(QWidget):
         # TODO: Refactor this nicely later using QFormLayout
 
         self.filename = QLabel(metadata['filename'])
-        self.frames = QLabel(str(self.parent.signal.span_T))
-        self.channel = QLabel(self.parent.signal.channel)
+        self.frames = QLabel(str(self.signal.span_T))
+        self.channel = QLabel(self.signal.channel)
 
         self.img_position = QLabel(f"{self.parent.x}, {self.parent.y}\n\n")
-        self.frame_index = QLabel("0")
-        self.signal_value = QLabel("0")
+        self.frame_index = QLabel("64")
+        self.signal_value = QLabel("64")
 
         left_col = QFormLayout()
         left_col.addRow(QLabel("File: "), self.filename)
@@ -31,22 +31,15 @@ class MetadataPanel(QWidget):
         mid_col.addRow(QLabel("Frame Index: "), self.frame_index)
         mid_col.addRow(QLabel("Signal Value: "), self.signal_value)
 
+
+
         label_layout.addLayout(left_col)
         label_layout.addLayout(mid_col)
         label_layout.addStretch()
+        # label_layout.addWidget(self.parent.console)
 
         label = QWidget()
         label.setLayout(label_layout)
-
-        settings_widget = ParameterWidget(self.parent.settings)
-
-        splitter = QSplitter()
-
-        splitter.addWidget(label)
-        splitter.addWidget(settings_widget)
-
-        main_layout = QHBoxLayout()
-        main_layout.addWidget(splitter)
 
         self.setLayout(label_layout)
 

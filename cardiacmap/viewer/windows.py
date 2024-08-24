@@ -1,7 +1,7 @@
 import os
 import sys
 from functools import partial
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pyqtgraph as pq
 from pyqtgraph.parametertree import Parameter
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from pyqtgraph.console import ConsoleWidget
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
@@ -39,6 +40,7 @@ from cardiacmap.viewer.panels import (
     SignalPanel,
     StackingPositionView,
     AnnotateView,
+    IsochromeWindow
 )
 from cardiacmap.viewer.utils import loading_popup, load_settings, save_settings
 
@@ -56,78 +58,225 @@ padding-top: 4px;
 INITIAL_POSITION = (64, 64)
 
 
-class ImageSignalViewer(QMainWindow):
-    """This is the main window for signal analysis. It consists of a image panel on the 
-    left side and signal panel on the right side"""
+class CardiacMap(QMainWindow):
+    """Main window for signal analysis"""
 
-    def __init__(self, signal: CascadeSignal):
+    def __init__(self, signal: Optional[CascadeSignal]=None, title: str=""):
 
         super().__init__()
 
+        self.title = title
         self.resize(1200, 600)
-
-        self.signal = signal
-        self.x, self.y = INITIAL_POSITION
-
         self.setStyleSheet(TITLE_STYLE)
+        self.init_menu()
 
-        self.settings = load_settings()
+
+        # TODO: Fix / Add Console Function
+        self.console = ConsoleWidget()
+        self.console.setMinimumWidth(500)
+        self.console.setMinimumHeight(100)
+        size_policy = QtWidgets.QSizePolicy()
+        size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
+        size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        self.console.setSizePolicy(size_policy)
         
-        self.metadata_panel = MetadataPanel(signal, self)
-
-        # Create Signal View
-        self.signal_panel = SignalPanel(self)
-
-        # Create viewer tabs
-        self.position_tab = PositionView(self)
-        self.position_tab.image_view.setImage(
-            self.signal.image_data, autoLevels=True, autoRange=False
+        self.signal = signal
+        
+        self.default_widget = QWidget()
+        layout = QHBoxLayout()
+        layout.addStretch()
+        layout.addWidget(QLabel("No files loaded. Load a Cascade Image File with \"File → Load Data\" to continue..."))
+        layout.addStretch()
+        self.default_widget.setLayout(layout)
+        self.default_widget.setStyleSheet(
+        "QLabel {font-size:20px; }"
         )
 
-        self.annotate_tab = AnnotateView(self)
+        self.init_viewer()
 
-        self.image_tabs = QTabWidget()
-        size_policy = QtWidgets.QSizePolicy()
-        size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
-        self.image_tabs.setSizePolicy(size_policy)
-        self.image_tabs.setMinimumWidth(380)
-        self.image_tabs.setMinimumHeight(500)
+    def init_menu(self):
 
-        self.image_tabs.addTab(self.position_tab, "Position")
-        self.image_tabs.addTab(self.annotate_tab, "Annotate")
+        self.menubar = QMenuBar(self)
+        self.menubar.setNativeMenuBar(False)
+        self.menubar.setStyleSheet("QMenuBar {border-bottom: 1px solid #D3D3D3;}")
 
-        # Create main layout
-        self.splitter = QSplitter()
-        self.splitter.addWidget(self.image_tabs)
-        self.splitter.addWidget(self.signal_panel)
+        self.file_menu = self.menubar.addMenu("File")
+        # self.transforms_menu = self.menubar.addMenu("Transforms")
+        self.windows_menu = self.menubar.addMenu("Windows")
 
-        for i in range(self.splitter.count()):
-            self.splitter.setCollapsible(i, False)
-        layout = QHBoxLayout()
-        layout.addWidget(self.splitter)
+        # Settings Menu
+        self.settings_menu = self.menubar.addMenu("Settings")
 
-        self.signal_dock = QDockWidget("Signal View", self)
-        self.image_dock = QDockWidget("Image View", self)
-        self.metadata_dock = QDockWidget()
+        # File Menu
+        self.load_voltage = QAction("Load Voltage Data")
+        self.load_voltage.triggered.connect(
+            partial(self.load_signal, calcium_mode=False)
+        )
 
-        self.signal_dock.setWidget(self.signal_panel)
-        self.image_dock.setWidget(self.image_tabs)
-        self.metadata_dock.setWidget(self.metadata_panel)
-        self.metadata_dock.setFloating(False)
+        self.load_calcium = QAction("Load Voltage / Calcium Data")
+        self.load_calcium.triggered.connect(
+            partial(self.load_signal, calcium_mode=True)
+        )
 
-        self.setCentralWidget(self.metadata_panel)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-        self.image_dock.resize(400, 1000)
-        self.setLayout(layout)
+        self.save_signal = QAction("Save Signal")
 
-        self.signal.normalize()
-        self.ms_changed()  # initialize plot with scaled x values
+        self.file_menu.addAction(self.load_voltage)
+        self.file_menu.addAction(self.load_calcium)
+        self.file_menu.addSeparator()
+        self.file_menu.addAction(self.save_signal)
 
-    def init_params(self):
+        # Windows Menu
+
+        self.stacking = QAction("Stacking")
+        self.stacking.triggered.connect(self.create_stacking_window)
+        self.apd_window = QAction("APD / DI Spatial Plot")
+        self.isochrome = QAction("Isochrome / Vector Map")
+        self.isochrome.triggered.connect(self.create_isochrome_window)
+        
+        self.windows_menu.addAction(self.stacking)
+        self.windows_menu.addAction(self.apd_window)
+        self.windows_menu.addAction(self.isochrome) 
+        
+
+
+        # # TODO: Transforms Menu
+        # self.transforms_menu.addAction("Spatial Average")
+        # self.transforms_menu.addAction("Time Average")
+
+        # Help Menu
+        self.help = self.menubar.addAction("Help")
+
+
+
+        self.setMenuBar(self.menubar)
 
         return
+
+    def init_viewer(self):
+
+        self.setWindowTitle(self.title + " – CardiacMap" if self.title else "CardiacMap")
+
+        if self.signal:
+
+            self.x, self.y = INITIAL_POSITION
+            self.settings = load_settings()
+
+            self.metadata_panel = MetadataPanel(signal, self)
+
+            # Create Signal view
+            self.signal_panel = SignalPanel(self)
+
+            # Create Image tabs
+            self.position_tab = PositionView(self)
+            self.position_tab.image_view.setImage(
+                self.signal.image_data, autoLevels=True, autoRange=False
+            )
+
+            self.annotate_tab = AnnotateView(self)
+
+            self.image_tabs = QTabWidget()
+            size_policy = QtWidgets.QSizePolicy()
+            size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+            size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
+            self.image_tabs.setSizePolicy(size_policy)
+            self.image_tabs.setMinimumWidth(380)
+            self.image_tabs.setMinimumHeight(500)
+
+            self.image_tabs.addTab(self.position_tab, "Position")
+            self.image_tabs.addTab(self.annotate_tab, "Annotate")
+
+            # Create docking windows for viewer and signa view.
+            self.metadata_dock = QDockWidget()
+            self.metadata_dock.setWidget(self.metadata_panel)
+            self.metadata_dock.setFloating(False)
+
+            self.signal_dock = QDockWidget("Signal View", self)
+            self.image_dock = QDockWidget("Image View", self)
+
+            self.signal_dock.setWidget(self.signal_panel)
+            self.image_dock.setWidget(self.image_tabs)
+
+            self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+            self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+            self.image_dock.resize(400, 1000)
+
+            self.signal.normalize()
+            self.ms_changed()  # initialize plot with scaled x values
+
+            self.default_widget.setVisible(False)
+            
+            self.setCentralWidget(self.metadata_panel)
+
+        else:
+            
+            self.setCentralWidget(self.default_widget)
+
+
+    def load_signal(self, calcium_mode=False):
+
+        filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
+
+        if filepath and ".dat" in filepath:
+
+            filename = os.path.split(filepath)[-1]
+
+            signals = load_cascade_file(
+                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+            )
+
+            if calcium_mode:
+
+                signal_odd = signals[0]
+                signal_even = signals[1]
+
+                for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
+                    self.create_viewer(signal, filename + suffix)
+            else:
+                signal = signals[0]
+
+                self.create_viewer(signal, filename)
+
+    
+    def create_viewer(self, signal: CascadeSignal, title: str):
+
+        """IF there is a signal already, create a new viewer window. Otherwise
+        load signal in current window"""
+
+        if self.signal:
+            
+            viewer = CardiacMap(signal, title)
+            viewer.show()
+        
+        else:
+            self.title = title
+            self.signal = signal
+            self.init_viewer()
+
+    def largeFilePopUp(self, tLen, maxFrames):
+        print("Max Possible Frames:", maxFrames)
+        self.filePopup = PopupWindow()
+        start = self.filePopup.getInt(
+            self,
+            "File Too Large",
+            "Enter Start Frame (0, " + str(tLen) + "):",
+            minValue=0,
+            maxValue=tLen,
+        )[0]
+
+        if start + maxFrames >= tLen:
+            maxInput = tLen
+        else:
+            maxInput = start + maxFrames
+
+        end = self.filePopup.getInt(
+            self,
+            "File Too Large",
+            "Enter End Frame (" + str(start + 1) + ", " + str(maxInput) + "):",
+            minValue=start + 1,
+            maxValue=tLen,
+        )[0]
+
+        return start, end
 
     def update_signal_value(self, evt, idx=None):
 
@@ -228,17 +377,15 @@ class ImageSignalViewer(QMainWindow):
     def calculate_baseline_drift(
         self, action: Literal["calculate", "confirm", "reset"]
     ):
-        period = int(self.baseline_params.child("Period Len").value() / self.ms)
-        prominence = self.baseline_params.child("Prominence").value()
-        threshold = self.baseline_params.child("Threshold").value()
-        alternans = self.baseline_params.child("Alternans").value()
+        period = int(self.settings.child("Baseline Drift").child("Period Len").value() / self.ms)
+        prominence = self.settings.child("Baseline Drift").child("Prominence").value()
+        threshold = self.settings.child("Baseline Drift").child("Threshold").value()
+        alternans = self.settings.child("Baseline Drift").child("Alternans").value()
 
         if action == "calculate":
             self.signal.calc_baseline(period, threshold, prominence, alternans)
 
-            self.signal_panel.confirm_baseline_drift.setEnabled(True)
-            self.signal_panel.reset_baseline_drift.setEnabled(True)
-
+            self.signal_panel.baseline_drift.enable_confirm_buttons()
             self.signal.show_baseline = True
         else:
             if action == "confirm":
@@ -248,9 +395,8 @@ class ImageSignalViewer(QMainWindow):
             self.signal.reset_baseline()
             self.signal.show_baseline = False
 
-            self.signal_panel.confirm_baseline_drift.setEnabled(False)
-            self.signal_panel.reset_baseline_drift.setEnabled(False)
-
+            self.signal_panel.baseline_drift.disable_confirm_buttons()
+            
         self.update_signal_plot()
 
     def calculate_apd(self, action: Literal["calculate", "confirm", "reset"]):
@@ -259,9 +405,8 @@ class ImageSignalViewer(QMainWindow):
 
         if action == "calculate":
             self.signal.calc_apd_di_threshold(threshold)
-
-            self.signal_panel.confirm_apd.setEnabled(True)
-            self.signal_panel.reset_apd.setEnabled(True)
+            
+            self.signal_panel.apd.enable_confirm_buttons()
 
             self.signal.show_apd_threshold = True
         else:
@@ -274,8 +419,7 @@ class ImageSignalViewer(QMainWindow):
 
             self.signal.show_apd_threshold = False
 
-            self.signal_panel.confirm_apd.setEnabled(False)
-            self.signal_panel.reset_apd.setEnabled(False)
+            self.signal_panel.apd.disable_confirm_buttons()
 
         self.update_signal_plot()
 
@@ -287,6 +431,15 @@ class ImageSignalViewer(QMainWindow):
         )
         self.apd_spatial_plot.show()
 
+    def create_stacking_window(self):
+
+        self.stacking_window = StackingWindow(self.signal.transformed_data, self.signal.transformed_data, self.xVals, self)
+        self.stacking_window.show()
+
+    def create_isochrome_window(self):
+        self.isochrome_window = IsochromeWindow(self)
+        self.isochrome_window.show()
+
     def perform_stacking(self):
         start = int(self.stacking_params.child("Start Frame").value())
         end = int(self.stacking_params.child("End Frame (Optional)").value())
@@ -297,133 +450,8 @@ class ImageSignalViewer(QMainWindow):
         # DO STACKING
         print("Stacking", beats, "beats")
         stack = self.signal.perform_stacking(start, end, beats, alternans)
-        self.stacking_window = StackingWindow(image, stack, self.xVals[0 : len(stack)])
-        self.stacking_window.show()
-
-
-class CardiacMapWindow(QMainWindow):
-    # This is the main window that allows you to open a new widget etc.
-
-    # TODO: Fix this menu thing as well
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("CardiacMap v0.0.5")
-        self.setGeometry(100, 100, 1080, 720)
-
-        self.menubar = QMenuBar(self)
-        self.menubar.setNativeMenuBar(False)
-        self.setMenuBar(self.menubar)
-
-        # File Menu
-        self.file_menu = self.menubar.addMenu("File")
-        self.load_voltage = QAction("Load Voltage Data", self)
-        self.load_voltage.triggered.connect(
-            partial(self.load_signal, calcium_mode=False)
-        )
-        self.load_calcium = QAction("Load Voltage / Calcium Data", self)
-        self.load_calcium.triggered.connect(
-            partial(self.load_signal, calcium_mode=True)
-        )
-
-        self.file_menu.addAction(self.load_voltage)
-        self.file_menu.addAction(self.load_calcium)
-
-        self.windows: List[QWidget] = []
-        
-        self.windows_menu = self.menubar.addMenu("Windows")
-        self.windows_menu.aboutToShow.connect(self.update_windows_menu)
-        
-        # Settings Menu
-        self.settings_menu = self.menubar.addMenu("Settings")
-
-
-        self.docks = []
-
-    def update_windows_menu(self):
-
-        new_windows_menu = QMenu()
-
-        self.menubar.removeAction(self.windows_menu)
-        for a in self.windows_menu.actions():
-            self.windows_menu.removeAction(a)
-    
-        for w in self.windows:
-            print(w)
-            action = QAction(w.windowTitle())
-            self.windows_menu.addAction(action)
-            new_windows_menu.addAction(action)
-
-        print(self.file_menu)
-        print(self.menubar.insertMenu())
-        
-        print(self.windows_menu.actions())
-        self.menubar.addMenu(new_windows_menu)
-
-
-    def largeFilePopUp(self, tLen, maxFrames):
-        print("Max Possible Frames:", maxFrames)
-        self.filePopup = PopupWindow()
-        start = self.filePopup.getInt(
-            self,
-            "File Too Large",
-            "Enter Start Frame (0, " + str(tLen) + "):",
-            minValue=0,
-            maxValue=tLen,
-        )[0]
-
-        if start + maxFrames >= tLen:
-            maxInput = tLen
-        else:
-            maxInput = start + maxFrames
-
-        end = self.filePopup.getInt(
-            self,
-            "File Too Large",
-            "Enter End Frame (" + str(start + 1) + ", " + str(maxInput) + "):",
-            minValue=start + 1,
-            maxValue=tLen,
-        )[0]
-
-        return start, end
-
-    def load_signal(self, calcium_mode=False):
-
-        filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
-
-        if filepath and ".dat" in filepath:
-
-            filename = os.path.split(filepath)[-1]
-
-            signals = load_cascade_file(
-                filepath, self.largeFilePopUp, dual_mode=calcium_mode
-            )
-
-            if calcium_mode:
-
-                signal_odd = signals[0]
-                signal_even = signals[1]
-
-                for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
-                    self.create_viewer(signal, filename + suffix)
-            else:
-                signal = signals[0]
-
-                self.create_viewer(signal, filename)
-
-    def create_viewer(self, signal: CascadeSignal, title:str ):
-        
-        viewer = ImageSignalViewer(signal)
-        
-        self.windows.append(viewer)
-
-        dock = QDockWidget(title, self)
-
-        dock.setWidget(viewer)
-        # dock.setFixedSize(IMAGE_SIZE * 3.05, IMAGE_SIZE * 1.1)
-        self.addDockWidget(Qt.RightDockWidgetArea, dock)
-        self.docks.append(dock)
-
-        self.update_windows_menu()
+        self.create_stacking_window = StackingWindow(image, stack, self.xVals[0 : len(stack)])
+        self.create_stacking_window.show()
 
 class PopupWindow(QInputDialog):
     def __init__(self):
@@ -499,8 +527,10 @@ class SpatialPlotWindow(QMainWindow):
 
 
 class StackingWindow(QMainWindow):
-    def __init__(self, img_data, stack_data, xVals):
-        QMainWindow.__init__(self)
+    def __init__(self, img_data, stack_data, xVals, parent):
+        super().__init__()
+        self.parent = parent
+        self.ms = self.parent.ms
         self.img_data = img_data
         self.data = stack_data
         self.xVals = xVals
@@ -567,7 +597,7 @@ if __name__ == "__main__":
 
     signal = signals[0]
 
-    viewer = ImageSignalViewer(signal)
+    viewer = CardiacMap(signal)
 
     viewer.show()
 

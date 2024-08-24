@@ -13,7 +13,19 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget, QH
                                QSplitter, QTabWidget, QToolBar, QToolButton,
                                QVBoxLayout, QWidget, QWidgetAction)
 
-from cardiacmap.viewer.components import ParameterButton, Spinbox
+from cardiacmap.viewer.components import ParameterButton, ParameterConfirmButton, Spinbox
+
+QTOOLBAR_STYLE =  """
+            QToolBar {spacing: 5px;} 
+            QToolButton {
+                border: 1px solid #C0C0C0;
+                border-radius: 5px;
+                background: transparent;
+            }
+            QToolButton:hover {
+                background: #D3D3D3;
+            }
+            """
 
 
 class SignalPanel(QWidget):
@@ -72,27 +84,20 @@ class SignalPanel(QWidget):
         self.transform_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         
         self.reset = QAction(text="Reset", parent=self)
+        self.reset.setToolTip("Reset Signal")
+
         invert = QAction("Invert", self)
 
-        self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters")) 
+        # self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters")) 
         time_average = ParameterButton("Time Average", self.parent.settings.child("Time Average"))
         spatial_average = ParameterButton("Spatial Average", self.parent.settings.child("Spatial Average"))
         trim = ParameterButton("Trim", self.parent.settings.child("Trim Parameters"))
         
         # Baseline drift button
-        self.confirm_baseline_drift = QAction("Confirm")
-        self.confirm_baseline_drift.setDisabled(True)
-        self.reset_baseline_drift = QAction("Reset")
-        self.reset_baseline_drift.setDisabled(True)
-        self.baseline_drift = ParameterButton("Calculate Baseline Drift", self.parent.settings.child("Baseline Drift"), actions=[self.confirm_baseline_drift, self.reset_baseline_drift])
-        
+        self.baseline_drift = ParameterConfirmButton("Calculate Baseline Drift", self.parent.settings.child("Baseline Drift")) 
         # APD Button
-        self.confirm_apd = QAction("Confirm")
-        self.confirm_apd.setDisabled(True)
-        self.reset_apd = QAction("Reset")
-        self.reset_apd.setDisabled(True)
-        self.apd = ParameterButton("Calculate APD / DI", self.parent.settings.child("APD Parameters"), actions=[self.confirm_apd, self.reset_apd])
-        
+        self.apd = ParameterConfirmButton("Calculate APD / DI", self.parent.settings.child("APD Parameters"))
+
         # Spatial plot - APD / DI button
         self.spatialPlotApdDi = QAction("APD/DI Plots", self)
         self.spatialPlotApdDi.setDisabled(True)
@@ -121,24 +126,17 @@ class SignalPanel(QWidget):
         trim.pressed.connect(partial(self.parent.signal_transform, transform="trim"))
         
         self.spatialPlotApdDi.triggered.connect(self.parent.plot_apd_spatial)
-        self.stacking.pressed.connect(self.parent.perform_stacking)
+        # self.stacking.pressed.connect(self.parent.perform_stacking)
 
-        self.baseline_drift.pressed.connect(partial(self.parent.calculate_baseline_drift, action="calculate"))
-        self.confirm_baseline_drift.triggered.connect(partial(self.parent.calculate_baseline_drift, action="confirm"))
-        self.reset_baseline_drift.triggered.connect(partial(self.parent.calculate_baseline_drift, action="reset"))
+        self.baseline_drift.action.pressed.connect(partial(self.parent.calculate_baseline_drift, action="calculate"))
+        self.baseline_drift.confirm.pressed.connect(partial(self.parent.calculate_baseline_drift, action="confirm"))
+        self.baseline_drift.reset.pressed.connect(partial(self.parent.calculate_baseline_drift, action="reset"))
 
-        self.apd.pressed.connect(partial(self.parent.calculate_apd, action="calculate"))
-        self.confirm_apd.triggered.connect(partial(self.parent.calculate_apd, action="confirm"))
-        self.reset_apd.triggered.connect(partial(self.parent.calculate_apd, action="reset"))
+        self.apd.action.pressed.connect(partial(self.parent.calculate_apd, action="calculate"))
+        self.apd.confirm.pressed.connect(partial(self.parent.calculate_apd, action="confirm"))
+        self.apd.reset.pressed.connect(partial(self.parent.calculate_apd, action="reset"))
 
-        test = QToolButton(self)
-        test.setDefaultAction(self.reset)
-        test.setStyleSheet("QToolButton:!hover {color:blue;}")
-
-        print(self.reset.setEnabled(True))
-        self.reset.setToolTip("Testing 123")
-        # self.transform_bar.addAction(self.reset)
-        self.transform_bar.addWidget(test)
+        self.transform_bar.addAction(self.reset)
         self.transform_bar.addAction(invert)
         self.transform_bar.addWidget(trim)
         self.transform_bar.addWidget(time_average)
@@ -146,20 +144,21 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.apd)
 
-        self.plotting_bar.addWidget(self.stacking)
-        self.plotting_bar.addAction(self.spatialPlotApdDi)
-        self.plotting_bar.addWidget(QLabel("    Show Data Points: "))
+        # self.plotting_bar.addWidget(self.stacking)
+        # self.plotting_bar.addAction(self.spatialPlotApdDi)
+        self.plotting_bar.addWidget(QLabel("Show Data Points:"))
         self.plotting_bar.addWidget(self.show_points)
-        self.plotting_bar.addWidget(QLabel("    Show Signal Marker: "))
+        self.plotting_bar.addSeparator()
+        self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
         self.plotting_bar.addWidget(self.show_signal_marker)
-        self.plotting_bar.addWidget(QLabel("    "))
+        self.plotting_bar.addSeparator()
         self.plotting_bar.addWidget(self.ms_per_frame)
-        self.plotting_bar.addWidget(QLabel(" ms per frame"))
+        self.plotting_bar.addWidget(QLabel("ms per frame"))
 
         print(self.transform_bar.toolButtonStyle())
 
-        self.transform_bar.setStyleSheet("ParameterButton:hover {color:blue;}")
-        self.plotting_bar.setStyleSheet("QToolButton:hover {color:red;}")
+        self.transform_bar.setStyleSheet(QTOOLBAR_STYLE)
+        self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
         
         
     def mouseMoved(self, evt):

@@ -117,8 +117,7 @@ class PositionView(QWidget):
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
 
-        # Draggable Red Dot
-        # Add posiiton marker
+        # Draggable posiiton marker
         self.position_marker = pg.ScatterPlotItem(
             pos=[INITIAL_POSITION], size=POSITION_MARKER_SIZE, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
@@ -207,7 +206,6 @@ class PositionView(QWidget):
                 self.parent.signal.transformed_data, autoLevels=False, autoRange=False
             )
         
-        print(cmap_name)
         cm = pg.colormap.get(cmap_name, source="matplotlib")
         
         self.image_view.setColorMap(cm)
