@@ -1,4 +1,4 @@
-import pyqtgraph as pq
+import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,12 +26,13 @@ from PySide6.QtGui import QAction
 from typing import Optional, List
 from PySide6.QtCore import Qt
 
-SPINBOX_STYLE = """QSpinBox
+SPINBOX_STYLE = """SpinBox
             {
                 border: 1px solid;
+                border-radius: 2px;
             }
 
-            QSpinBox::up-button
+            SpinBox::up-button
             {
                 min-width: 5px;
                 min-height: 5px;
@@ -41,7 +42,7 @@ SPINBOX_STYLE = """QSpinBox
                 right: 0px;
             }
 
-            QSpinBox::down-button
+            SpinBox::down-button
             {
                 min-width: 5px;
                 min-height: 5px;
@@ -174,7 +175,7 @@ class ParameterConfirmButton(QGroupBox):
         self.reset.setStyleSheet("QPushButton {background: transparent; color: #808080;}")
 
 
-class Spinbox(QSpinBox):
+class Spinbox(pg.SpinBox):
 
     def __init__(self, min=0, max=10000, val=1, min_width=30, max_width=60, step=1):
         super().__init__()

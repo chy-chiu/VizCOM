@@ -3,7 +3,7 @@ import sys
 from functools import partial
 from typing import List, Optional
 import numpy as np
-import pyqtgraph as pq
+import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
@@ -339,24 +339,24 @@ class CardiacMap(QMainWindow):
     ):
         # Calls a transform function within the signal item
         if transform == "spatial_average":
-            sigma = self.spatial_params.child("Sigma").value()
-            radius = self.spatial_params.child("Radius").value()
-            mode = self.spatial_params.child("Mode").value()
+            sigma = self.settings.child("Spatial Average").child("Sigma").value()
+            radius = self.settings.child("Spatial Average").child("Radius").value()
+            mode = self.settings.child("Spatial Average").child("Mode").value()
             self.signal.perform_average(
                 type="spatial", sig=sigma, rad=radius, mode=mode
             )
             self.signal.normalize()
 
         elif transform == "time_average":
-            sigma = self.time_params.child("Sigma").value()
-            radius = self.time_params.child("Radius").value()
-            mode = self.time_params.child("Mode").value()
+            sigma = self.settings.child("Time Average").child("Sigma").value()
+            radius = self.settings.child("Time Average").child("Radius").value()
+            mode = self.settings.child("Time Average").child("Mode").value()
             self.signal.perform_average(type="time", sig=sigma, rad=radius, mode=mode)
             self.signal.normalize()
 
         elif transform == "trim":
-            left = int(self.trim_params.child("Left").value() / self.ms)
-            right = int(self.trim_params.child("Right").value() / self.ms)
+            left = int(self.settings.child("Trim Parameters").child("Left").value() / self.ms)
+            right = int(self.settings.child("Trim Parameters").child("Right").value() / self.ms)
             self.signal.trim_data(startTrim=left, endTrim=right)
             self.signal.normalize()
 
@@ -480,8 +480,8 @@ class SpatialPlotWindow(QMainWindow):
         # Create Signal Views
         self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
         # set up axes
-        leftAxis: pq.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pq.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
+        leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
             "bottom"
         )
         leftAxis.setLabel(text="Action Potential Duration (ms)")
@@ -547,8 +547,8 @@ class StackingWindow(QMainWindow):
         self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
 
         # set up axes
-        leftAxis: pq.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pq.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
+        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
         leftAxis.setLabel(text="Average Relative Voltage")
         bottomAxis.setLabel(text="Time (ms)")
 

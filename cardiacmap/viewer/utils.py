@@ -1,4 +1,4 @@
-import pyqtgraph as pq
+import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
 from pathlib import Path
 import json
@@ -108,7 +108,7 @@ def save_settings(settings: Parameter):
 
 def loading_popup(func):
     def wrapper(*args, **kwargs):
-        with pq.ProgressDialog("Processing..", 0, 100, wait=50, busyCursor=True) as dlg:
+        with pg.ProgressDialog("Processing..", 0, 100, wait=50, busyCursor=True) as dlg:
             # do stuff
             func(*args, **kwargs)
             if dlg.wasCanceled():
