@@ -175,6 +175,8 @@ class IsochromeWindow(QMainWindow):
 
         self.options_widget.setLayout(layout)
 
+
+    # TODO: Fix colorscale, add overlay mode, adjust y-axis value.
     def calculate_isochrome(self):
 
         isochrome = _calculate_isochrome(
