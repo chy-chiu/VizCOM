@@ -116,7 +116,7 @@ class StackingPositionView(QWidget):
         # Draggable Red Dot
         # Add posiiton marker
         self.position_marker = pg.ScatterPlotItem(
-            pos=[[0, 0]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
 
         self.image_view.getView().addItem(self.position_marker)

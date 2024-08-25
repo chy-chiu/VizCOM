@@ -127,7 +127,7 @@ class ScatterPlotView(QWidget):
 
         # Draggable red dot
         self.marker = pg.ScatterPlotItem(
-            pos=[[0, 0]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
         self.image_view.getView().addItem(self.marker)
         

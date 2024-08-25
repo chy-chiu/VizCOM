@@ -116,7 +116,7 @@ class PositionView(QWidget):
         # Draggable Red Dot
         # Add posiiton marker
         self.position_marker = pg.ScatterPlotItem(
-            pos=[[0, 0]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
 
         self.image_view.getView().addItem(self.position_marker)
@@ -143,7 +143,7 @@ class PositionView(QWidget):
         self.framerate = QtWidgets.QSpinBox()
         self.framerate.setFixedWidth(60)
         self.framerate.setMaximum(1000)
-        self.framerate.setValue(500)
+        self.framerate.setValue(50)
         self.framerate.setSingleStep(10)
         self.framerate.setStyleSheet(SPINBOX_STYLE)
 
@@ -164,7 +164,7 @@ class PositionView(QWidget):
         self.player_bar.addWidget(self.skiprate)
 
         self.normalize = QComboBox()
-        self.normalize.addItems(["Base", "Transformed"])
+        self.normalize.addItems(["Transformed", "Base"])
         self.normalize.currentTextChanged.connect(self.update_data)
         
         self.colormap = QComboBox()
@@ -218,6 +218,9 @@ class PositionView(QWidget):
         cm = pg.colormap.get(cmap_name, source="matplotlib")
         
         self.image_view.setColorMap(cm)
+        
+        self.parent.annotate_tab.img_view.setImage(self.image_view.image)
+        self.parent.annotate_tab.img_view.setColorMap(cm)
 
     def update_marker(self, x, y):
         self.position_marker.setData(pos=[[x, y]])
