@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import (
+    FFTPositionView,
     PositionView,
     MetadataPanel,
     ScatterPlotView,
@@ -49,17 +50,17 @@ class ImageSignalViewer(QMainWindow):
         self.resize(1200, 600)
 
         self.signal = signal
-        self.x = 0
-        self.y = 0
+        self.x = 64
+        self.y = 64
         
         self.setStyleSheet(TITLE_STYLE)
         # Create settings param
         # TODO: Refactor parameter creation to settings or something
         stacking_params = [
-            {"name": "Start Frame", "type": "int", "value": 0, "limits": (0, 100000)},
+            {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
             {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
             {"name": "Alternans", "type": "bool", "value": False,},
-            {"name": "End Frame (Optional)", "type": "int", "value": signal.span_T, "limits": (0, signal.span_T)},
+            {"name": "End Time (Optional)", "type": "int", "value": -1, "limits": (-1, 100000)},
         ]
         spatial_params = [
             {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
@@ -70,7 +71,7 @@ class ImageSignalViewer(QMainWindow):
         time_params = [
             {"name": "Sigma", "type": "int", "value": 4, "limits": (0, 100)},
             {"name": "Radius", "type": "int", "value": 3, "limits": (0, 100)},
-            {"name": "Mode", "type": "list", "value": "Gaussian", "limits": ["Gaussian", "Uniform"]},
+            {"name": "Mode", "type": "list", "value": "Uniform", "limits": ["Gaussian", "Uniform"]},
         ]
 
         trim_params = [
@@ -88,7 +89,6 @@ class ImageSignalViewer(QMainWindow):
         apd_params = [
             {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
         ]
-
         self.stacking_params = Parameter.create(name="Stacking Parameters", type="group", children=stacking_params)
         self.trim_params = Parameter.create(name="Trim Parameters", type="group", children=trim_params)
         self.spatial_params = Parameter.create(name="Spatial Average", type="group", children=spatial_params)
@@ -277,6 +277,7 @@ class ImageSignalViewer(QMainWindow):
                 self.signal.calc_apd_di()
                 self.signal_panel.spatialPlotApdDi.setVisible(True)
                 self.signal_panel.spatialPlotApdDi.setEnabled(True)
+                self.signal_panel.spatialPlotApdDi.setText("APD/DI Plots")
             else:
                 self.signal.reset_apd_di()
                 
@@ -295,8 +296,8 @@ class ImageSignalViewer(QMainWindow):
         self.apd_spatial_plot.show()
         
     def perform_stacking(self):
-        start = int(self.stacking_params.child("Start Frame").value())
-        end = int(self.stacking_params.child("End Frame (Optional)").value())
+        start = int(self.stacking_params.child("Start Time").value() / self.ms)
+        end = int(self.stacking_params.child("End Time (Optional)").value() / self.ms)
         beats = int(self.stacking_params.child("# of Beats").value())
         alternans = self.stacking_params.child("Alternans").value()
 
@@ -306,6 +307,12 @@ class ImageSignalViewer(QMainWindow):
         stack = self.signal.perform_stacking(start, end, beats, alternans)
         self.stacking_window = StackingWindow(image, stack, self.xVals[0:len(stack)])
         self.stacking_window.show()
+
+    def perform_FFT(self):
+        print("FFT")
+        fft_frames = self.signal.perform_fft()
+        self.fft_window = FFTWindow(fft_frames)
+        self.fft_window.show()
 
 class CardiacMapWindow(QMainWindow):
     # This is the main window that allows you to open a new widget etc.
@@ -420,6 +427,8 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.addTab(self.APD_view_tab, "Spatial APDs")
         self.image_tabs.addTab(self.DI_view_tab, "Spatial DIs")
         self.image_tabs.addTab(self.APD_DI_view_tab, "APD v.s. DI")
+        self.image_tabs.setMinimumWidth(380)
+        self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
         self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
@@ -479,6 +488,8 @@ class StackingWindow(QMainWindow):
 
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.image_tab, "Image")
+        self.image_tabs.setMinimumWidth(380)
+        self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
         self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
@@ -486,7 +497,7 @@ class StackingWindow(QMainWindow):
         # set up axes
         leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('left')
         bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('bottom')
-        leftAxis.setLabel(text= "Average Relative Voltage")
+        leftAxis.setLabel(text= "Periodic Voltage Average")
         bottomAxis.setLabel(text= "Time (ms)")
 
         self.signal_tabs = QTabWidget()
@@ -513,12 +524,71 @@ class StackingWindow(QMainWindow):
         self.image_dock.resize(400, 1000)
         self.setLayout(layout)
         
-        self.x = 0
-        self.y = 0
+        self.x = 64
+        self.y = 64
         self.update_signal_plot()
         
     def update_signal_plot(self):
         self.signal_tab.signal_data.setData(x = self.xVals, y = self.data[:, self.y, self.x])
+ 
+    def update_signal_value(self, evt, idx=None):
+        return
+    
+class FFTWindow(QMainWindow):
+    def __init__(self, fftData):
+        QMainWindow.__init__(self)
+        self.data = fftData
+        self.img_data = np.argmax(fftData, axis=0)
+
+        # Create viewer tabs
+        self.image_tab = FFTPositionView(self, self.img_data) # ----------------------------
+
+        self.image_tabs = QTabWidget()
+        self.image_tabs.addTab(self.image_tab, "Peak Frequency")
+        self.image_tabs.setMinimumWidth(380)
+        self.image_tabs.setMinimumHeight(500)
+
+        # Create Signal Views
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        
+        # set up axes
+        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('left')
+        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('bottom')
+        leftAxis.setLabel(text= "Spectral Density")
+        bottomAxis.setLabel(text= "Frequency (kHz)")
+
+        self.signal_tabs = QTabWidget()
+        self.signal_tabs.addTab(self.signal_tab, "FFT")
+        
+        # Create main layout
+        self.splitter = QSplitter()
+        self.splitter.addWidget(self.image_tabs)
+        self.splitter.addWidget(self.signal_tabs)
+
+        for i in range(self.splitter.count()):
+            self.splitter.setCollapsible(i, False)
+        layout = QHBoxLayout()
+        layout.addWidget(self.splitter)
+
+        self.signal_dock = QDockWidget("Signal View", self)
+        self.image_dock = QDockWidget("Image View", self)
+        
+        self.signal_dock.setWidget(self.signal_tabs)
+        self.image_dock.setWidget(self.image_tabs)
+
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+        self.image_dock.resize(400, 1000)
+        self.setLayout(layout)
+        
+        self.x = 64
+        self.y = 64
+        self.update_signal_plot()
+        
+    def update_signal_plot(self):
+        self.signal_tab.signal_data.setData(self.data[:, self.x, self.y])
+        peak = self.img_data[self.x, self.y]
+        self.signal_tab.apd_data.setData(x = [peak], y = [self.data[peak, self.x, self.y]])
  
     def update_signal_value(self, evt, idx=None):
         return

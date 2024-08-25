@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 
 from cardiacmap.transforms import (
     CalculateAPD_DI,
+    FFT,
     GetIntersectionsAPD_DI,
     GetMins,
     InvertSignal,
@@ -249,6 +250,9 @@ class CascadeSignal:
         results = results.reshape((self.span_Y, self.span_X, longestRes))
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
+    
+    def perform_fft(self):
+        return FFT(self.transformed_data)
 
 # helper function to pad an array with zeros until it is rectangular
 def pad(array, targetWidth):

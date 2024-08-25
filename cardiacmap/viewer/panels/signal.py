@@ -58,7 +58,7 @@ class SignalPanel(QWidget):
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis('left')
         bottomAxis: pg.AxisItem = self.plot_item.getAxis('bottom')
-        leftAxis.setLabel(text= "Relative Voltage")
+        leftAxis.setLabel(text= "Normalized Voltage")
         bottomAxis.setLabel(text= "Time (ms)")
         
         self.signal_data: pg.PlotDataItem = self.plot.plot(symbol='o', symbolSize=0)
@@ -66,6 +66,7 @@ class SignalPanel(QWidget):
         
         self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'), symbol='o')
         self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
+        self.apd_data.scatter.setData(tip=self.point_hover_tooltip, hoverable=True)
         
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
         self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
@@ -92,9 +93,7 @@ class SignalPanel(QWidget):
         self.plotting_bar = QToolBar()
         
         reset = QAction("Reset", self)
-        invert = QAction("Invert", self)
-
-        self.stacking = ParameterButton("Stacking", self.parent.stacking_params) 
+        invert = QAction("Invert", self)        
         time_average = ParameterButton("Time Average", self.parent.time_params)
         spatial_average = ParameterButton("Spatial Average", self.parent.spatial_params)
         trim = ParameterButton("Trim", self.parent.trim_params)
@@ -114,9 +113,12 @@ class SignalPanel(QWidget):
         self.apd = ParameterButton("Calculate APD / DI", self.parent.apd_params, actions=[self.confirm_apd, self.reset_apd])
         
         # Spatial plot - APD / DI button
-        self.spatialPlotApdDi = QAction("APD/DI Plots", self)
+        self.spatialPlotApdDi = QAction("APD/DI Plots (Disabled)", self)
         self.spatialPlotApdDi.setDisabled(True)
-        self.spatialPlotApdDi.setVisible(False)
+        self.spatialPlotApdDi.setVisible(True)
+        
+        fft = QAction("FFT", self)
+        self.stacking = ParameterButton("Stacking", self.parent.stacking_params)
         
         # Display data points
         self.show_points = QCheckBox()
@@ -145,9 +147,10 @@ class SignalPanel(QWidget):
         spatial_average.pressed.connect(partial(self.parent.signal_transform, transform="spatial_average"))
         time_average.pressed.connect(partial(self.parent.signal_transform, transform="time_average"))
         trim.pressed.connect(partial(self.parent.signal_transform, transform="trim"))
-        
+
+        fft.triggered.connect(self.parent.perform_FFT)
+        self.stacking.pressed.connect(self.parent.perform_stacking)  
         self.spatialPlotApdDi.triggered.connect(self.parent.plot_apd_spatial)
-        self.stacking.pressed.connect(self.parent.perform_stacking)
 
         self.baseline_drift.pressed.connect(partial(self.parent.calculate_baseline_drift, action="calculate"))
         self.confirm_baseline_drift.triggered.connect(partial(self.parent.calculate_baseline_drift, action="confirm"))
@@ -165,6 +168,7 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.apd)
 
+        self.plotting_bar.addAction(fft)
         self.plotting_bar.addWidget(self.stacking)
         self.plotting_bar.addAction(self.spatialPlotApdDi)
         self.plotting_bar.addWidget(QLabel("    Show Data Points: "))
@@ -216,8 +220,8 @@ class SignalPanel(QWidget):
         self.signal_marker.setVisible(self.show_signal_marker.isChecked())
         self.signal_marker_toggle = False
 
-    def point_hover_tooltip(self, x, y, data):
-        """Called by signal_data.scatter when hovering over a point"""
-        tooltip = "x: " + str(int(x)) + "\ny: " + f"{y:.3f}"
+    def point_hover_tooltip(self, x, y, data, xLabel = 'x: ', yLabel = 'y: '):
+        """Called by signal_panel when hovering over a point"""
+        tooltip = xLabel + str(int(x)) + "\n" + yLabel + f"{y:.3f}"
         return tooltip
             
