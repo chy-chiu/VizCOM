@@ -70,7 +70,7 @@ class DraggablePlot(pg.PlotItem):
             # will receive left click/drag events from here.
             event.acceptDrags(Qt.MouseButton.LeftButton)
 
-class StackingPositionView(QWidget):
+class FFTPositionView(QWidget):
 
     def __init__(self, parent, image_data):
 
@@ -103,7 +103,7 @@ class StackingPositionView(QWidget):
         # Hide UI stuff not needed
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.histogram.hide()
+        #self.image_view.ui.histogram.hide()
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)

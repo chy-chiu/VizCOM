@@ -98,7 +98,7 @@ def CalculateAPD_DI(intersections, firstIntervalFlag):
             duration = index1 - index0
 
             # append duration and starting index of interval to appropriate array
-            if i % 2 == 0:
+            if i % 2 == 1:
                 if apdEvens:
                     apdArr[sig].append(duration)
                     apdIdxArr[sig].append(index0)
