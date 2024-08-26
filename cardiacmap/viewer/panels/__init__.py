@@ -6,3 +6,4 @@ from .signal import *
 from .stacking import *
 from .annotate import *
 from .apds import *
+from .isochrome import *
