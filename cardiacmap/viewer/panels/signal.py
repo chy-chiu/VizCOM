@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget, QH
                                QVBoxLayout, QWidget, QWidgetAction)
 
 from cardiacmap.viewer.components import ParameterButton, ParameterConfirmButton, Spinbox
+from cardiacmap.viewer.colorpalette import ColorPaletteButton
 
 QTOOLBAR_STYLE =  """
             QToolBar {spacing: 5px;} 
@@ -37,11 +38,24 @@ class SignalPanel(QWidget):
         self.parent = parent
 
         self.resize(1000, self.height())
-
-        if toolbar: self.init_toolbars()
+        
 
         self.plot = pg.PlotWidget()
         self.plot_item = self.plot.getPlotItem()
+        
+        # set up pens
+        self.sig_pen = pg.mkPen('w')
+        self.apd_pen = pg.mkPen('r')
+        self.base_pen = pg.mkPen('g')
+        self.colors = dict(
+            {
+                'signal': self.sig_pen.color(), 
+                'apd': self.apd_pen.color(), 
+                'baseline': self.base_pen.color(),
+                'background': self.plot.backgroundBrush().color()}
+            )
+
+        if toolbar: self.init_toolbars()
         
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis('left')
@@ -49,13 +63,17 @@ class SignalPanel(QWidget):
         leftAxis.setLabel(text= "Normalized Voltage")
         bottomAxis.setLabel(text= "Time (ms)")
         
-        self.signal_data: pg.PlotDataItem = self.plot.plot(symbol='o', symbolSize=0)
+        # set up data items
+        self.signal_data: pg.PlotDataItem = self.plot.plot(pen=self.sig_pen, symbol='o', symbolSize=0)
         self.signal_data.scatter.setData(tip=self.point_hover_tooltip)
         
-        self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('g'), symbol='o')
-        self.apd_data: pg.PlotDataItem = self.plot.plot(pen=pg.mkPen('r'), symbol='o')
+        self.baseline_data: pg.PlotDataItem = self.plot.plot(pen=self.base_pen, symbol='o')
+        self.baseline_data.scatter.setData(tip=self.point_hover_tooltip, hoverable=True)
+        
+        self.apd_data: pg.PlotDataItem = self.plot.plot(pen=self.apd_pen, symbol='o')
         self.apd_data.scatter.setData(tip=self.point_hover_tooltip, hoverable=True)
         
+        # set up signal marker
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
         self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
         self.signal_marker_toggle = False
@@ -153,6 +171,10 @@ class SignalPanel(QWidget):
         self.plotting_bar.addSeparator()
         self.plotting_bar.addWidget(self.ms_per_frame)
         self.plotting_bar.addWidget(QLabel("ms per frame"))
+        
+        #colors
+        self.color_button = ColorPaletteButton(self)
+        self.plotting_bar.addAction(self.color_button)
 
         print(self.transform_bar.toolButtonStyle())
 
@@ -177,6 +199,18 @@ class SignalPanel(QWidget):
         self.frame_idx = idx
         self.signal_marker.setX(idx * self.parent.ms)
         self.parent.update_signal_value(None, idx=idx)
+        
+    def update_pens(self):
+        for c in self.colors:
+            if c == 'signal':
+                self.sig_pen.setColor(self.colors[c])
+            elif c == 'baseline':
+                self.base_pen.setColor(self.colors[c])
+            elif c == 'apd':
+                self.apd_pen.setColor(self.colors[c])
+            elif c == 'background':
+                self.plot.setBackground(self.colors[c])
+        self.parent.update_signal_plot()
 
 
     def toggle_points(self):
