@@ -45,7 +45,7 @@ from cardiacmap.viewer.panels import (
     SettingsDialog,
     SignalPanel,
     SpatialPlotView,
-    StackingPositionView,
+    StackingWindow,
 )
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 
@@ -207,9 +207,8 @@ class CardiacMap(QMainWindow):
             self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
             # Create docking windows for viewer and signa view.
-            self.metadata_dock = QDockWidget()
-            self.metadata_dock.setWidget(self.metadata_panel)
-            self.metadata_dock.setFloating(False)
+            self.metadata_panel.setMaximumHeight(self.init_height*0.2)
+            self.setCentralWidget(self.metadata_panel)
 
             self.signal_dock = QDockWidget("Signal View", self)
             self.image_dock = QDockWidget("Image View", self)
@@ -217,22 +216,7 @@ class CardiacMap(QMainWindow):
             self.signal_dock.setWidget(self.signal_panel)
             self.image_dock.setWidget(self.image_tabs)
 
-            image_size_policy = QtWidgets.QSizePolicy()
-            image_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Expanding)
-            image_size_policy.setWidthForHeight(True)
-
-            signal_size_policy = QtWidgets.QSizePolicy()
-            signal_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Expanding)
-            signal_size_policy.setHorizontalPolicy(
-                QtWidgets.QSizePolicy.Policy.Expanding
-            )
-
-            metadata_size_policy = QtWidgets.QSizePolicy()
-            metadata_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Minimum)
-
-            self.metadata_dock.setSizePolicy(metadata_size_policy)
-            self.image_dock.setSizePolicy(image_size_policy)
-            self.signal_dock.setSizePolicy(signal_size_policy)
+            self.signal_dock.setMinimumWidth(self.init_width * 0.7)
 
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
@@ -240,11 +224,32 @@ class CardiacMap(QMainWindow):
             self.signal.normalize()
             self.ms_changed()  # initialize plot with scaled x values
 
-            self.setCentralWidget(self.metadata_panel)
             self.setGeometry(100, 100, self.init_width, self.init_height)
 
             self.default_widget.setVisible(False)
             self._disable_menus(False)
+
+            self.resizeDocks([self.image_dock, self.signal_dock], [500, 2500], Qt.Orientation.Horizontal)
+            self.resizeDocks([self.image_dock, self.signal_dock], [1000, 1000], Qt.Orientation.Vertical)
+
+            image_size_policy = QtWidgets.QSizePolicy()
+            image_size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+            image_size_policy.setHorizontalStretch(1)
+
+            signal_size_policy = QtWidgets.QSizePolicy()
+            signal_size_policy.setHorizontalPolicy(
+                QtWidgets.QSizePolicy.Policy.MinimumExpanding
+            )
+            signal_size_policy.setHorizontalStretch(5)
+
+            metadata_size_policy = QtWidgets.QSizePolicy()
+            metadata_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Minimum)
+
+            self.image_dock.setSizePolicy(image_size_policy)
+            self.signal_dock.setSizePolicy(signal_size_policy)
+            self.metadata_panel.setSizePolicy(metadata_size_policy)
+
+
 
         else:
 
@@ -316,21 +321,23 @@ class CardiacMap(QMainWindow):
             print(self.signal.transformed_data)
             pickle.dump(self.signal, f)
 
+    # TODO: Fix scroll / header issue here
     def load_help(self):
-        help_window = QtWidgets.QMainWindow(self)
+        self.help_window = QtWidgets.QMainWindow(self)
         help_text_browser = QtWidgets.QTextBrowser()
+
+        help_text_browser.anchorClicked.connect(lambda x: print(x))
 
         file_path = "./TUTORIAL.md"
         url = QtCore.QUrl.fromLocalFile(file_path)
 
         help_text_browser.setSource(url)
-        help_window.setCentralWidget(help_text_browser)
+        self.help_window.setCentralWidget(help_text_browser)
 
-        help_window.setWindowTitle("Help")
-        help_window.resize(600, 400)
+        self.help_window.setWindowTitle("Help")
+        self.help_window.resize(600, 400)
 
         # Store the help window in the instance, so it doesn't get garbage collected
-        self.help_window = help_window
         self.help_window.show()
 
     def create_viewer(self, signal: CascadeSignal, title: str):
@@ -552,28 +559,8 @@ class CardiacMap(QMainWindow):
             apd_popup.exec()
 
     def create_stacking_window(self):
-        start = int(
-            self.settings.child("Stacking Parameters").child("Start Time").value()
-            / self.ms
-        )
-        end = int(
-            self.settings.child("Stacking Parameters")
-            .child("End Time (Optional)")
-            .value()
-            / self.ms
-        )
-        beats = int(
-            self.settings.child("Stacking Parameters").child("# of Beats").value()
-        )
-        alternans = (
-            self.settings.child("Stacking Parameters").child("Alternans").value()
-        )
-        image = self.signal.transformed_data[0]
-        # DO STACKING
-        print("Stacking", beats, "beats")
-        stack = self.signal.perform_stacking(start, end, beats, alternans)
         self.stacking_window = StackingWindow(
-            self, image, stack, self.xVals[0 : len(stack)]
+            self
         )
         self.stacking_window.show()
 
@@ -666,72 +653,6 @@ class SpatialPlotWindow(QMainWindow):
 
     def update_signal_value(self, evt, idx=None):
         return
-
-
-class StackingWindow(QMainWindow):
-    def __init__(self, parent, img_data, stack_data, xVals):
-        super().__init__()
-        self.parent = parent
-        self.ms = self.parent.ms
-        self.img_data = img_data
-        self.data = stack_data
-        self.xVals = xVals
-
-        # Create viewer tabs
-        self.image_tab = StackingPositionView(
-            self, img_data
-        )  # ----------------------------
-
-        self.image_tabs = QTabWidget()
-        self.image_tabs.addTab(self.image_tab, "Image")
-        self.image_tabs.setMinimumWidth(380)
-        self.image_tabs.setMinimumHeight(500)
-
-        # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
-
-        # set up axes
-        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
-        leftAxis.setLabel(text="Periodic Voltage Average")
-        bottomAxis.setLabel(text="Time (ms)")
-
-        self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.signal_tab, "Stack")
-
-        # Create main layout
-        self.splitter = QSplitter()
-        self.splitter.addWidget(self.image_tabs)
-        self.splitter.addWidget(self.signal_tabs)
-
-        for i in range(self.splitter.count()):
-            self.splitter.setCollapsible(i, False)
-        layout = QHBoxLayout()
-        layout.addWidget(self.splitter)
-
-        self.signal_dock = QDockWidget("Signal View", self)
-        self.image_dock = QDockWidget("Image View", self)
-
-        self.signal_dock.setWidget(self.signal_tabs)
-        self.image_dock.setWidget(self.image_tabs)
-
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-        self.image_dock.resize(400, 1000)
-        self.setLayout(layout)
-
-        self.x = 64
-        self.y = 64
-        self.update_signal_plot()
-
-    def update_signal_plot(self):
-        self.signal_tab.signal_data.setData(
-            x=self.xVals, y=self.data[:, self.y, self.x]
-        )
-
-    def update_signal_value(self, evt, idx=None):
-        return
-
 
 class FFTWindow(QMainWindow):
     def __init__(self, fftData):

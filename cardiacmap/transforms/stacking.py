@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def Stacking(data, derivative, numPeriods, alternans):
+def Stacking(data, derivative, numPeriods, alternans, update_progress=None):
     # speeds computation
     derivative = np.moveaxis(derivative, 0, -1)
     data = np.moveaxis(data, 0, -1)
@@ -22,8 +22,10 @@ def Stacking(data, derivative, numPeriods, alternans):
             if len(result) > longestRes:
                 longestRes = len(result)
             # display progress
+            progress = (y * 128 + x) / (128 * 128)
             if (y * 128 + x) % 1000 == 0:
-                print("Stacking:", int(100 * (y * 128 + x) / (128 * 128)), "%")
+                if update_progress: update_progress(progress)
+                print("Stacking:", int(progress * 100), "%")
             results[y * len(data) + x] = result
 
     return results, longestRes
