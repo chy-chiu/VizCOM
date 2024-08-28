@@ -2,8 +2,16 @@
 
 import pyqtgraph as pg
 from PySide6.QtGui import QAction, QColor
-from PySide6.QtWidgets import (QColorDialog, QDockWidget, QHBoxLayout, QLabel,
-                               QMainWindow, QSplitter, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QColorDialog,
+    QDockWidget,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
 
 TITLE_STYLE = """QDockWidget::title
 {

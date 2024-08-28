@@ -6,11 +6,19 @@ import numpy as np
 from matplotlib import pyplot as plt
 from pydantic import BaseModel
 
-from cardiacmap.transforms import (FFT, CalculateAPD_DI,
-                                   GetIntersectionsAPD_DI, GetMins,
-                                   InvertSignal, NormalizeData,
-                                   RemoveBaselineDrift, SpatialAverage,
-                                   Stacking, TimeAverage, TrimSignal)
+from cardiacmap.transforms import (
+    FFT,
+    CalculateAPD_DI,
+    GetIntersectionsAPD_DI,
+    GetMins,
+    InvertSignal,
+    NormalizeData,
+    RemoveBaselineDrift,
+    SpatialAverage,
+    Stacking,
+    TimeAverage,
+    TrimSignal,
+)
 
 
 class CascadeSignal:

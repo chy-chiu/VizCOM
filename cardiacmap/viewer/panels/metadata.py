@@ -1,5 +1,4 @@
-from PySide6.QtWidgets import (QFormLayout, QHBoxLayout, QLabel, QSplitter,
-                               QWidget)
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QSplitter, QWidget
 
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget

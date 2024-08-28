@@ -2,11 +2,28 @@ from functools import partial
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-                               QDockWidget, QHBoxLayout, QInputDialog, QLabel,
-                               QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
-                               QPushButton, QSizePolicy, QSplitter, QTabWidget,
-                               QToolBar, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDockWidget,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSizePolicy,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 from skimage.measure import find_contours
 
 from cardiacmap.viewer.components import Spinbox

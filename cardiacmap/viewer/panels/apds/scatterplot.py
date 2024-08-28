@@ -5,11 +5,27 @@ from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
-                               QDockWidget, QHBoxLayout, QInputDialog, QLabel,
-                               QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
-                               QPushButton, QSplitter, QTabWidget, QToolBar,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDockWidget,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 IMAGE_SIZE = 128
 

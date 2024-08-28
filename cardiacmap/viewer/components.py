@@ -4,12 +4,28 @@ import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QGroupBox,
-                               QHBoxLayout, QInputDialog, QLabel, QMainWindow,
-                               QMenu, QMenuBar, QPlainTextEdit, QPushButton,
-                               QSpinBox, QSplitter, QTabWidget, QToolBar,
-                               QToolButton, QVBoxLayout, QWidget,
-                               QWidgetAction)
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QDockWidget,
+    QGroupBox,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+    QWidgetAction,
+)
 
 SPINBOX_STYLE = """SpinBox
             {

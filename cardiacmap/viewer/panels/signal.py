@@ -7,15 +7,34 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget,
-                               QHBoxLayout, QInputDialog, QLabel, QMainWindow,
-                               QMenu, QMenuBar, QPlainTextEdit, QPushButton,
-                               QSplitter, QTabWidget, QToolBar, QToolButton,
-                               QVBoxLayout, QWidget, QWidgetAction)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QDialog,
+    QDockWidget,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+    QWidgetAction,
+)
 
 from cardiacmap.viewer.colorpalette import ColorPaletteButton
-from cardiacmap.viewer.components import (ParameterButton,
-                                          ParameterConfirmButton, Spinbox)
+from cardiacmap.viewer.components import (
+    ParameterButton,
+    ParameterConfirmButton,
+    Spinbox,
+)
 
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 

@@ -11,20 +11,42 @@ from pyqtgraph.parametertree import Parameter
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QFileDialog,
-                               QHBoxLayout, QInputDialog, QLabel, QMainWindow,
-                               QMenu, QMenuBar, QPlainTextEdit, QPushButton,
-                               QSplitter, QTabWidget, QToolBar, QToolButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QDockWidget,
+    QFileDialog,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
-from cardiacmap.viewer.panels import (AnnotateView, FFTPositionView,
-                                      IsochromeWindow, MetadataPanel,
-                                      PositionView, ScatterPanel,
-                                      ScatterPlotView, SettingsDialog,
-                                      SignalPanel, SpatialPlotView,
-                                      StackingPositionView)
+from cardiacmap.viewer.panels import (
+    AnnotateView,
+    FFTPositionView,
+    IsochromeWindow,
+    MetadataPanel,
+    PositionView,
+    ScatterPanel,
+    ScatterPlotView,
+    SettingsDialog,
+    SignalPanel,
+    SpatialPlotView,
+    StackingPositionView,
+)
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 
 TITLE_STYLE = """QDockWidget::title
@@ -52,6 +74,7 @@ class CardiacMap(QMainWindow):
         screen_size = QGuiApplication.primaryScreen().size()
         self.init_width = screen_size.width() * WIDTH_SCALE
         self.init_height = screen_size.height() * HEIGHT_SCALE
+        self.settings = load_settings()
 
         self.resize(self.init_width, self.init_height)
         self.setStyleSheet(TITLE_STYLE)
@@ -143,10 +166,17 @@ class CardiacMap(QMainWindow):
 
         # Help Menu
         self.help = self.menubar.addAction("Help")
+        self.help.triggered.connect(self.load_help)
 
         self.setMenuBar(self.menubar)
 
         return
+
+    def _disable_menus(self, disable: bool):
+
+        self.windows_menu.setDisabled(disable)
+        self.settings_menu.setDisabled(disable)
+        self.save_signal.setDisabled(disable)
 
     def init_viewer(self):
 
@@ -157,7 +187,6 @@ class CardiacMap(QMainWindow):
         if self.signal:
 
             self.x, self.y = INITIAL_POSITION
-            self.settings = load_settings()
 
             self.metadata_panel = MetadataPanel(self.signal, self)
 
@@ -211,18 +240,25 @@ class CardiacMap(QMainWindow):
             self.signal.normalize()
             self.ms_changed()  # initialize plot with scaled x values
 
-            self.default_widget.setVisible(False)
-
             self.setCentralWidget(self.metadata_panel)
             self.setGeometry(100, 100, self.init_width, self.init_height)
+
+            self.default_widget.setVisible(False)
+            self._disable_menus(False)
 
         else:
 
             self.setCentralWidget(self.default_widget)
+            self._disable_menus(True)
 
     def load_cascade(self, calcium_mode: bool):
 
-        filepath = QFileDialog.getOpenFileName()[0]
+        filepath = QFileDialog.getOpenFileName(
+            self,
+            "Load Cascade File",
+            "",
+            "Cascade File (*.dat);;All Files (*)",
+        )[0]
 
         if filepath and ".dat" in filepath:
 
@@ -262,10 +298,11 @@ class CardiacMap(QMainWindow):
             "",
             "CardiacMap Signal (*.signal);;All Files (*)",
         )
-        with open(filepath, "rb") as f:
-            signal = pickle.load(f)
-            print(signal.transformed_data)
-            self.create_viewer(signal, os.path.split(filepath)[-1])
+        if filepath:
+            with open(filepath, "rb") as f:
+                signal = pickle.load(f)
+                print(signal.transformed_data)
+                self.create_viewer(signal, os.path.split(filepath)[-1])
 
     def save_preprocessed(self):
 
@@ -278,6 +315,23 @@ class CardiacMap(QMainWindow):
         with open(filepath, "wb") as f:
             print(self.signal.transformed_data)
             pickle.dump(self.signal, f)
+
+    def load_help(self):
+        help_window = QtWidgets.QMainWindow(self)
+        help_text_browser = QtWidgets.QTextBrowser()
+
+        file_path = "./TUTORIAL.md"
+        url = QtCore.QUrl.fromLocalFile(file_path)
+
+        help_text_browser.setSource(url)
+        help_window.setCentralWidget(help_text_browser)
+
+        help_window.setWindowTitle("Help")
+        help_window.resize(600, 400)
+
+        # Store the help window in the instance, so it doesn't get garbage collected
+        self.help_window = help_window
+        self.help_window.show()
 
     def create_viewer(self, signal: CascadeSignal, title: str):
         """IF there is a signal already, create a new viewer window. Otherwise
@@ -470,6 +524,7 @@ class CardiacMap(QMainWindow):
                 self.signal.reset_apd_di()
 
             self.signal.show_apd_threshold = False
+            self.apd_window.setDisabled(False)
 
             self.signal_panel.apd.disable_confirm_buttons()
 
@@ -478,12 +533,23 @@ class CardiacMap(QMainWindow):
         self.update_signal_plot()
 
     def plot_apds(self):
-        apd = self.signal.get_spatial_apds() * self.ms
-        di = self.signal.get_spatial_dis() * self.ms
-        self.apd_spatial_plot = SpatialPlotWindow(
-            self, apd, di, self.signal.apdIndicators
-        )
-        self.apd_spatial_plot.show()
+
+        if self.signal.apds:
+
+            apd = self.signal.get_spatial_apds() * self.ms
+            di = self.signal.get_spatial_dis() * self.ms
+            self.apd_spatial_plot = SpatialPlotWindow(
+                self, apd, di, self.signal.apdIndicators
+            )
+            self.apd_spatial_plot.show()
+
+        else:
+            apd_popup = QtWidgets.QMessageBox()
+            apd_popup.setWindowTitle("Warning")
+            apd_popup.setText(
+                "No APD / DI in signal.\nTo enable, first calculate APD / DI"
+            )
+            apd_popup.exec()
 
     def create_stacking_window(self):
         start = int(

@@ -1,7 +1,13 @@
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6 import QtWidgets
-from PySide6.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from cardiacmap.viewer.utils import load_settings, save_settings
 
