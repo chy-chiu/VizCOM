@@ -1,7 +1,6 @@
 ﻿import os
 import sys
 from functools import partial
-from scipy.signal import find_peaks
 
 import numpy as np
 import pyqtgraph as pg
@@ -11,11 +10,12 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
-                               QInputDialog, QLabel, QMainWindow, QMenu,
-                               QMenuBar, QPlainTextEdit, QPushButton,
-                               QSplitter, QTabWidget, QToolBar, QToolButton,
-                               QVBoxLayout, QWidget, QComboBox, QCheckBox)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
+                               QDockWidget, QHBoxLayout, QInputDialog, QLabel,
+                               QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
+                               QPushButton, QSplitter, QTabWidget, QToolBar,
+                               QToolButton, QVBoxLayout, QWidget)
+from scipy.signal import find_peaks
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -44,6 +44,7 @@ SPINBOX_STYLE = """QSpinBox
 
 IMAGE_SIZE = 128
 
+
 class DraggablePlot(pg.PlotItem):
 
     # Draggable PlotItem that takes in a callback function.
@@ -70,13 +71,14 @@ class DraggablePlot(pg.PlotItem):
             # will receive left click/drag events from here.
             event.acceptDrags(Qt.MouseButton.LeftButton)
 
+
 class StackingPositionView(QWidget):
 
     def __init__(self, parent, image_data):
 
         super().__init__(parent=parent)
 
-        self.parent=parent
+        self.parent = parent
         self.image_data = image_data
 
         self.init_image_view()
@@ -107,11 +109,9 @@ class StackingPositionView(QWidget):
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
-        
+
         # draw image
-        self.image_view.setImage(
-                self.image_data, autoLevels=True, autoRange=False
-            )
+        self.image_view.setImage(self.image_data, autoLevels=True, autoRange=False)
 
         # Draggable Red Dot
         # Add posiiton marker
@@ -127,7 +127,7 @@ class StackingPositionView(QWidget):
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
         self.show_marker.stateChanged.connect(self.toggle_marker)
-        
+
     def update_position(self, x, y):
 
         y = np.clip(y, 0, IMAGE_SIZE - 1)
@@ -142,4 +142,8 @@ class StackingPositionView(QWidget):
         self.position_marker.setData(pos=[[x, y]])
 
     def toggle_marker(self):
-        self.position_marker.setVisible(True) if self.show_marker.isChecked() else self.position_marker.setVisible(False)
+        (
+            self.position_marker.setVisible(True)
+            if self.show_marker.isChecked()
+            else self.position_marker.setVisible(False)
+        )

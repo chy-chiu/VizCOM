@@ -16,7 +16,9 @@ def GetIntersectionsAPD_DI(data, threshold):
     xLen = len(data[0])
 
     # get crossing indices
-    idx = np.argwhere(np.diff(np.sign(data - threshold))) # this line is by far the most time consuming
+    idx = np.argwhere(
+        np.diff(np.sign(data - threshold))
+    )  # this line is by far the most time consuming
     # TODO: Is there a better way?
 
     ys = idx[:, 0]

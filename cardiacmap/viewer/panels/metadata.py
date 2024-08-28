@@ -1,19 +1,22 @@
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QSplitter, QFormLayout
+from PySide6.QtWidgets import (QFormLayout, QHBoxLayout, QLabel, QSplitter,
+                               QWidget)
+
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
+
 
 class MetadataPanel(QWidget):
 
     def __init__(self, signal: CascadeSignal, parent):
         super().__init__(parent=parent)
-        self.parent=parent
+        self.parent = parent
 
         label_layout = QHBoxLayout()
         self.signal = signal
         metadata = self.signal.metadata
         # TODO: Refactor this nicely later using QFormLayout
 
-        self.filename = QLabel(metadata['filename'])
+        self.filename = QLabel(metadata["filename"])
         self.frames = QLabel(str(self.signal.span_T))
         self.channel = QLabel(self.signal.channel)
 
@@ -31,8 +34,6 @@ class MetadataPanel(QWidget):
         mid_col.addRow(QLabel("Frame Index: "), self.frame_index)
         mid_col.addRow(QLabel("Signal Value: "), self.signal_value)
 
-
-
         label_layout.addLayout(left_col)
         label_layout.addLayout(mid_col)
         label_layout.addStretch()
@@ -42,4 +43,3 @@ class MetadataPanel(QWidget):
         label.setLayout(label_layout)
 
         self.setLayout(label_layout)
-

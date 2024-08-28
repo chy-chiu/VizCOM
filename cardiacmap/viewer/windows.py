@@ -1,51 +1,31 @@
 import os
+import pickle
 import sys
 from functools import partial
-from typing import List, Optional
+from typing import List, Literal, Optional
+
 import numpy as np
 import pyqtgraph as pg
+from pyqtgraph.console import ConsoleWidget
 from pyqtgraph.parametertree import Parameter
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (
-    QApplication,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
-    QPushButton,
-    QSplitter,
-    QTabWidget,
-    QToolBar,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
-)
-from pyqtgraph.console import ConsoleWidget
+from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QFileDialog,
+                               QHBoxLayout, QInputDialog, QLabel, QMainWindow,
+                               QMenu, QMenuBar, QPlainTextEdit, QPushButton,
+                               QSplitter, QTabWidget, QToolBar, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
-from cardiacmap.viewer.panels import (
-    FFTPositionView,
-    PositionView,
-    MetadataPanel,
-    ScatterPlotView,
-    ScatterPanel,
-    SpatialPlotView,
-    SignalPanel,
-    StackingPositionView,
-    AnnotateView,
-    IsochromeWindow
-)
-from cardiacmap.viewer.utils import loading_popup, load_settings, save_settings
-
-from typing import Literal
+from cardiacmap.viewer.panels import (AnnotateView, FFTPositionView,
+                                      IsochromeWindow, MetadataPanel,
+                                      PositionView, ScatterPanel,
+                                      ScatterPlotView, SettingsDialog,
+                                      SignalPanel, SpatialPlotView,
+                                      StackingPositionView)
+from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 
 TITLE_STYLE = """QDockWidget::title
 {
@@ -57,41 +37,49 @@ padding-top: 4px;
 }
 """
 INITIAL_POSITION = (64, 64)
+WIDTH_SCALE = 0.6
+HEIGHT_SCALE = 0.4
 
 
 class CardiacMap(QMainWindow):
     """Main window for signal analysis"""
 
-    def __init__(self, signal: Optional[CascadeSignal]=None, title: str=""):
+    def __init__(self, signal: Optional[CascadeSignal] = None, title: str = ""):
 
         super().__init__()
 
         self.title = title
-        self.resize(1200, 600)
+        screen_size = QGuiApplication.primaryScreen().size()
+        self.init_width = screen_size.width() * WIDTH_SCALE
+        self.init_height = screen_size.height() * HEIGHT_SCALE
+
+        self.resize(self.init_width, self.init_height)
         self.setStyleSheet(TITLE_STYLE)
         self.init_menu()
 
+        # # TODO: Fix / Add Console Function
+        # self.console = ConsoleWidget()
+        # self.console.setMinimumWidth(500)
+        # self.console.setMinimumHeight(100)
 
-        # TODO: Fix / Add Console Function
-        self.console = ConsoleWidget()
-        self.console.setMinimumWidth(500)
-        self.console.setMinimumHeight(100)
-        size_policy = QtWidgets.QSizePolicy()
-        size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
-        size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        self.console.setSizePolicy(size_policy)
-        
+        # size_policy = QtWidgets.QSizePolicy()
+        # size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        # size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        # self.console.setSizePolicy(size_policy)
+
         self.signal = signal
-        
+
         self.default_widget = QWidget()
         layout = QHBoxLayout()
         layout.addStretch()
-        layout.addWidget(QLabel("No files loaded. Load a Cascade Image File with \"File → Load Data\" to continue..."))
+        layout.addWidget(
+            QLabel(
+                'No files loaded. Load a Cascade Image File with "File → Load Data" to continue...'
+            )
+        )
         layout.addStretch()
         self.default_widget.setLayout(layout)
-        self.default_widget.setStyleSheet(
-        "QLabel {font-size:20px; }"
-        )
+        self.default_widget.setStyleSheet("QLabel {font-size:20px; }")
 
         self.init_viewer()
 
@@ -106,28 +94,35 @@ class CardiacMap(QMainWindow):
         self.windows_menu = self.menubar.addMenu("Windows")
 
         # Settings Menu
-        self.settings_menu = self.menubar.addMenu("Settings")
+        self.settings_menu = self.menubar.addAction("Settings")
+        self.settings_menu.triggered.connect(self.open_settings)
 
         # File Menu
         self.load_voltage = QAction("Load Voltage Data")
         self.load_voltage.triggered.connect(
-            partial(self.load_signal, calcium_mode=False)
+            partial(self.load_cascade, calcium_mode=False)
         )
 
         self.load_calcium = QAction("Load Voltage / Calcium Data")
         self.load_calcium.triggered.connect(
-            partial(self.load_signal, calcium_mode=True)
+            partial(self.load_cascade, calcium_mode=True)
         )
 
+        self.load_saved_signal = QAction("Load Saved Signal")
+        self.load_saved_signal.triggered.connect(self.load_preprocessed)
+
         self.save_signal = QAction("Save Signal")
+        self.save_signal.triggered.connect(self.save_preprocessed)
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
         self.file_menu.addSeparator()
+        self.file_menu.addAction(self.load_saved_signal)
+        self.file_menu.addSeparator()
+        # TODO - Save Signal
         self.file_menu.addAction(self.save_signal)
 
         # Windows Menu
-
         self.stacking = QAction("Stacking")
         self.stacking.triggered.connect(self.create_stacking_window)
         self.apd_window = QAction("APD / DI Plots")
@@ -136,13 +131,11 @@ class CardiacMap(QMainWindow):
         self.isochrome.triggered.connect(self.create_isochrome_window)
         self.fft = QAction("FFT", self)
         self.fft.triggered.connect(self.perform_FFT)
-        
+
         self.windows_menu.addAction(self.stacking)
         self.windows_menu.addAction(self.apd_window)
         self.windows_menu.addAction(self.isochrome)
         self.windows_menu.addAction(self.fft)
-        
-
 
         # # TODO: Transforms Menu
         # self.transforms_menu.addAction("Spatial Average")
@@ -151,15 +144,15 @@ class CardiacMap(QMainWindow):
         # Help Menu
         self.help = self.menubar.addAction("Help")
 
-
-
         self.setMenuBar(self.menubar)
 
         return
 
     def init_viewer(self):
 
-        self.setWindowTitle(self.title + " – CardiacMap" if self.title else "CardiacMap")
+        self.setWindowTitle(
+            self.title + " – CardiacMap" if self.title else "CardiacMap"
+        )
 
         if self.signal:
 
@@ -180,12 +173,6 @@ class CardiacMap(QMainWindow):
             self.annotate_tab = AnnotateView(self)
 
             self.image_tabs = QTabWidget()
-            size_policy = QtWidgets.QSizePolicy()
-            size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-            size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.Fixed)
-            self.image_tabs.setSizePolicy(size_policy)
-            self.image_tabs.setMinimumWidth(380)
-            self.image_tabs.setMinimumHeight(500)
 
             self.image_tabs.addTab(self.position_tab, "Position")
             self.image_tabs.addTab(self.annotate_tab, "Annotate")
@@ -201,57 +188,106 @@ class CardiacMap(QMainWindow):
             self.signal_dock.setWidget(self.signal_panel)
             self.image_dock.setWidget(self.image_tabs)
 
+            image_size_policy = QtWidgets.QSizePolicy()
+            image_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Expanding)
+            image_size_policy.setWidthForHeight(True)
+
+            signal_size_policy = QtWidgets.QSizePolicy()
+            signal_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Expanding)
+            signal_size_policy.setHorizontalPolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding
+            )
+
+            metadata_size_policy = QtWidgets.QSizePolicy()
+            metadata_size_policy.setVerticalPolicy(QtWidgets.QSizePolicy.Policy.Minimum)
+
+            self.metadata_dock.setSizePolicy(metadata_size_policy)
+            self.image_dock.setSizePolicy(image_size_policy)
+            self.signal_dock.setSizePolicy(signal_size_policy)
+
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-            self.image_dock.resize(400, 1000)
 
             self.signal.normalize()
             self.ms_changed()  # initialize plot with scaled x values
 
             self.default_widget.setVisible(False)
-            
+
             self.setCentralWidget(self.metadata_panel)
+            self.setGeometry(100, 100, self.init_width, self.init_height)
 
         else:
-            
+
             self.setCentralWidget(self.default_widget)
 
+    def load_cascade(self, calcium_mode: bool):
 
-    def load_signal(self, calcium_mode=False):
-
-        filepath = QtWidgets.QFileDialog.getOpenFileName()[0]
+        filepath = QFileDialog.getOpenFileName()[0]
 
         if filepath and ".dat" in filepath:
 
-            filename = os.path.split(filepath)[-1]
+            self._load_signal(filepath, calcium_mode=calcium_mode)
 
-            signals = load_cascade_file(
-                filepath, self.largeFilePopUp, dual_mode=calcium_mode
-            )
+    @loading_popup
+    def _load_signal(self, filepath, calcium_mode: bool, update_progress=None):
 
-            if calcium_mode:
+        filename = os.path.split(filepath)[-1]
 
-                signal_odd = signals[0]
-                signal_even = signals[1]
+        signals = load_cascade_file(
+            filepath, self.largeFilePopUp, dual_mode=calcium_mode
+        )
 
-                for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
-                    self.create_viewer(signal, filename + suffix)
-            else:
-                signal = signals[0]
+        if update_progress:
+            update_progress(0.5)
 
-                self.create_viewer(signal, filename)
+        if calcium_mode:
 
-    
+            signal_odd: CascadeSignal = signals[0]
+            signal_even: CascadeSignal = signals[1]
+
+            print(signal_odd.signal_name)
+
+            for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
+                self.create_viewer(signal, filename + suffix)
+        else:
+            signal = signals[0]
+
+            self.create_viewer(signal, filename)
+
+    def load_preprocessed(self):
+
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Preprocessed Signal",
+            "",
+            "CardiacMap Signal (*.signal);;All Files (*)",
+        )
+        with open(filepath, "rb") as f:
+            signal = pickle.load(f)
+            print(signal.transformed_data)
+            self.create_viewer(signal, os.path.split(filepath)[-1])
+
+    def save_preprocessed(self):
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Processed Signal",
+            f"{self.signal.signal_name}.signal",
+            "CardiacMap Signal (*.signal);;All Files (*)",
+        )
+        with open(filepath, "wb") as f:
+            print(self.signal.transformed_data)
+            pickle.dump(self.signal, f)
+
     def create_viewer(self, signal: CascadeSignal, title: str):
-
         """IF there is a signal already, create a new viewer window. Otherwise
         load signal in current window"""
 
         if self.signal:
-            
+
             viewer = CardiacMap(signal, title)
             viewer.show()
-        
+
         else:
             self.title = title
             self.signal = signal
@@ -341,7 +377,10 @@ class CardiacMap(QMainWindow):
         transform: Literal[
             "spatial_average", "time_average", "trim", "normalize", "reset", "invert"
         ],
+        update_progress=None,
     ):
+        if update_progress:
+            update_progress(0.05)
         # Calls a transform function within the signal item
         if transform == "spatial_average":
             sigma = self.settings.child("Spatial Average").child("Sigma").value()
@@ -360,8 +399,12 @@ class CardiacMap(QMainWindow):
             self.signal.normalize()
 
         elif transform == "trim":
-            left = int(self.settings.child("Trim Parameters").child("Left").value() / self.ms)
-            right = int(self.settings.child("Trim Parameters").child("Right").value() / self.ms)
+            left = int(
+                self.settings.child("Trim Parameters").child("Left").value() / self.ms
+            )
+            right = int(
+                self.settings.child("Trim Parameters").child("Right").value() / self.ms
+            )
             self.signal.trim_data(startTrim=left, endTrim=right)
             self.signal.normalize()
 
@@ -379,10 +422,13 @@ class CardiacMap(QMainWindow):
         self.update_signal_plot()
         self.position_tab.update_data()
 
+    @loading_popup
     def calculate_baseline_drift(
-        self, action: Literal["calculate", "confirm", "reset"]
+        self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
-        period = int(self.settings.child("Baseline Drift").child("Period Len").value() / self.ms)
+        period = int(
+            self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
+        )
         prominence = self.settings.child("Baseline Drift").child("Prominence").value()
         threshold = self.settings.child("Baseline Drift").child("Threshold").value()
         alternans = self.settings.child("Baseline Drift").child("Alternans").value()
@@ -394,32 +440,32 @@ class CardiacMap(QMainWindow):
             self.signal.show_baseline = True
         else:
             if action == "confirm":
-                self.signal.remove_baseline_drift()
+                self.signal.remove_baseline_drift(update_progress=update_progress)
                 self.signal.normalize()
 
             self.signal.reset_baseline()
             self.signal.show_baseline = False
 
             self.signal_panel.baseline_drift.disable_confirm_buttons()
-            
+
         self.update_signal_plot()
 
-    def calculate_apd(self, action: Literal["calculate", "confirm", "reset"]):
+    @loading_popup
+    def calculate_apd(
+        self, action: Literal["calculate", "confirm", "reset"], update_progress=None
+    ):
 
         threshold = self.settings.child("APD Parameters").child("Threshold").value()
 
         if action == "calculate":
             self.signal.calc_apd_di_threshold(threshold)
-            
+
             self.signal_panel.apd.enable_confirm_buttons()
 
             self.signal.show_apd_threshold = True
         else:
             if action == "confirm":
                 self.signal.calc_apd_di()
-                #self.signal_panel.spatialPlotApdDi.setVisible(True)
-                #self.signal_panel.spatialPlotApdDi.setEnabled(True)
-                #self.signal_panel.spatialPlotApdDi.setText("APD/DI Plots")
             else:
                 self.signal.reset_apd_di()
 
@@ -427,6 +473,8 @@ class CardiacMap(QMainWindow):
 
             self.signal_panel.apd.disable_confirm_buttons()
 
+        if update_progress:
+            update_progress(0.95)
         self.update_signal_plot()
 
     def plot_apds(self):
@@ -438,26 +486,46 @@ class CardiacMap(QMainWindow):
         self.apd_spatial_plot.show()
 
     def create_stacking_window(self):
-        start = int(self.settings.child("Stacking Parameters").child("Start Time").value() / self.ms)
-        end = int(self.settings.child("Stacking Parameters").child("End Time (Optional)").value() / self.ms)
-        beats = int(self.settings.child("Stacking Parameters").child("# of Beats").value())
-        alternans = self.settings.child("Stacking Parameters").child("Alternans").value()
+        start = int(
+            self.settings.child("Stacking Parameters").child("Start Time").value()
+            / self.ms
+        )
+        end = int(
+            self.settings.child("Stacking Parameters")
+            .child("End Time (Optional)")
+            .value()
+            / self.ms
+        )
+        beats = int(
+            self.settings.child("Stacking Parameters").child("# of Beats").value()
+        )
+        alternans = (
+            self.settings.child("Stacking Parameters").child("Alternans").value()
+        )
         image = self.signal.transformed_data[0]
         # DO STACKING
         print("Stacking", beats, "beats")
         stack = self.signal.perform_stacking(start, end, beats, alternans)
-        self.stacking_window = StackingWindow(self, image, stack, self.xVals[0 : len(stack)])
+        self.stacking_window = StackingWindow(
+            self, image, stack, self.xVals[0 : len(stack)]
+        )
         self.stacking_window.show()
 
     def create_isochrome_window(self):
         self.isochrome_window = IsochromeWindow(self)
         self.isochrome_window.show()
-        
+
     def perform_FFT(self):
         print("FFT")
         fft_frames = self.signal.perform_fft()
         self.fft_window = FFTWindow(fft_frames)
         self.fft_window.show()
+
+    def open_settings(self):
+
+        _settings = SettingsDialog(self.settings)
+        _settings.exec()
+
 
 class PopupWindow(QInputDialog):
     def __init__(self):
@@ -552,7 +620,7 @@ class StackingWindow(QMainWindow):
         self.image_tabs.addTab(self.image_tab, "Image")
         self.image_tabs.setMinimumWidth(380)
         self.image_tabs.setMinimumHeight(500)
-        
+
         # Create Signal Views
         self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
 
@@ -597,7 +665,8 @@ class StackingWindow(QMainWindow):
 
     def update_signal_value(self, evt, idx=None):
         return
-    
+
+
 class FFTWindow(QMainWindow):
     def __init__(self, fftData):
         QMainWindow.__init__(self)
@@ -605,7 +674,9 @@ class FFTWindow(QMainWindow):
         self.img_data = np.argmax(fftData, axis=0)
 
         # Create viewer tabs
-        self.image_tab = FFTPositionView(self, self.img_data) # ----------------------------
+        self.image_tab = FFTPositionView(
+            self, self.img_data
+        )  # ----------------------------
 
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.image_tab, "Peak Frequency")
@@ -614,16 +685,16 @@ class FFTWindow(QMainWindow):
 
         # Create Signal Views
         self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
-        
+
         # set up axes
-        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('left')
-        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('bottom')
-        leftAxis.setLabel(text= "Spectral Density")
-        bottomAxis.setLabel(text= "Frequency (kHz)")
+        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
+        leftAxis.setLabel(text="Spectral Density")
+        bottomAxis.setLabel(text="Frequency (kHz)")
 
         self.signal_tabs = QTabWidget()
         self.signal_tabs.addTab(self.signal_tab, "FFT")
-        
+
         # Create main layout
         self.splitter = QSplitter()
         self.splitter.addWidget(self.image_tabs)
@@ -636,7 +707,7 @@ class FFTWindow(QMainWindow):
 
         self.signal_dock = QDockWidget("Signal View", self)
         self.image_dock = QDockWidget("Image View", self)
-        
+
         self.signal_dock.setWidget(self.signal_tabs)
         self.image_dock.setWidget(self.image_tabs)
 
@@ -644,16 +715,16 @@ class FFTWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
         self.image_dock.resize(400, 1000)
         self.setLayout(layout)
-        
+
         self.x = 64
         self.y = 64
         self.update_signal_plot()
-        
+
     def update_signal_plot(self):
         self.signal_tab.signal_data.setData(self.data[:, self.x, self.y])
         peak = self.img_data[self.x, self.y]
-        self.signal_tab.apd_data.setData(x = [peak], y = [self.data[peak, self.x, self.y]])
- 
+        self.signal_tab.apd_data.setData(x=[peak], y=[self.data[peak, self.x, self.y]])
+
     def update_signal_value(self, evt, idx=None):
         return
 
@@ -662,15 +733,15 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
 
-    # signal = signals[0]
+    signal = signals[0]
 
-    # viewer = CardiacMap(signal)
+    viewer = CardiacMap(signal)
 
-    # viewer.show()
+    viewer.show()
 
-    main_window = CardiacMap()
-    main_window.show()
+    # main_window = CardiacMap()
+    # main_window.show()
 
     sys.exit(app.exec())

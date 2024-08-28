@@ -4,16 +4,11 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseDragEvent
 from PySide6 import QtCore, QtWidgets
-from PySide6.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QMainWindow,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow,
+                               QPushButton, QVBoxLayout, QWidget)
 from skimage.draw import polygon
 from skimage.transform import resize
+
 from cardiacmap.model.cascade import load_cascade_file
 
 IMAGE_SIZE = 128

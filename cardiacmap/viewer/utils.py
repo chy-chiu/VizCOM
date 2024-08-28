@@ -1,8 +1,8 @@
+import json
+from pathlib import Path
+
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
-from pathlib import Path
-import json
-
 
 DEFAULT_SETTINGS_PATH = "./settings.json"
 DEFAULT_VALUES = {
@@ -65,9 +65,7 @@ def get_default_settings():
 
     params = []
     for k, v in DEFAULT_VALUES.items():
-        params.append(
-            Parameter.create(name=k, type="group", children=v)
-        )
+        params.append(Parameter.create(name=k, type="group", children=v))
 
     params_parent = Parameter.create(
         name="Parameters",
@@ -100,18 +98,34 @@ def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
     return settings
 
 
-def save_settings(settings: Parameter):
+def save_settings(settings: Parameter, file_path=DEFAULT_SETTINGS_PATH):
 
-    with open(DEFAULT_SETTINGS_PATH, "w") as f:
+    with open(file_path, "w") as f:
         f.write(json.dumps(settings.saveState()))
 
 
 def loading_popup(func):
+    """Decorator for progress bar. In order to use, need to add `update_progress`=None in the function signature.
+    To update progress, remember to normalize progerss to 1"""
+
     def wrapper(*args, **kwargs):
-        with pg.ProgressDialog("Processing..", 0, 100, wait=50, busyCursor=True) as dlg:
-            # do stuff
-            func(*args, **kwargs)
+
+        with pg.ProgressDialog("Loading..", 0, 100, wait=250, busyCursor=True) as dlg:
+
+            def update_progress(value):
+                dlg.setValue(value * 100)
+                if dlg.wasCanceled():
+                    raise Exception("Processing canceled by user")
+
+            kwargs["update_progress"] = (
+                update_progress  # Pass the callback function to the decorated function
+            )
+
+            result = func(*args, **kwargs)  # Call the decorated function
+
             if dlg.wasCanceled():
                 raise Exception("Processing canceled by user")
+
+            return result
 
     return wrapper
