@@ -31,14 +31,15 @@ QTOOLBAR_STYLE =  """
 
 class SignalPanel(QWidget):
 
-    def __init__(self, parent, toolbar=True, signal_marker=True):
+    def __init__(self, parent, toolbar=True, signal_marker=True, ms_conversion=True):
 
         super().__init__(parent=parent)
 
         self.parent = parent
 
         self.resize(1000, self.height())
-        
+        self.convertToMS = ms_conversion
+        self.allow_signal_marker = signal_marker
 
         self.plot = pg.PlotWidget()
         self.plot_item = self.plot.getPlotItem()
@@ -56,6 +57,7 @@ class SignalPanel(QWidget):
             )
 
         if toolbar: self.init_toolbars()
+        self.init_plotting_bar()
         
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis('left')
@@ -87,7 +89,7 @@ class SignalPanel(QWidget):
         layout = QVBoxLayout()
         if toolbar: 
             layout.addWidget(self.transform_bar)
-            layout.addWidget(self.plotting_bar)
+        layout.addWidget(self.plotting_bar)
         layout.addWidget(self.plot)
         
         self.setLayout(layout)
@@ -98,7 +100,6 @@ class SignalPanel(QWidget):
 
         #TODO: Fix this code below lulz
         self.transform_bar = QToolBar()
-        self.plotting_bar = QToolBar()
 
         self.transform_bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
@@ -124,21 +125,6 @@ class SignalPanel(QWidget):
         
 
         #self.stacking = ParameterButton("Stacking", self.parent.stacking_params)
-        
-        # Display data points
-        self.show_points = QCheckBox()
-        self.show_points.setChecked(False)
-        self.show_points.stateChanged.connect(self.toggle_points)
-        self.show_points.stateChanged.connect(self.parent.update_signal_plot)
-
-        self.show_signal_marker = QCheckBox()
-        self.show_signal_marker.setChecked(True)
-        self.show_signal_marker.stateChanged.connect(self.toggle_signal)
-        self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
-        
-        # frame to ms conversion
-        self.ms_per_frame = Spinbox(1, 500, 2)
-        self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
          
         # QActions triggers - connect
         self.reset.triggered.connect(partial(self.parent.signal_transform, transform="reset"))
@@ -163,23 +149,47 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.apd)   
 
-        self.plotting_bar.addWidget(QLabel("Show Data Points: "))
-        self.plotting_bar.addWidget(self.show_points)
-        self.plotting_bar.addSeparator()
-        self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
-        self.plotting_bar.addWidget(self.show_signal_marker)
-        self.plotting_bar.addSeparator()
-        self.plotting_bar.addWidget(self.ms_per_frame)
-        self.plotting_bar.addWidget(QLabel("ms per frame"))
-        
-        #colors
-        self.color_button = ColorPaletteButton(self)
-        self.plotting_bar.addAction(self.color_button)
-
         print(self.transform_bar.toolButtonStyle())
 
         self.transform_bar.setStyleSheet(QTOOLBAR_STYLE)
+        
+    def init_plotting_bar(self):
+        self.plotting_bar = QToolBar()
+        
+        # Display data points
+        self.show_points = QCheckBox()
+        self.show_points.setChecked(False)
+        self.show_points.stateChanged.connect(self.toggle_points)
+        self.show_points.stateChanged.connect(self.parent.update_signal_plot)
+        self.plotting_bar.addWidget(QLabel("Show Data Points: "))
+        self.plotting_bar.addWidget(self.show_points)
+        
+        # signal marker
+        if self.allow_signal_marker:
+            self.show_signal_marker = QCheckBox()
+            self.show_signal_marker.setChecked(True)
+            self.show_signal_marker.stateChanged.connect(self.toggle_signal)
+            self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+            self.plotting_bar.addSeparator()
+            self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
+            self.plotting_bar.addWidget(self.show_signal_marker)
+            
+        # frame to ms conversion
+        if self.convertToMS:
+            self.ms_per_frame = Spinbox(1, 500, 2)
+            self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
+            self.plotting_bar.addSeparator()
+            self.plotting_bar.addWidget(self.ms_per_frame)
+            self.plotting_bar.addWidget(QLabel("ms per frame"))
+            
+                
+        # colors
+        self.color_button = ColorPaletteButton(self)
+        self.plotting_bar.addSeparator()
+        self.plotting_bar.addAction(self.color_button)
+        
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
+        
         
         
     def mouseMoved(self, evt):

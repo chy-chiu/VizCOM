@@ -297,7 +297,6 @@ class CardiacMap(QMainWindow):
                 )
 
     def update_signal_plot(self):
-
         signal_data = self.signal.transformed_data[:, self.x, self.y]
 
         xs = self.xVals[0 : len(signal_data)]  # ensure len(xs) == len(signal_data)
@@ -486,7 +485,7 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False)
         # set up axes
         leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
@@ -554,7 +553,7 @@ class StackingWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
         
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False)
 
         # set up axes
         leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
@@ -613,7 +612,7 @@ class FFTWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False)
         
         # set up axes
         leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis('left')

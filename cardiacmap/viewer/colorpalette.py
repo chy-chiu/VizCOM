@@ -44,7 +44,7 @@ class ColorPalette(QMainWindow):
     def __init__(self, parent, colors):
         super().__init__()
         self.parent = parent
-        self.resize(300, 600)
+        self.resize(200, 0)
         self.setStyleSheet(TITLE_STYLE)
         self.color_buttons = []
         
