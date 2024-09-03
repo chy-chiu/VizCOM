@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 from skimage.draw import polygon
 from skimage.transform import resize
+
 from cardiacmap.model.cascade import load_cascade_file
 
 IMAGE_SIZE = 128

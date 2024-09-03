@@ -1,6 +1,7 @@
 import os
 import sys
 from functools import partial
+from typing import Literal
 
 import numpy as np
 import pyqtgraph as pg
@@ -10,17 +11,32 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import (QApplication, QDialog, QDockWidget, QHBoxLayout,
-                               QInputDialog, QLabel, QMainWindow, QMenu,
-                               QMenuBar, QPlainTextEdit, QPushButton,
-                               QSplitter, QTabWidget, QToolBar, QToolButton,
-                               QVBoxLayout, QWidget, QComboBox, QCheckBox)
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDockWidget,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QPlainTextEdit,
+    QPushButton,
+    QSplitter,
+    QTabWidget,
+    QToolBar,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
-from cardiacmap.viewer.panels.settings import ParameterWidget
 from cardiacmap.viewer.components import Spinbox
-from typing import Literal
+from cardiacmap.viewer.panels.settings import ParameterWidget
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -52,11 +68,13 @@ INITIAL_POSITION = (64, 64)
 POSITION_MARKER_SIZE = 5
 VIEWPORT_MARGIN = 2
 
+
 class DraggablePlot(pg.PlotItem):
 
     # Draggable PlotItem that takes in a callback function.
     def __init__(self, callback):
         super().__init__()
+
         self.callback = callback
 
     def mouseClickEvent(self, event: MouseDragEvent):
@@ -78,13 +96,14 @@ class DraggablePlot(pg.PlotItem):
             # will receive left click/drag events from here.
             event.acceptDrags(Qt.MouseButton.LeftButton)
 
+
 class PositionView(QWidget):
 
     def __init__(self, parent):
 
         super().__init__(parent=parent)
 
-        self.parent=parent
+        self.parent = parent
 
         self.init_image_view()
         self.init_player_bar()
@@ -94,6 +113,8 @@ class PositionView(QWidget):
         layout.addWidget(self.player_bar)
         layout.addWidget(self.colormap_bar)
         self.setLayout(layout)
+
+        self.update_data()
 
         # self.position_callback = position_callback
 
@@ -106,7 +127,8 @@ class PositionView(QWidget):
         self.image_view.view.setMouseEnabled(False, False)
 
         self.image_view.view.setRange(
-            xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN), yRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN)
+            xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
+            yRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
         )
 
         # Hide UI stuff not needed
@@ -117,14 +139,26 @@ class PositionView(QWidget):
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
 
+        self.colorbar = view.addColorBar(
+            self.image_view.imageItem,
+            colorMap=pg.colormap.get("nipy_spectral", source="matplotlib"),
+            values=(0, 1),
+            rounding=0.05,
+        )
+
         # Draggable posiiton marker
         self.position_marker = pg.ScatterPlotItem(
-            pos=[INITIAL_POSITION], size=POSITION_MARKER_SIZE, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[INITIAL_POSITION],
+            size=POSITION_MARKER_SIZE,
+            pen=pg.mkPen("r"),
+            brush=pg.mkBrush("r"),
         )
 
         self.image_view.getView().addItem(self.position_marker)
 
-        self.image_view.sigTimeChanged.connect(self.parent.signal_panel.update_signal_marker)
+        self.image_view.sigTimeChanged.connect(
+            self.parent.signal_panel.update_signal_marker
+        )
 
         return self.image_view
 
@@ -136,14 +170,18 @@ class PositionView(QWidget):
         forward_button = QAction("⏭", self)
         back_button = QAction("⏮", self)
 
-        self.skiprate = Spinbox(min=1, max=10000, val=10, min_width=60, max_width=60, step=10)
+        self.skiprate = Spinbox(
+            min=1, max=10000, val=10, min_width=60, max_width=60, step=10
+        )
 
         play_button.triggered.connect(self.image_view.togglePause)
         forward_button.triggered.connect(partial(self.jump_frames, forward=True))
         back_button.triggered.connect(partial(self.jump_frames, forward=False))
 
         # Need to update it for the first time first
-        self.framerate = Spinbox(min=1, max=10000, val=50, min_width=60, max_width=60, step=10)
+        self.framerate = Spinbox(
+            min=1, max=10000, val=50, min_width=60, max_width=60, step=10
+        )
         self.update_framerate()
         self.framerate.valueChanged.connect(self.update_framerate)
 
@@ -156,17 +194,17 @@ class PositionView(QWidget):
         self.player_bar.addWidget(self.skiprate)
 
         self.normalize = QComboBox()
-        self.normalize.addItems(["Transformed", "Base"])
+        self.normalize.addItems(["Base", "Transformed"])
         self.normalize.currentTextChanged.connect(self.update_data)
-        
+
         self.colormap = QComboBox()
-        self.colormap.addItems(["gray", "hsv", "viridis", "plasma", "nipy_spectral"])
+        self.colormap.addItems(["nipy_spectral", "gray", "hsv", "viridis", "plasma"])
         self.colormap.currentTextChanged.connect(self.update_data)
 
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
         self.show_marker.stateChanged.connect(self.toggle_marker)
-        
+
         self.colormap_bar.addWidget(QLabel("Data: "))
         self.colormap_bar.addWidget(self.normalize)
         self.colormap_bar.addWidget(QLabel("   Colormap: "))
@@ -180,8 +218,12 @@ class PositionView(QWidget):
 
     def jump_frames(self, forward=True):
         skip_frames = self.skiprate.value()
-        self.image_view.jumpFrames(skip_frames) if forward else self.image_view.jumpFrames(-skip_frames)
-        
+        (
+            self.image_view.jumpFrames(skip_frames)
+            if forward
+            else self.image_view.jumpFrames(-skip_frames)
+        )
+
     def update_position(self, x, y):
 
         y = np.clip(y, 0, IMAGE_SIZE - 1)
@@ -195,26 +237,32 @@ class PositionView(QWidget):
     def update_data(self):
 
         mode = self.normalize.currentText() or "Base"
-        cmap_name = self.colormap.currentText() or "gray"
+        cmap_name = self.colormap.currentText() or "nipy_spectral"
 
-        if mode=="Base":
+        if mode == "Base":
             self.image_view.setImage(
                 self.parent.signal.image_data, autoLevels=False, autoRange=False
             )
-        elif mode=="Transformed":
+        elif mode == "Transformed":
             self.image_view.setImage(
                 self.parent.signal.transformed_data, autoLevels=False, autoRange=False
             )
-        
+
         cm = pg.colormap.get(cmap_name, source="matplotlib")
-        
+
         self.image_view.setColorMap(cm)
-        
-        self.parent.annotate_tab.img_view.setImage(self.image_view.image)
-        self.parent.annotate_tab.img_view.setColorMap(cm)
+
+        if hasattr(self.parent, "annotate_tab"):
+
+            self.parent.annotate_tab.img_view.setImage(self.image_view.image)
+            self.parent.annotate_tab.img_view.setColorMap(cm)
 
     def update_marker(self, x, y):
         self.position_marker.setData(pos=[[x, y]])
 
     def toggle_marker(self):
-        self.position_marker.setVisible(True) if self.show_marker.isChecked() else self.position_marker.setVisible(False)
+        (
+            self.position_marker.setVisible(True)
+            if self.show_marker.isChecked()
+            else self.position_marker.setVisible(False)
+        )

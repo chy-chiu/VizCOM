@@ -1,4 +1,4 @@
-### Simple parser script for .dat format. Writes locally to the same directory as a binary file 
+### Simple parser script for .dat format. Writes locally to the same directory as a binary file
 
 import argparse
 import io
@@ -9,6 +9,7 @@ import numpy as np
 
 CHUNK_SIZE = 100000
 
+
 def cascade_import(filepath: str):
     """Main function to import cascade .DAT files.
 
@@ -16,13 +17,13 @@ def cascade_import(filepath: str):
         filepath (str): path to file to be converted
         format (str): which format to save / return the file in. Can be "binary" or "pickle"
         save (bool, optional): Whether to save the file locally. Defaults to True.
-    """    
+    """
     """Main function to import cascade .DAT files"""
 
-    filename = filepath.split('.')[-2]
-    
-    with open(filepath, 'rb') as file:
-        
+    filename = filepath.split(".")[-2]
+
+    with open(filepath, "rb") as file:
+
         endian = "<"
 
         # First byte of the data is the file version
@@ -32,8 +33,8 @@ def cascade_import(filepath: str):
             # TODO: Version D needs testing
             header = file.read(1023)
 
-            # In the original code, it reads 17 + 7 bytes of datetime. 
-            datetime = header.pop(24).decode().rstrip('\x00')
+            # In the original code, it reads 17 + 7 bytes of datetime.
+            datetime = header.pop(24).decode().rstrip("\x00")
 
             file.read(8)
             framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
@@ -45,9 +46,9 @@ def cascade_import(filepath: str):
             skip_bytes = 0
 
             metadata = ""
-        
+
         elif file_version == "f" or file_version == "e":
-            
+
             # First integer is the byte order
             byte_order = struct.unpack("I", file.read(4))[0]
 
@@ -56,44 +57,45 @@ def cascade_import(filepath: str):
             else:
                 endian = ">"
 
-            # Next three integers are the span        
+            # Next three integers are the span
             span_T = struct.unpack(endian + "I", file.read(4))[0]
             span_X = struct.unpack(endian + "I", file.read(4))[0]
             span_Y = struct.unpack(endian + "I", file.read(4))[0]
-           
-            # Skip 8 bytes 
+
+            # Skip 8 bytes
             file.read(8)
             framerate = struct.unpack(endian + "I", file.read(4))[0] / 100
-            datetime = file.read(24).decode().rstrip('\x00')
-            metadata = file.read(971).decode().rstrip('\x00')
+            datetime = file.read(24).decode().rstrip("\x00")
+            metadata = file.read(971).decode().rstrip("\x00")
 
             skip_bytes = 8
 
         bstream = file.read()
 
     # TODO Sort out chunking here and make it more elegant
-            
-    len_file = len(bstream)
-    raw_image_data = list(struct.unpack('H'*(len_file//2), bstream))
 
-    skip = skip_bytes / 2 # Because each long integer is 2 bytes)
+    len_file = len(bstream)
+    raw_image_data = list(struct.unpack("H" * (len_file // 2), bstream))
+
+    skip = skip_bytes / 2  # Because each long integer is 2 bytes)
     output_file = open(filename, "wb'")
 
     for t in range(span_T):
 
         position = int(t * (span_X * span_Y + skip))
 
-        im_raw = raw_image_data[position: position + span_X * span_Y]
+        im_raw = raw_image_data[position : position + span_X * span_Y]
 
-        output_file.write(struct.pack('H'*len(im_raw), *im_raw))
-    
+        output_file.write(struct.pack("H" * len(im_raw), *im_raw))
+
     output_file.close()
-    
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Required positional argument
     parser.add_argument("filepath", help="Path to the .dat file")
-    
+
     args = parser.parse_args()
     cascade_import(**vars(args))

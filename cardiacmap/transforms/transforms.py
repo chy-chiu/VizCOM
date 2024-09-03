@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def InvertSignal(arr):
     """Function to invert array values
     Args:
@@ -28,6 +29,7 @@ def TrimSignal(arr, trimStart, trimEnd):
     trimIndices = np.concatenate((start, end))
     newArr = np.delete(arr, trimIndices, axis=0)
     return newArr
+
 
 def NormalizeData(data):
     data = data - data.min(axis=0)

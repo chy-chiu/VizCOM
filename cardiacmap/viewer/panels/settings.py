@@ -1,7 +1,16 @@
-
-from pyqtgraph.parametertree import ParameterTree
+from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6 import QtWidgets
-from PySide6.QtWidgets import (QHBoxLayout, QPushButton, QWidget)
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from cardiacmap.viewer.utils import load_settings, save_settings
+
 
 class ParameterWidget(QWidget):
     def __init__(self, params):
@@ -25,7 +34,9 @@ class ParameterWidget(QWidget):
         self.toggle.setMinimumWidth(18)
         self.toggle.setMaximumWidth(18)
         self.toggle.resize(18, self.height())
-        self.toggle.setSizePolicy(QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
+        self.toggle.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding
+        )
         # Hide the ParameterTree initially
 
         self.tree_widget = ParameterTree()
@@ -50,3 +61,56 @@ class ParameterWidget(QWidget):
             self.toggle.setText("▶")
             self.resize(1000, self.height())
             self.setMinimumWidth(500)
+
+
+class SettingsDialog(QDialog):
+
+    def __init__(self, settings: Parameter):
+        super().__init__()
+
+        self.setWindowTitle("Settings")
+        self.settings = settings
+
+        main_layout = QVBoxLayout()
+
+        self.param_tree = ParameterTree()
+
+        self.param_tree.setParameters(settings, showTop=True)
+
+        main_layout.addWidget(self.param_tree)
+
+        button_layout = QHBoxLayout()
+        load_button = QPushButton("Load from file")
+        load_button.clicked.connect(self._load_from_path)  # Load button action
+
+        save_button = QPushButton("Save to file")
+        save_button.clicked.connect(self._save_settings)  # Save button action
+
+        apply_button = QPushButton("Apply")
+        apply_button.clicked.connect(self.accept)  # Save button action
+
+        button_layout.addWidget(apply_button)
+        button_layout.addWidget(load_button)
+        button_layout.addWidget(save_button)
+
+        main_layout.addLayout(button_layout)
+
+        self.setLayout(main_layout)
+
+    def _save_settings(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Settings", "settings.json", "JSON Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            save_settings(self.settings, file_path)
+        self.accept()
+
+    def _load_from_path(self):
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Settings", "", "JSON Files (*.json);;All Files (*)"
+        )
+
+        if file_path:
+            self.settings = load_settings(settings_path=file_path)

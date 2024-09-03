@@ -1,9 +1,14 @@
+from typing import List, Optional
+
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
     QDockWidget,
+    QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -12,6 +17,7 @@ from PySide6.QtWidgets import (
     QMenuBar,
     QPlainTextEdit,
     QPushButton,
+    QSpinBox,
     QSplitter,
     QTabWidget,
     QToolBar,
@@ -19,12 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QWidgetAction,
-    QSpinBox,
-    QGroupBox,
 )
-from PySide6.QtGui import QAction
-from typing import Optional, List
-from PySide6.QtCore import Qt
 
 SPINBOX_STYLE = """SpinBox
             {
@@ -94,7 +95,6 @@ PARAMETERBUTTON_STYLE = """
             """
 
 
-
 class ParameterButton(QToolButton):
 
     def __init__(
@@ -139,11 +139,11 @@ class ParameterConfirmButton(QGroupBox):
         self.reset = QPushButton("✖")
 
         self.menu_button = QPushButton(" ")
-        # self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)       
+        # self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
         menu = QMenu(self)
         tree_widget = ParameterTree()
         tree_widget.setParameters(params, showTop=False)
-        
+
         widgetaction = QWidgetAction(self)
         widgetaction.setDefaultWidget(tree_widget)
         menu.addAction(widgetaction)
@@ -167,12 +167,20 @@ class ParameterConfirmButton(QGroupBox):
         self.confirm.setDisabled(False)
         self.reset.setDisabled(False)
 
-        self.confirm.setStyleSheet("QPushButton {background-color: #6A9F58; color: white;} QPushButton:hover { background-color: #808080; color: white;}")
-        self.reset.setStyleSheet("QPushButton {background-color: #D1615D; color: white;} QPushButton:hover { background-color: #808080; color: white;}")
+        self.confirm.setStyleSheet(
+            "QPushButton {background-color: #6A9F58; color: white;} QPushButton:hover { background-color: #808080; color: white;}"
+        )
+        self.reset.setStyleSheet(
+            "QPushButton {background-color: #D1615D; color: white;} QPushButton:hover { background-color: #808080; color: white;}"
+        )
 
     def disable_confirm_buttons(self):
-        self.confirm.setStyleSheet("QPushButton {background: transparent; color: #808080;}")
-        self.reset.setStyleSheet("QPushButton {background: transparent; color: #808080;}")
+        self.confirm.setStyleSheet(
+            "QPushButton {background: transparent; color: #808080;}"
+        )
+        self.reset.setStyleSheet(
+            "QPushButton {background: transparent; color: #808080;}"
+        )
 
 
 class Spinbox(pg.SpinBox):

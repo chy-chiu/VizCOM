@@ -1,2 +1,2 @@
-from .spatialplot import *
 from .scatterplot import *
+from .spatialplot import *
