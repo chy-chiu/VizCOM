@@ -272,9 +272,7 @@ class StackingWindow(QMainWindow):
         self.end_time = Spinbox(
             min=0,
             max=max_time,
-            val=self.settings.child("Stacking Parameters")
-            .child("End Time (Optional)")
-            .value(),
+            val=max_time,
             step=1,
             min_width=60,
             max_width=60,

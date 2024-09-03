@@ -32,6 +32,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from scipy.signal import find_peaks
+from cardiacmap.viewer.panels import SignalPanel
+from cardiacmap.viewer.components import Spinbox
+from cardiacmap.viewer.utils import loading_popup
+
+QTOOLBAR_STYLE = """
+            QToolBar {spacing: 5px;} 
+            """
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -143,6 +150,10 @@ class FFTPositionView(QWidget):
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
         self.show_marker.stateChanged.connect(self.toggle_marker)
+        
+    def update_image(self, img):
+        self.image_data = img
+        self.image_view.setImage(self.image_data, autoLevels=True, autoRange=False)
 
     def update_position(self, x, y):
 
@@ -163,3 +174,142 @@ class FFTPositionView(QWidget):
             if self.show_marker.isChecked()
             else self.position_marker.setVisible(False)
         )
+        
+
+class FFTWindow(QMainWindow):
+    def __init__(self, parent):
+        QMainWindow.__init__(self)
+        self.data = []
+        self.parent = parent
+        self.ms = parent.ms
+        self.settings = parent.settings
+        self.img_data = parent.signal.transformed_data[0]
+        
+        self.setWindowTitle("FFT")
+        
+        # Create Menu
+        self.init_options()
+
+        # Create viewer tabs
+        self.image_tab = FFTPositionView(
+            self, self.img_data
+        )  # ----------------------------
+
+        self.image_tabs = QTabWidget()
+        self.image_tabs.addTab(self.image_tab, "Peak Frequency")
+        self.image_tabs.setMinimumWidth(380)
+        self.image_tabs.setMinimumHeight(500)
+        
+        self.image_layout = QVBoxLayout()
+        self.image_layout.addWidget(self.options_widget)
+        self.image_layout.addWidget(self.image_tabs)
+        self.image_widget = QWidget(layout=self.image_layout)
+
+        # Create Signal Views
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        
+        # set up axes
+        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
+        leftAxis.setLabel(text="Spectral Density")
+        bottomAxis.setLabel(text="Frequency (kHz)")
+
+        self.signal_tabs = QTabWidget()
+        self.signal_tabs.addTab(self.signal_tab, "FFT")
+
+        # Create main layout
+        self.splitter = QSplitter()
+        self.splitter.addWidget(self.image_widget)
+        self.splitter.addWidget(self.signal_tabs)
+        self.splitter.setSizes((500, 1500))
+
+        for i in range(self.splitter.count()):
+            self.splitter.setCollapsible(i, False)
+        layout = QHBoxLayout()
+        layout.addWidget(self.splitter)
+
+        # self.signal_dock = QDockWidget("Signal View", self)
+        # self.image_dock = QDockWidget("Image View", self)
+
+        # self.signal_dock.setWidget(self.signal_tabs)
+        # self.image_dock.setWidget(self.image_tabs)
+
+        # self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
+        # self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
+        # self.image_dock.resize(400, 1000)
+        # self.setLayout(layout)
+        self.setCentralWidget(self.splitter)
+
+        self.x = 64
+        self.y = 64
+        self.update_signal_plot()
+
+    def update_signal_plot(self):
+        if len(self.data) > 0:    
+            self.signal_tab.signal_data.setData(self.data[:, self.x, self.y])
+            peak = self.img_data[self.x, self.y]
+            self.signal_tab.apd_data.setData(x=[peak], y=[self.data[peak, self.x, self.y]])
+
+    def update_signal_value(self, evt, idx=None):
+        return
+
+    def update_image(self):
+        if len(self.data) > 0:
+            self.img_data = np.argmax(self.data, axis=0)
+            self.image_tab.update_image(self.img_data)
+    
+    def set_data(self, data):
+        self.data = data
+    
+    def init_options(self):
+        self.options_widget = QWidget()
+        layout = QVBoxLayout()
+        self.options = QToolBar()
+        self.actions_bar = QToolBar()
+
+        max_time = int(len(self.parent.signal.transformed_data) * self.ms)
+        self.start_time = Spinbox(
+            min=0,
+            max=max_time,
+            val=self.settings.child("FFT Parameters").child("Start Time").value(),
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.end_time = Spinbox(
+            min=0,
+            max=max_time,
+            val=max_time,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+
+        self.options.addWidget(QLabel("Start Time: "))
+        self.options.addWidget(self.start_time)
+        self.options.addWidget(QLabel("End Time: "))
+        self.options.addWidget(self.end_time)
+
+        self.options.setStyleSheet(QTOOLBAR_STYLE)
+        self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
+
+
+        self.confirm = QPushButton("Calculate")
+        self.confirm.clicked.connect(self.perform_stacking)
+        self.actions_bar.addWidget(self.confirm)
+        # TODO: Overlay
+        # self.overlay = QCheckBox()
+
+        layout.addWidget(self.options)
+        layout.addSpacing(5)
+        layout.addWidget(self.actions_bar)
+
+        self.options_widget.setLayout(layout)
+        
+    def perform_stacking(self):
+        fft_frames = self.parent.signal.perform_fft()
+        self.set_data(fft_frames)
+        self.update_image()
+        self.update_signal_plot()
+        
+

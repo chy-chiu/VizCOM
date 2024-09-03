@@ -15,11 +15,15 @@ DEFAULT_VALUES = {
             "value": False,
         },
         {
-            "name": "End Time (Optional)",
+            "name": "End Time",
             "type": "int",
             "value": -1,
             "limits": (-1, 100000),
         },
+    ],
+    "FFT Parameters": [
+        {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
+        {"name": "End Time", "type": "int", "value": -1, "limits": (-1, 100000),},
     ],
     "Spatial Average": [
         {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
