@@ -129,6 +129,9 @@ class FFTPositionView(QWidget):
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
         # self.image_view.ui.histogram.hide()
+        self.image_view.ui.histogram.item.sigLevelChangeFinished.connect(
+            self.update_spinbox_values
+        )
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
@@ -152,8 +155,13 @@ class FFTPositionView(QWidget):
         self.show_marker.stateChanged.connect(self.toggle_marker)
         
     def update_image(self, img):
+        colorLimits = (self.parent.min_val.value(), self.parent.max_val.value())
         self.image_data = img
-        self.image_view.setImage(self.image_data, autoLevels=True, autoRange=False)
+        self.image_view.setImage(self.image_data, levels=colorLimits, autoRange=False)
+        
+        # scale histogram
+        levels = self.image_view.ui.histogram.item.getLevels()
+        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 2, levels[1])
 
     def update_position(self, x, y):
 
@@ -174,6 +182,16 @@ class FFTPositionView(QWidget):
             if self.show_marker.isChecked()
             else self.position_marker.setVisible(False)
         )
+        
+    def update_spinbox_values(self):
+        """Called When Range Changes"""
+        # scale histogram
+        levels = self.image_view.ui.histogram.item.getLevels()
+        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 2, levels[1])
+
+        # set numerical vals to their visual levels
+        self.parent.max_val.setValue((levels[1]))
+        self.parent.min_val.setValue(levels[0])
         
 
 class FFTWindow(QMainWindow):
@@ -266,6 +284,7 @@ class FFTWindow(QMainWindow):
         layout = QVBoxLayout()
         self.options = QToolBar()
         self.actions_bar = QToolBar()
+        self.histogram_scale = QToolBar()
 
         max_time = int(len(self.parent.signal.transformed_data) * self.ms)
         self.start_time = Spinbox(
@@ -285,30 +304,61 @@ class FFTWindow(QMainWindow):
             max_width=60,
         )
 
+
+        self.min_val = Spinbox(
+            min=-100000,
+            max=100000,
+            val=-1,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.min_val.valueChanged.connect(self.update_image)
+
+        self.max_val = Spinbox(
+            min=-100000,
+            max=100000,
+            val=1,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.max_val.valueChanged.connect(self.update_image)
+        
         self.options.addWidget(QLabel("Start Time: "))
         self.options.addWidget(self.start_time)
         self.options.addWidget(QLabel("End Time: "))
         self.options.addWidget(self.end_time)
 
-        self.options.setStyleSheet(QTOOLBAR_STYLE)
-        self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
-
-
         self.confirm = QPushButton("Calculate")
         self.confirm.clicked.connect(self.perform_stacking)
         self.actions_bar.addWidget(self.confirm)
+        
+        self.histogram_scale.addWidget(QLabel("Min: "))
+        self.histogram_scale.addWidget(self.min_val)
+        self.histogram_scale.addWidget(QLabel("Max: "))
+        self.histogram_scale.addWidget(self.max_val)
+        
+
+        self.options.setStyleSheet(QTOOLBAR_STYLE)
+        self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
+        self.histogram_scale.setStyleSheet(QTOOLBAR_STYLE)
         # TODO: Overlay
         # self.overlay = QCheckBox()
 
         layout.addWidget(self.options)
         layout.addSpacing(5)
         layout.addWidget(self.actions_bar)
+        layout.addSpacing(5)
+        layout.addWidget(self.histogram_scale)
 
         self.options_widget.setLayout(layout)
         
     def perform_stacking(self):
         fft_frames = self.parent.signal.perform_fft()
         self.set_data(fft_frames)
+        self.min_val.setValue(np.min(np.argmax(fft_frames, axis=0)))
+        self.max_val.setValue(np.max(np.argmax(fft_frames, axis=0)))
         self.update_image()
         self.update_signal_plot()
         
