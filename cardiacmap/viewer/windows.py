@@ -191,7 +191,7 @@ class CardiacMap(QMainWindow):
             self.metadata_panel = MetadataPanel(self.signal, self)
 
             # Create Signal view
-            self.signal_panel = SignalPanel(self)
+            self.signal_panel = SignalPanel(self, settings = self.settings)
 
             # Create Image tabs
             self.position_tab = PositionView(self)
@@ -570,7 +570,7 @@ class CardiacMap(QMainWindow):
     def perform_FFT(self):
         print("FFT")
         fft_frames = self.signal.perform_fft()
-        self.fft_window = FFTWindow(fft_frames)
+        self.fft_window = FFTWindow(self, fft_frames)
         self.fft_window.show()
 
     def open_settings(self):
@@ -588,6 +588,8 @@ class SpatialPlotWindow(QMainWindow):
     def __init__(self, parent, apdData=None, diData=None, flags=None):
         QMainWindow.__init__(self)
         self.parent = parent
+        self.settings = parent.settings
+        
         self.x1 = self.y1 = self.x2 = self.y2 = 64
         self.data = [apdData, diData]
         self.flags = flags
@@ -606,7 +608,7 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False)
+        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
         # set up axes
         leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
@@ -649,14 +651,18 @@ class SpatialPlotWindow(QMainWindow):
         for coord in coords:
             data.append(img[coord[0]][coord[1]])
         self.APD_signal_tab.signal_data.setData(data)
+        
+    def update_signal_plot(self):
+        return
 
     def update_signal_value(self, evt, idx=None):
         return
     
 class FFTWindow(QMainWindow):
-    def __init__(self, fftData):
+    def __init__(self, parent, fftData):
         QMainWindow.__init__(self)
         self.data = fftData
+        self.settings = parent.settings
         self.img_data = np.argmax(fftData, axis=0)
 
         # Create viewer tabs
@@ -670,7 +676,7 @@ class FFTWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
         
         # set up axes
         leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
@@ -719,15 +725,15 @@ if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
 
-    signal = signals[0]
+    # signal = signals[0]
 
-    viewer = CardiacMap(signal)
+    # viewer = CardiacMap(signal)
 
-    viewer.show()
+    # viewer.show()
 
-    # main_window = CardiacMap()
-    # main_window.show()
+    main_window = CardiacMap()
+    main_window.show()
 
     sys.exit(app.exec())

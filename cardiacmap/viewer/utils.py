@@ -58,6 +58,13 @@ DEFAULT_VALUES = {
     "APD Parameters": [
         {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
     ],
+    "Signal Plot Colors": [
+        {"name": "signal", "value": [255, 255, 255]}, 
+        {"name": "apd", "value": [255, 0, 0]},
+        {"name": "baseline", "value": [0, 255, 0]},
+        {"name": "points", "value": [0, 0, 255]},
+        {"name": "background", "value": [0, 0, 0]},
+    ],
 }
 
 
@@ -65,6 +72,7 @@ def get_default_settings():
 
     params = []
     for k, v in DEFAULT_VALUES.items():
+        #print(k, v)
         params.append(Parameter.create(name=k, type="group", children=v))
 
     params_parent = Parameter.create(
@@ -85,14 +93,15 @@ def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
 
                 settings_json = json.loads(f.read())
 
-                for param in DEFAULT_VALUES.keys():
-                    assert param in settings_json.keys()
+                # for param in DEFAULT_VALUES.keys():
+                #     assert param in settings_json.keys()
 
                 settings.restoreState(settings_json)
         else:
             raise FileNotFoundError("settings.json not found")
 
     except:
+        print("Error Loading Settings. Using hardcoded defaults.")
         settings = get_default_settings()
 
     return settings

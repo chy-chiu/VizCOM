@@ -70,7 +70,7 @@ class SettingsDialog(QDialog):
 
         self.setWindowTitle("Settings")
         self.settings = settings
-
+        
         main_layout = QVBoxLayout()
 
         self.param_tree = ParameterTree()
