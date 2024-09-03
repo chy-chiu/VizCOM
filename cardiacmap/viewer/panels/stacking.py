@@ -129,7 +129,7 @@ class StackingPositionView(QWidget):
         # Hide UI stuff not needed
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.histogram.hide()
+        #self.image_view.ui.histogram.hide()
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
@@ -195,7 +195,7 @@ class StackingWindow(QMainWindow):
         self.image_tabs.addTab(self.image_tab, "Image")
 
         # TODO: To refactor this later
-        self.image_tabs.setMinimumWidth(200)
+        self.image_tabs.setMinimumWidth(300)
         self.image_tabs.setMinimumHeight(200)
         
         self.image_layout = QVBoxLayout()
@@ -205,7 +205,7 @@ class StackingWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
 
         # set up axes
         leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
@@ -272,10 +272,8 @@ class StackingWindow(QMainWindow):
         self.end_time = Spinbox(
             min=0,
             max=max_time,
-            val=self.settings.child("Stacking Parameters")
-            .child("End Time (Optional)")
-            .value(),
-            step=0.1,
+            val=max_time,
+            step=1,
             min_width=60,
             max_width=60,
         )

@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from cardiacmap.viewer.utils import load_settings, save_settings
+
 TITLE_STYLE = """QDockWidget::title
 {
 font-family: "Roboto Lt";
@@ -30,6 +32,7 @@ class ColorPaletteButton(QAction):
     def __init__(self, parent, label="Color Palette"):
         super().__init__(label)
         self.parent = parent
+        self.settings = parent.settings
         self.triggered.connect(self.open_color_palette)
 
     def open_color_palette(self):
@@ -47,7 +50,7 @@ class ColorPalette(QMainWindow):
     def __init__(self, parent, colors):
         super().__init__()
         self.parent = parent
-        self.resize(300, 600)
+        self.resize(200, 0)
         self.setStyleSheet(TITLE_STYLE)
         self.color_buttons = []
 
@@ -77,5 +80,10 @@ class ColorPalette(QMainWindow):
         self.setCentralWidget(self.default_widget)
 
     def update_color(self, colorButton, key="none"):
-        print("Updating", key)
         self.parent.new_colors(key, colorButton.color())
+        self.save_color(colorButton.color(), key)
+        
+    def save_color(self, color: QColor, itemKey):
+        print("Signal Plot Colors", itemKey, color)
+        self.parent.settings.child("Signal Plot Colors").child(itemKey).setValue(color.getRgb())
+        save_settings(self.parent.settings)

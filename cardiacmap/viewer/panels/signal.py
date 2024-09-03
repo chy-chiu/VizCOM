@@ -6,7 +6,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor, QRgba64
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -51,33 +51,47 @@ QTOOLBAR_STYLE = """
 
 class SignalPanel(QWidget):
 
-    def __init__(self, parent, toolbar=True, signal_marker=True):
+    def __init__(self, parent, toolbar=True, signal_marker=True, ms_conversion=True, settings = None):
 
         super().__init__(parent=parent)
 
         self.parent = parent
+        
+        self.settings = settings
 
         self.resize(1000, self.height())
+        
+        self.convertToMS = ms_conversion
+        self.allow_signal_marker = signal_marker
 
         self.plot = pg.PlotWidget()
         self.plot_item = self.plot.getPlotItem()
 
-        # set up pens
-        self.sig_pen = pg.mkPen("w")
-        self.apd_pen = pg.mkPen("r")
-        self.base_pen = pg.mkPen("g")
+        sig_c = self.settings.child("Signal Plot Colors").child("signal").value()
+        apd_c = self.settings.child("Signal Plot Colors").child("apd").value()
+        base_c = self.settings.child("Signal Plot Colors").child("baseline").value()
+        pts_c = self.settings.child("Signal Plot Colors").child("points").value()
+        bg_c = self.settings.child("Signal Plot Colors").child("background").value()
+        
         self.colors = dict(
             {
-                "signal": self.sig_pen.color(),
-                "apd": self.apd_pen.color(),
-                "baseline": self.base_pen.color(),
-                "background": self.plot.backgroundBrush().color(),
+                "signal": QColor(sig_c[0], sig_c[1], sig_c[2], a=255),
+                "apd": QColor(apd_c[0], apd_c[1], apd_c[2], a=255),
+                "baseline": QColor(base_c[0], base_c[1], base_c[2], a=255),
+                "points": QColor(pts_c[0], pts_c[1], pts_c[2], a=255),
+                "background": QColor(bg_c[0], bg_c[1], bg_c[2], a=255),
             }
         )
-
-        if toolbar:
-            self.init_toolbars()
-
+        # set up colors
+        self.sig_pen = pg.mkPen(self.colors['signal'])
+        self.apd_pen = pg.mkPen(self.colors['apd'])
+        self.base_pen = pg.mkPen(self.colors['baseline'])
+        self.pt_brush = pg.mkBrush(self.colors['points'])
+        self.plot.setBackground(self.colors['background'])
+        
+        if toolbar: 
+             self.init_toolbars()
+        self.init_plotting_bar()
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
         bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
@@ -88,15 +102,18 @@ class SignalPanel(QWidget):
         self.signal_data: pg.PlotDataItem = self.plot.plot(
             pen=self.sig_pen, symbol="o", symbolSize=0
         )
-        self.signal_data.scatter.setData(tip=self.point_hover_tooltip)
+        self.signal_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip)
+        self.signal_data.setSymbolBrush(self.pt_brush)
 
         self.baseline_data: pg.PlotDataItem = self.plot.plot(
             pen=self.base_pen, symbol="o"
         )
-        self.baseline_data.scatter.setData(tip=self.point_hover_tooltip, hoverable=True)
-
+        self.baseline_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip, hoverable=True)
+        self.baseline_data.setSymbolBrush(self.pt_brush)
+        
         self.apd_data: pg.PlotDataItem = self.plot.plot(pen=self.apd_pen, symbol="o")
-        self.apd_data.scatter.setData(tip=self.point_hover_tooltip, hoverable=True)
+        self.apd_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip, hoverable=True)
+        self.apd_data.setSymbolBrush(self.pt_brush)
 
         # set up signal marker
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
@@ -112,7 +129,7 @@ class SignalPanel(QWidget):
         layout = QVBoxLayout()
         if toolbar:
             layout.addWidget(self.transform_bar)
-            layout.addWidget(self.plotting_bar)
+        layout.addWidget(self.plotting_bar)
         layout.addWidget(self.plot)
 
         self.setLayout(layout)
@@ -123,7 +140,6 @@ class SignalPanel(QWidget):
 
         # TODO: Fix this code below lulz
         self.transform_bar = QToolBar()
-        self.plotting_bar = QToolBar()
 
         self.transform_bar.setToolButtonStyle(
             Qt.ToolButtonStyle.ToolButtonTextBesideIcon
@@ -136,20 +152,20 @@ class SignalPanel(QWidget):
 
         # self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters"))
         time_average = ParameterButton(
-            "Time Average", self.parent.settings.child("Time Average")
+            "Time Average", self.settings.child("Time Average")
         )
         spatial_average = ParameterButton(
-            "Spatial Average", self.parent.settings.child("Spatial Average")
+            "Spatial Average", self.settings.child("Spatial Average")
         )
-        trim = ParameterButton("Trim", self.parent.settings.child("Trim Parameters"))
+        trim = ParameterButton("Trim", self.settings.child("Trim Parameters"))
 
         # Baseline drift button
         self.baseline_drift = ParameterConfirmButton(
-            "Remove Baseline Drift", self.parent.settings.child("Baseline Drift")
+            "Remove Baseline Drift", self.settings.child("Baseline Drift")
         )
         # APD Button
         self.apd = ParameterConfirmButton(
-            "Calculate APD / DI", self.parent.settings.child("APD Parameters")
+            "Calculate APD / DI", self.settings.child("APD Parameters")
         )
 
         # Display data points
@@ -210,20 +226,46 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.apd)
 
-        self.plotting_bar.addWidget(QLabel("Show Data Points: "))
-        self.plotting_bar.addWidget(self.show_points)
-        self.plotting_bar.addSeparator()
-        self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
-        self.plotting_bar.addWidget(self.show_signal_marker)
-        self.plotting_bar.addSeparator()
-        self.plotting_bar.addWidget(self.ms_per_frame)
-        self.plotting_bar.addWidget(QLabel("ms per frame"))
-
         # colors
         self.color_button = ColorPaletteButton(self)
-        self.plotting_bar.addAction(self.color_button)
 
         self.transform_bar.setStyleSheet(QTOOLBAR_STYLE)
+        
+    def init_plotting_bar(self):
+        self.plotting_bar = QToolBar()
+        
+        # Display data points
+        self.show_points = QCheckBox()
+        self.show_points.setChecked(False)
+        self.show_points.stateChanged.connect(self.toggle_points)
+        self.show_points.stateChanged.connect(self.parent.update_signal_plot)
+        self.plotting_bar.addWidget(QLabel("Show Data Points: "))
+        self.plotting_bar.addWidget(self.show_points)
+        
+        # signal marker
+        if self.allow_signal_marker:
+            self.show_signal_marker = QCheckBox()
+            self.show_signal_marker.setChecked(True)
+            self.show_signal_marker.stateChanged.connect(self.toggle_signal)
+            self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+            self.plotting_bar.addSeparator()
+            self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
+            self.plotting_bar.addWidget(self.show_signal_marker)
+            
+        # frame to ms conversion
+        if self.convertToMS:
+            self.ms_per_frame = Spinbox(1, 500, 2)
+            self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
+            self.plotting_bar.addSeparator()
+            self.plotting_bar.addWidget(self.ms_per_frame)
+            self.plotting_bar.addWidget(QLabel("ms per frame"))
+            
+                
+        # colors
+        self.color_button = ColorPaletteButton(self)
+        self.plotting_bar.addSeparator()
+        self.plotting_bar.addAction(self.color_button)
+        
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
 
     def mouseMoved(self, evt):
@@ -252,8 +294,14 @@ class SignalPanel(QWidget):
                 self.base_pen.setColor(self.colors[c])
             elif c == "apd":
                 self.apd_pen.setColor(self.colors[c])
+            elif c == "points":
+                self.pt_brush.setColor(self.colors[c])
+                self.signal_data.setSymbolBrush(self.pt_brush)
+                self.apd_data.setSymbolBrush(self.pt_brush)
+                self.baseline_data.setSymbolBrush(self.pt_brush)
             elif c == "background":
                 self.plot.setBackground(self.colors[c])
+            
         self.parent.update_signal_plot()
 
     def toggle_points(self):
@@ -263,6 +311,7 @@ class SignalPanel(QWidget):
             self.signal_data.setSymbolSize(10)
             # make signal hoverable
             self.signal_data.scatter.setData(hoverable=True)
+            
         else:
             # hide
             self.signal_data.setSymbolSize(0)

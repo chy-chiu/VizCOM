@@ -44,7 +44,8 @@ def FFT(signal):
     signal: np array with image data
     :return: 2D np array containing the dominant frequency value for each pixel
     """
-    fft_frames = np.fft.rfft(signal, axis=0).real
+    fft_frames = np.fft.fft(signal, axis=0).real
     fft_frames = np.abs(fft_frames)
     fft_frames[0, ...] = 0  # Remove zero frequency component
+    fft_frames = fft_frames[0:int(len(fft_frames)/2), ...] # cut in half
     return fft_frames

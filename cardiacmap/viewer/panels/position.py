@@ -1,3 +1,4 @@
+from genericpath import samefile
 import os
 import sys
 from functools import partial
@@ -10,7 +11,7 @@ from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QGradient
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -113,6 +114,8 @@ class PositionView(QWidget):
         layout.addWidget(self.player_bar)
         layout.addWidget(self.colormap_bar)
         self.setLayout(layout)
+        
+        self.init_colormap()
 
         self.update_data()
 
@@ -134,17 +137,10 @@ class PositionView(QWidget):
         # Hide UI stuff not needed
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
-        self.image_view.ui.histogram.hide()
+        #self.image_view.ui.histogram.hide()
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
-
-        self.colorbar = view.addColorBar(
-            self.image_view.imageItem,
-            colorMap=pg.colormap.get("nipy_spectral", source="matplotlib"),
-            values=(0, 1),
-            rounding=0.05,
-        )
 
         # Draggable posiiton marker
         self.position_marker = pg.ScatterPlotItem(
@@ -233,12 +229,17 @@ class PositionView(QWidget):
         self.parent.x = x
         self.parent.y = y
         self.parent.update_signal_plot()
+        
+    def init_colormap(self):
+        cmap_name = self.colormap.currentText() or "nipy_spectral"
+        self.cmap = pg.colormap.get(cmap_name, source="matplotlib")
+        
+    def update_colormap(self):
+        print("colormap update")
 
     def update_data(self):
-
         mode = self.normalize.currentText() or "Base"
-        cmap_name = self.colormap.currentText() or "nipy_spectral"
-
+        
         if mode == "Base":
             self.image_view.setImage(
                 self.parent.signal.image_data, autoLevels=False, autoRange=False
@@ -247,15 +248,13 @@ class PositionView(QWidget):
             self.image_view.setImage(
                 self.parent.signal.transformed_data, autoLevels=False, autoRange=False
             )
-
-        cm = pg.colormap.get(cmap_name, source="matplotlib")
-
-        self.image_view.setColorMap(cm)
+            
+        self.image_view.setColorMap(self.cmap)
 
         if hasattr(self.parent, "annotate_tab"):
 
             self.parent.annotate_tab.img_view.setImage(self.image_view.image)
-            self.parent.annotate_tab.img_view.setColorMap(cm)
+            self.parent.annotate_tab.img_view.setColorMap(self.cmap)
 
     def update_marker(self, x, y):
         self.position_marker.setData(pos=[[x, y]])

@@ -36,7 +36,7 @@ from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import (
     AnnotateView,
-    FFTPositionView,
+    FFTWindow,
     IsochromeWindow,
     MetadataPanel,
     PositionView,
@@ -153,7 +153,7 @@ class CardiacMap(QMainWindow):
         self.isochrome = QAction("Isochrome / Vector Map")
         self.isochrome.triggered.connect(self.create_isochrome_window)
         self.fft = QAction("FFT", self)
-        self.fft.triggered.connect(self.perform_FFT)
+        self.fft.triggered.connect(self.create_fft_window)
 
         self.windows_menu.addAction(self.stacking)
         self.windows_menu.addAction(self.apd_window)
@@ -191,7 +191,7 @@ class CardiacMap(QMainWindow):
             self.metadata_panel = MetadataPanel(self.signal, self)
 
             # Create Signal view
-            self.signal_panel = SignalPanel(self)
+            self.signal_panel = SignalPanel(self, settings = self.settings)
 
             # Create Image tabs
             self.position_tab = PositionView(self)
@@ -394,7 +394,6 @@ class CardiacMap(QMainWindow):
                 )
 
     def update_signal_plot(self):
-
         signal_data = self.signal.transformed_data[:, self.x, self.y]
 
         xs = self.xVals[0 : len(signal_data)]  # ensure len(xs) == len(signal_data)
@@ -568,10 +567,8 @@ class CardiacMap(QMainWindow):
         self.isochrome_window = IsochromeWindow(self)
         self.isochrome_window.show()
 
-    def perform_FFT(self):
-        print("FFT")
-        fft_frames = self.signal.perform_fft()
-        self.fft_window = FFTWindow(fft_frames)
+    def create_fft_window(self):
+        self.fft_window = FFTWindow(self)
         self.fft_window.show()
 
     def open_settings(self):
@@ -589,6 +586,8 @@ class SpatialPlotWindow(QMainWindow):
     def __init__(self, parent, apdData=None, diData=None, flags=None):
         QMainWindow.__init__(self)
         self.parent = parent
+        self.settings = parent.settings
+        
         self.x1 = self.y1 = self.x2 = self.y2 = 64
         self.data = [apdData, diData]
         self.flags = flags
@@ -607,7 +606,7 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
+        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
         # set up axes
         leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
@@ -650,85 +649,27 @@ class SpatialPlotWindow(QMainWindow):
         for coord in coords:
             data.append(img[coord[0]][coord[1]])
         self.APD_signal_tab.signal_data.setData(data)
-
-    def update_signal_value(self, evt, idx=None):
-        return
-
-class FFTWindow(QMainWindow):
-    def __init__(self, fftData):
-        QMainWindow.__init__(self)
-        self.data = fftData
-        self.img_data = np.argmax(fftData, axis=0)
-
-        # Create viewer tabs
-        self.image_tab = FFTPositionView(
-            self, self.img_data
-        )  # ----------------------------
-
-        self.image_tabs = QTabWidget()
-        self.image_tabs.addTab(self.image_tab, "Peak Frequency")
-        self.image_tabs.setMinimumWidth(380)
-        self.image_tabs.setMinimumHeight(500)
-
-        # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False)
-
-        # set up axes
-        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
-        leftAxis.setLabel(text="Spectral Density")
-        bottomAxis.setLabel(text="Frequency (kHz)")
-
-        self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.signal_tab, "FFT")
-
-        # Create main layout
-        self.splitter = QSplitter()
-        self.splitter.addWidget(self.image_tabs)
-        self.splitter.addWidget(self.signal_tabs)
-
-        for i in range(self.splitter.count()):
-            self.splitter.setCollapsible(i, False)
-        layout = QHBoxLayout()
-        layout.addWidget(self.splitter)
-
-        self.signal_dock = QDockWidget("Signal View", self)
-        self.image_dock = QDockWidget("Image View", self)
-
-        self.signal_dock.setWidget(self.signal_tabs)
-        self.image_dock.setWidget(self.image_tabs)
-
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-        self.image_dock.resize(400, 1000)
-        self.setLayout(layout)
-
-        self.x = 64
-        self.y = 64
-        self.update_signal_plot()
-
+        
     def update_signal_plot(self):
-        self.signal_tab.signal_data.setData(self.data[:, self.x, self.y])
-        peak = self.img_data[self.x, self.y]
-        self.signal_tab.apd_data.setData(x=[peak], y=[self.data[peak, self.x, self.y]])
+        return
 
     def update_signal_value(self, evt, idx=None):
         return
-
+   
 
 if __name__ == "__main__":
 
     app = QtWidgets.QApplication(sys.argv)
 
-    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
+    # signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
 
-    signal = signals[0]
+    # signal = signals[0]
 
-    viewer = CardiacMap(signal)
+    # viewer = CardiacMap(signal)
 
-    viewer.show()
+    # viewer.show()
 
-    # main_window = CardiacMap()
-    # main_window.show()
+    main_window = CardiacMap()
+    main_window.show()
 
     sys.exit(app.exec())
