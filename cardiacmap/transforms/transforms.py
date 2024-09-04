@@ -39,13 +39,15 @@ def NormalizeData(data):
 
 def FFT(signal):
     """
-    perform a fast fourier transform on a signal
+    perform a fast fourier transform on a video signal
     @:arg:
     signal: np array with image data
     :return: 2D np array containing the dominant frequency value for each pixel
     """
-    fft_frames = np.fft.fft(signal, axis=0).real
+    fft = np.fft.fft(signal, axis=0)
+    fft_frames = fft.real ** 2 + fft.imag ** 2
     fft_frames = np.abs(fft_frames)
     fft_frames[0, ...] = 0  # Remove zero frequency component
     fft_frames = fft_frames[0:int(len(fft_frames)/2), ...] # cut in half
-    return fft_frames
+    
+    return NormalizeData(fft_frames)

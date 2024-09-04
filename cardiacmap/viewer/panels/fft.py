@@ -160,8 +160,7 @@ class FFTPositionView(QWidget):
         self.image_view.setImage(self.image_data, levels=colorLimits, autoRange=False)
         
         # scale histogram
-        levels = self.image_view.ui.histogram.item.getLevels()
-        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 2, levels[1])
+        self.image_view.ui.histogram.item.setHistogramRange(colorLimits[0]-2, colorLimits[1])
 
     def update_position(self, x, y):
 
@@ -224,16 +223,23 @@ class FFTWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.fft_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        #self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
         
         # set up axes
-        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
-        leftAxis.setLabel(text="Spectral Density")
-        bottomAxis.setLabel(text="Frequency (kHz)")
+        leftAxis: pg.AxisItem = self.fft_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.fft_tab.plot.getPlotItem().getAxis("bottom")
+        leftAxis.setLabel(text="Normalized Power")
+        bottomAxis.setLabel(text="Frequency", units='Hz')
+        
+        # leftAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("left")
+        # bottomAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("bottom")
+        # leftAxis.setLabel(text="Normalized Voltage")
+        # bottomAxis.setLabel(text="Time (ms)")
 
         self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.signal_tab, "FFT")
+        # self.signal_tabs.addTab(self.preview_tab, "Preview")
+        self.signal_tabs.addTab(self.fft_tab, "FFT")
 
         # Create main layout
         self.splitter = QSplitter()
@@ -264,20 +270,26 @@ class FFTWindow(QMainWindow):
 
     def update_signal_plot(self):
         if len(self.data) > 0:    
-            self.signal_tab.signal_data.setData(self.data[:, self.x, self.y])
+            self.fft_tab.signal_data.setData(x=self.freqs, y=self.data[:, self.x, self.y])
             peak = self.img_data[self.x, self.y]
-            self.signal_tab.apd_data.setData(x=[peak], y=[self.data[peak, self.x, self.y]])
+            self.fft_tab.apd_data.setData(x=[peak], y=[self.data[self.peakIdx[self.x, self.y], self.x, self.y]])
+            
+        #self.preview_tab.signal_data.setData(self.parent.signal.transformed_data[:, self.x, self.y])
 
     def update_signal_value(self, evt, idx=None):
         return
 
     def update_image(self):
         if len(self.data) > 0:
-            self.img_data = np.argmax(self.data, axis=0)
+            self.peakIdx = np.argmax(self.data, axis=0)
+            self.img_data = self.freqs[self.peakIdx]
+            self.min_val.setValue(np.min(self.img_data))
+            self.max_val.setValue(np.max(self.img_data))
             self.image_tab.update_image(self.img_data)
     
-    def set_data(self, data):
+    def set_data(self, data, freqs):
         self.data = data
+        self.freqs = freqs
     
     def init_options(self):
         self.options_widget = QWidget()
@@ -295,6 +307,7 @@ class FFTWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
+        self.start_time.valueChanged.connect(self.update_start)
         self.end_time = Spinbox(
             min=0,
             max=max_time,
@@ -303,7 +316,7 @@ class FFTWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
-
+        self.end_time.valueChanged.connect(self.update_end)
 
         self.min_val = Spinbox(
             min=-100000,
@@ -354,11 +367,20 @@ class FFTWindow(QMainWindow):
 
         self.options_widget.setLayout(layout)
         
+    def update_start(self):
+        print("update start")
+    def update_end(self):
+        print("update end")
+        
     def perform_stacking(self):
         fft_frames = self.parent.signal.perform_fft()
-        self.set_data(fft_frames)
-        self.min_val.setValue(np.min(np.argmax(fft_frames, axis=0)))
-        self.max_val.setValue(np.max(np.argmax(fft_frames, axis=0)))
+        
+        # get sample frequencies with 'self.ms' sample spacing
+        freqs = np.fft.fftfreq(int(self.end_time.value()//self.ms - self.start_time.value()//self.ms), self.ms)
+        # scale to hertz and cut in half
+        freqs = freqs[:len(freqs)//2] * 1000
+        
+        self.set_data(fft_frames, freqs)
         self.update_image()
         self.update_signal_plot()
         
