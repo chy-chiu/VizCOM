@@ -25,6 +25,7 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     endian = "<"
 
     metadata = {"filename": filename}
+    sigarray = None
 
     # First byte of the data is the file version
     file_version = file.read(1).decode()
@@ -74,23 +75,28 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     skip = skip_bytes // 2
 
     trimFrames = large_file_check(filepath, largeFilePopup, span_T)
-    if trimFrames[1] == 0:
-        sigarray = np.frombuffer(file.read(), dtype="uint16")
-    else:
-        file.read(
-            trimFrames[0] * 2 * span_X * span_Y + trimFrames[0] * skip_bytes
-        )  # skip
-        sigarray = np.frombuffer(
-            file.read(trimFrames[1] * 2 * span_X * span_Y + trimFrames[1] * skip_bytes),
-            dtype="uint16",
-        )  # read
-        span_T = trimFrames[1]  # set new spanT
+    if trimFrames is not None:
+        if trimFrames[1] == 0:
+            sigarray = np.frombuffer(file.read(), dtype="uint16")
+        else:
+            file.read(
+                trimFrames[0] * 2 * span_X * span_Y + trimFrames[0] * skip_bytes
+            )  # skip
+            sigarray = np.frombuffer(
+                file.read(
+                    trimFrames[1] * 2 * span_X * span_Y + trimFrames[1] * skip_bytes
+                ),
+                dtype="uint16",
+            )  # read
+            span_T = trimFrames[1]  # set new spanT
 
-    sigarray = sigarray.reshape(span_T, -1)[:, :-skip].reshape(span_T, span_X, span_Y)
+        sigarray = sigarray.reshape(span_T, -1)[:, :-skip].reshape(
+            span_T, span_X, span_Y
+        )
 
-    metadata["span_T"] = span_T
-    metadata["span_X"] = span_X
-    metadata["span_Y"] = span_Y
+        metadata["span_T"] = span_T
+        metadata["span_X"] = span_X
+        metadata["span_Y"] = span_Y
 
     file.close()
 
@@ -108,23 +114,24 @@ def load_cascade_file(filepath, largeFilePopup, dual_mode=False):
     Returns:
         signals: Dictionary of CascadeSignal
     """
-    file_metadata, sigarray = read_cascade_data(filepath, largeFilePopup)
-
     signals = {}
 
-    if dual_mode:
-        odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
-        signals[0] = CascadeSignal(
-            signal=odd_frames, metadata=file_metadata, channel="Odd"
-        )
-        signals[1] = CascadeSignal(
-            signal=even_frames, metadata=file_metadata, channel="Even"
-        )
-        file_metadata["span_T"] = file_metadata["span_T"] // 2
-    else:
-        signals[0] = CascadeSignal(
-            signal=sigarray, metadata=file_metadata, channel="Single"
-        )
+    file_metadata, sigarray = read_cascade_data(filepath, largeFilePopup)
+    if sigarray is not None:
+
+        if dual_mode:
+            odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
+            signals[0] = CascadeSignal(
+                signal=odd_frames, metadata=file_metadata, channel="Odd"
+            )
+            signals[1] = CascadeSignal(
+                signal=even_frames, metadata=file_metadata, channel="Even"
+            )
+            file_metadata["span_T"] = file_metadata["span_T"] // 2
+        else:
+            signals[0] = CascadeSignal(
+                signal=sigarray, metadata=file_metadata, channel="Single"
+            )
 
     return signals
 
@@ -136,12 +143,14 @@ def large_file_check(filepath, _callback, fileLen):
     Returns:
         tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
     """
-    USAGE_THRESHOLD = 0.5
+    USAGE_THRESHOLD = 0.05
     freeMem = psutil.virtual_memory()[1]
     estDataSize = (
         os.path.getsize(filepath) * 4
     )  # estimate conversion to float16 and 2 data sets (raw and transformed)
     # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
+
+    (skip, size) = (0, 0)
 
     usePercentage = estDataSize / freeMem
 
@@ -155,8 +164,10 @@ def large_file_check(filepath, _callback, fileLen):
             fileLen, maxFrames
         )  # pauses execution until popup is closed
 
-        skip = start
-        size = end - start
+        if start and end:
+            skip = start
+            size = end - start
+        else:
+            return None
 
-        return (skip, size)
-    return (0, 0)
+    return (skip, size)

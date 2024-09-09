@@ -30,6 +30,9 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QDialogButtonBox, 
+    QMessageBox,
+    QLineEdit
 )
 
 from cardiacmap.model.cascade import load_cascade_file
@@ -47,6 +50,7 @@ from cardiacmap.viewer.panels import (
     SpatialPlotView,
     StackingWindow,
 )
+from cardiacmap.viewer.components import FrameInputDialog
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 
 TITLE_STYLE = """QDockWidget::title
@@ -269,7 +273,6 @@ class CardiacMap(QMainWindow):
 
             self._load_signal(filepath, calcium_mode=calcium_mode)
 
-    @loading_popup
     def _load_signal(self, filepath, calcium_mode: bool, update_progress=None):
 
         filename = os.path.split(filepath)[-1]
@@ -281,19 +284,21 @@ class CardiacMap(QMainWindow):
         if update_progress:
             update_progress(0.5)
 
-        if calcium_mode:
+        if signals:
 
-            signal_odd: CascadeSignal = signals[0]
-            signal_even: CascadeSignal = signals[1]
+            if calcium_mode:
 
-            print(signal_odd.signal_name)
+                signal_odd: CascadeSignal = signals[0]
+                signal_even: CascadeSignal = signals[1]
 
-            for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
-                self.create_viewer(signal, filename + suffix)
-        else:
-            signal = signals[0]
+                print(signal_odd.signal_name)
 
-            self.create_viewer(signal, filename)
+                for signal, suffix in [(signal_odd, "_odd"), (signal_even, "_even")]:
+                    self.create_viewer(signal, filename + suffix)
+            else:
+                signal = signals[0]
+
+                self.create_viewer(signal, filename)
 
     def load_preprocessed(self):
 
@@ -354,32 +359,16 @@ class CardiacMap(QMainWindow):
             self.signal = signal
             self.init_viewer()
 
+
     def largeFilePopUp(self, tLen, maxFrames):
         print("Max Possible Frames:", maxFrames)
-        self.filePopup = PopupWindow()
-        start = self.filePopup.getInt(
-            self,
-            "File Too Large",
-            "Enter Start Frame (0, " + str(tLen) + "):",
-            minValue=0,
-            maxValue=tLen,
-        )[0]
 
-        if start + maxFrames >= tLen:
-            maxInput = tLen
+        dialog = FrameInputDialog(tLen, maxFrames, self)
+        if dialog.exec() == QDialog.Accepted:
+            return dialog.getValues()
         else:
-            maxInput = start + maxFrames
-
-        end = self.filePopup.getInt(
-            self,
-            "File Too Large",
-            "Enter End Frame (" + str(start + 1) + ", " + str(maxInput) + "):",
-            minValue=start + 1,
-            maxValue=tLen,
-        )[0]
-
-        return start, end
-
+            return None, None
+        
     def update_signal_value(self, evt, idx=None):
 
         if self.signal_panel.signal_marker:
@@ -575,12 +564,6 @@ class CardiacMap(QMainWindow):
 
         _settings = SettingsDialog(self.settings)
         _settings.exec()
-
-
-class PopupWindow(QInputDialog):
-    def __init__(self):
-        QInputDialog.__init__(self)
-
 
 class SpatialPlotWindow(QMainWindow):
     def __init__(self, parent, apdData=None, diData=None, flags=None):
