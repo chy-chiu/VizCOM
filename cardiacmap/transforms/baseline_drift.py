@@ -50,6 +50,12 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
         minsX (array): the baseline x values for d
         minsY (array): the baseline y values for d
     """
+    if len(minsX) == 0 or len(minsY) == 0:
+        print("No Mins Found @ index", outputIndex)
+        # keep data
+        output[outputIndex] = d
+        return 1
+    
     # interpolate baseline
     interp = np.interp(t, minsX, minsY)
 
