@@ -240,7 +240,7 @@ class CascadeSignal:
     def get_curr_signal(self):
         return self.transformed_data
 
-    def perform_stacking(self, startingFrame, endingFrame, numPeriods, alternans, update_progress=None):
+    def perform_stacking(self, startingFrame, endingFrame, numPeriods, distance, offset, alternans = False, update_progress=None):
         # prep data
         if self.inverted:
             data = -self.base_data
@@ -263,7 +263,7 @@ class CascadeSignal:
         derivative = derivative[startingFrame : startingFrame + endingFrame]
 
         # perform stacking
-        results, longestRes = Stacking(data, derivative, numPeriods, alternans, update_progress)
+        results, longestRes = Stacking(data, derivative, numPeriods, distance, offset, alternans, update_progress)
 
         # reshape for display
         results = pad(results, longestRes)
