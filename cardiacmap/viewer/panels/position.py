@@ -213,7 +213,7 @@ class PositionView(QWidget):
         self.image_view.playRate = framerate
 
     def jump_frames(self, forward=True):
-        skip_frames = self.skiprate.value()
+        skip_frames = int(self.skiprate.value() * self.parent.ms)
         (
             self.image_view.jumpFrames(skip_frames)
             if forward

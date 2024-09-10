@@ -100,7 +100,10 @@ class CascadeSignal:
         sig,
         rad,
         mode: Literal["Gaussian", "Uniform"] = "Gaussian",
+        update_progress=None
     ):
+        if update_progress:
+            update_progress(0.2)
         if type == "time":
             self.transformed_data = TimeAverage(
                 self.transformed_data, sig, rad, self.mask_arr, mode

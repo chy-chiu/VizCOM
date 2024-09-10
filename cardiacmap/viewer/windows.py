@@ -30,9 +30,9 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
-    QDialogButtonBox, 
+    QDialogButtonBox,
     QMessageBox,
-    QLineEdit
+    QLineEdit,
 )
 
 from cardiacmap.model.cascade import load_cascade_file
@@ -195,7 +195,7 @@ class CardiacMap(QMainWindow):
             self.metadata_panel = MetadataPanel(self.signal, self)
 
             # Create Signal view
-            self.signal_panel = SignalPanel(self, settings = self.settings)
+            self.signal_panel = SignalPanel(self, settings=self.settings)
 
             # Create Image tabs
             self.position_tab = PositionView(self)
@@ -211,7 +211,7 @@ class CardiacMap(QMainWindow):
             self.image_tabs.addTab(self.annotate_tab, "Annotate")
 
             # Create docking windows for viewer and signa view.
-            self.metadata_panel.setMaximumHeight(self.init_height*0.2)
+            self.metadata_panel.setMaximumHeight(self.init_height * 0.2)
             self.setCentralWidget(self.metadata_panel)
 
             self.signal_dock = QDockWidget("Signal View", self)
@@ -233,11 +233,21 @@ class CardiacMap(QMainWindow):
             self.default_widget.setVisible(False)
             self._disable_menus(False)
 
-            self.resizeDocks([self.image_dock, self.signal_dock], [500, 2500], Qt.Orientation.Horizontal)
-            self.resizeDocks([self.image_dock, self.signal_dock], [1000, 1000], Qt.Orientation.Vertical)
+            self.resizeDocks(
+                [self.image_dock, self.signal_dock],
+                [500, 2500],
+                Qt.Orientation.Horizontal,
+            )
+            self.resizeDocks(
+                [self.image_dock, self.signal_dock],
+                [1000, 1000],
+                Qt.Orientation.Vertical,
+            )
 
             image_size_policy = QtWidgets.QSizePolicy()
-            image_size_policy.setHorizontalPolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+            image_size_policy.setHorizontalPolicy(
+                QtWidgets.QSizePolicy.Policy.MinimumExpanding
+            )
             image_size_policy.setHorizontalStretch(1)
 
             signal_size_policy = QtWidgets.QSizePolicy()
@@ -252,8 +262,6 @@ class CardiacMap(QMainWindow):
             self.image_dock.setSizePolicy(image_size_policy)
             self.signal_dock.setSizePolicy(signal_size_policy)
             self.metadata_panel.setSizePolicy(metadata_size_policy)
-
-
 
         else:
 
@@ -359,7 +367,6 @@ class CardiacMap(QMainWindow):
             self.signal = signal
             self.init_viewer()
 
-
     def largeFilePopUp(self, tLen, maxFrames):
         print("Max Possible Frames:", maxFrames)
 
@@ -368,7 +375,7 @@ class CardiacMap(QMainWindow):
             return dialog.getValues()
         else:
             return None, None
-        
+
     def update_signal_value(self, evt, idx=None):
 
         if self.signal_panel.signal_marker:
@@ -429,14 +436,16 @@ class CardiacMap(QMainWindow):
         update_progress=None,
     ):
         if update_progress:
-            update_progress(0.05)
+            print(update_progress)
+            print("progres update?")
+            update_progress(0.1)
         # Calls a transform function within the signal item
         if transform == "spatial_average":
             sigma = self.settings.child("Spatial Average").child("Sigma").value()
             radius = self.settings.child("Spatial Average").child("Radius").value()
             mode = self.settings.child("Spatial Average").child("Mode").value()
             self.signal.perform_average(
-                type="spatial", sig=sigma, rad=radius, mode=mode
+                type="spatial", sig=sigma, rad=radius, mode=mode, update_progress=update_progress
             )
             self.signal.normalize()
 
@@ -547,9 +556,7 @@ class CardiacMap(QMainWindow):
             apd_popup.exec()
 
     def create_stacking_window(self):
-        self.stacking_window = StackingWindow(
-            self
-        )
+        self.stacking_window = StackingWindow(self)
         self.stacking_window.show()
 
     def create_isochrome_window(self):
@@ -565,12 +572,13 @@ class CardiacMap(QMainWindow):
         _settings = SettingsDialog(self.settings)
         _settings.exec()
 
+
 class SpatialPlotWindow(QMainWindow):
     def __init__(self, parent, apdData=None, diData=None, flags=None):
         QMainWindow.__init__(self)
         self.parent = parent
         self.settings = parent.settings
-        
+
         self.x1 = self.y1 = self.x2 = self.y2 = 64
         self.data = [apdData, diData]
         self.flags = flags
@@ -589,7 +597,13 @@ class SpatialPlotWindow(QMainWindow):
         self.image_tabs.setMinimumHeight(500)
 
         # Create Signal Views
-        self.APD_signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.APD_signal_tab = SignalPanel(
+            self,
+            toolbar=False,
+            signal_marker=False,
+            ms_conversion=False,
+            settings=self.settings,
+        )
         # set up axes
         leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
@@ -632,13 +646,13 @@ class SpatialPlotWindow(QMainWindow):
         for coord in coords:
             data.append(img[coord[0]][coord[1]])
         self.APD_signal_tab.signal_data.setData(data)
-        
+
     def update_signal_plot(self):
         return
 
     def update_signal_value(self, evt, idx=None):
         return
-   
+
 
 if __name__ == "__main__":
 

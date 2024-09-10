@@ -48,6 +48,13 @@ QTOOLBAR_STYLE = """
             }
             """
 
+class SignalPlot(pg.PlotWidget):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def mouseDoubleClickEvent(self, e):
+        self.getPlotItem().enableAutoRange()
 
 class SignalPanel(QWidget):
 
@@ -64,7 +71,7 @@ class SignalPanel(QWidget):
         self.convertToMS = ms_conversion
         self.allow_signal_marker = signal_marker
 
-        self.plot = pg.PlotWidget()
+        self.plot = SignalPlot(self)
         self.plot_item = self.plot.getPlotItem()
 
         sig_c = self.settings.child("Signal Plot Colors").child("signal").value()
@@ -92,11 +99,18 @@ class SignalPanel(QWidget):
         if toolbar: 
              self.init_toolbars()
         self.init_plotting_bar()
+        # TODO: To make this settable later
+        font=QtGui.QFont()
+        font.setPixelSize(16)
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
         bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
         leftAxis.setLabel(text="Normalized Voltage")
         bottomAxis.setLabel(text="Time (ms)")
+        leftAxis.setTickFont(font)
+        bottomAxis.setTickFont(font)
+        leftAxis.label.setFont(font)
+        bottomAxis.label.setFont(font)
 
         # set up data items
         self.signal_data: pg.PlotDataItem = self.plot.plot(
@@ -134,6 +148,7 @@ class SignalPanel(QWidget):
 
         self.setLayout(layout)
 
+        
         self.plot.scene().sigMouseMoved.connect(self.mouseMoved)
 
     def init_toolbars(self):
@@ -282,8 +297,8 @@ class SignalPanel(QWidget):
                     self.update_signal_marker(idx)
 
     def update_signal_marker(self, idx):
-        self.frame_idx = idx
-        self.signal_marker.setX(idx * self.parent.ms)
+        self.frame_idx = int(idx)
+        self.signal_marker.setX(int(idx * self.parent.ms))
         self.parent.update_signal_value(None, idx=idx)
 
     def update_pens(self):

@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter
+from PySide6.QtWidgets import QProgressDialog
+import time
 
 DEFAULT_SETTINGS_PATH = "./settings.json"
 DEFAULT_VALUES = {
@@ -123,7 +125,7 @@ def loading_popup(func):
 
     def wrapper(*args, **kwargs):
 
-        with pg.ProgressDialog("Loading..", 0, 100, wait=250, busyCursor=True) as dlg:
+        with pg.ProgressDialog("Loading..", 0, 100, wait=0, busyCursor=True) as dlg:
 
             def update_progress(value):
                 dlg.setValue(value * 100)

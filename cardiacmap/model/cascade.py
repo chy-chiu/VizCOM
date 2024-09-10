@@ -75,6 +75,7 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     skip = skip_bytes // 2
 
     trimFrames = large_file_check(filepath, largeFilePopup, span_T)
+    print(trimFrames)
     if trimFrames is not None:
         if trimFrames[1] == 0:
             sigarray = np.frombuffer(file.read(), dtype="uint16")
@@ -164,7 +165,9 @@ def large_file_check(filepath, _callback, fileLen):
             fileLen, maxFrames
         )  # pauses execution until popup is closed
 
-        if start and end:
+        print(start, end)
+
+        if start is not None and end is not None:
             skip = start
             size = end - start
         else:
