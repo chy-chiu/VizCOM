@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def Stacking(data, derivative, numPeriods, alternans, update_progress=None):
+def Stacking(data, derivative, numPeriods, distance, offset, alternans, update_progress=None):
     # speeds computation
     derivative = np.moveaxis(derivative, 0, -1)
     data = np.moveaxis(data, 0, -1)
@@ -17,7 +17,7 @@ def Stacking(data, derivative, numPeriods, alternans, update_progress=None):
             d = data[y][x]
             # print(len(d))
             dYdX = derivative[y][x]
-            result = stack(d, dYdX, numPeriods, alternans)
+            result = stack(d, dYdX, numPeriods, distance, offset, alternans)
 
             if len(result) > longestRes:
                 longestRes = len(result)
@@ -31,9 +31,9 @@ def Stacking(data, derivative, numPeriods, alternans, update_progress=None):
     return results, longestRes
 
 
-def stack(data, derivative, n, alternans):
+def stack(data, derivative, n, distance, offset, alternans):
     # Find derivative peaks and offset
-    peaks = find_peaks(NormalizeData(derivative), prominence=0.3)[0]
+    peaks = find_peaks(NormalizeData(derivative), distance=distance, prominence=0.3)[0]
     
     if len(peaks) <= 1:
         print("No Peaks Found @ index")
@@ -41,9 +41,7 @@ def stack(data, derivative, n, alternans):
     
     if alternans:
         peaks = peaks[::2]  # take only even peaks
-        offset = 0.05
-    else:
-        offset = 0.1
+        offset // 2
 
     periodLen = np.mean(np.diff(peaks))
     peaks -= int(periodLen * offset)

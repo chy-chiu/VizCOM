@@ -180,6 +180,9 @@ class StackingWindow(QMainWindow):
         self.settings = parent.settings
         self.ms = self.parent.ms
         self.setWindowTitle("Stacking")
+        
+        self.x = 64
+        self.y = 64
 
         #        image, stack,
 
@@ -205,16 +208,24 @@ class StackingWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
 
         # Create Signal Views
-        self.signal_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.stack_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        
+        # Preview Panel
+        self.line_count = 0
+        self.lines = None
+        self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.add_line(self.preview_tab)
+        self.add_line(self.preview_tab)
 
         # set up axes
-        leftAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.signal_tab.plot.getPlotItem().getAxis("bottom")
+        leftAxis: pg.AxisItem = self.stack_tab.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.stack_tab.plot.getPlotItem().getAxis("bottom")
         leftAxis.setLabel(text="Periodic Voltage Average")
         bottomAxis.setLabel(text="Time (ms)")
 
         self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.signal_tab, "Stack")
+        self.signal_tabs.addTab(self.preview_tab, "Preview")
+        self.signal_tabs.addTab(self.stack_tab, "Stack")
 
         # Create main layout
         self.splitter = QSplitter()
@@ -227,28 +238,17 @@ class StackingWindow(QMainWindow):
         layout = QHBoxLayout()
         layout.addWidget(self.splitter)
 
-        # self.signal_dock = QDockWidget("Signal View", self)
-        # self.image_dock = QDockWidget("Image View", self)
-
-        # self.signal_dock.setWidget(self.signal_tabs)
-        # self.image_dock.setWidget(self.image_tabs)
-
-        # self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
-        # self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-        # self.image_dock.resize(400, 1000)
         self.setCentralWidget(self.splitter)
-
-        self.x = 64
-        self.y = 64
 
         self.stack = None
         self.resize(self.parent.init_width, self.parent.init_height)
-        # self.update_signal_plot()
+        self.update_signal_plot()
 
     def init_options(self):
         self.options_widget = QWidget()
         layout = QVBoxLayout()
-        self.options = QToolBar()
+        self.options1 = QToolBar()
+        self.options2 = QToolBar()
         self.actions_bar = QToolBar()
 
         self.beats = Spinbox(
@@ -259,6 +259,7 @@ class StackingWindow(QMainWindow):
             min_width=50,
             max_width=50,
         )
+        self.beats.sigValueChanged.connect(self.update_signal_plot)
 
         max_time = int(len(self.parent.signal.transformed_data) * self.ms)
         self.start_time = Spinbox(
@@ -269,6 +270,8 @@ class StackingWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
+        self.start_time.sigValueChanged.connect(self.update_signal_plot)
+        
         self.end_time = Spinbox(
             min=0,
             max=max_time,
@@ -277,23 +280,39 @@ class StackingWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
+        self.end_time.sigValueChanged.connect(self.update_signal_plot)
+        
+        self.min_width = Spinbox(
+            min=1,
+            max=len(self.parent.signal.transformed_data),
+            val=1,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.min_width.sigValueChanged.connect(self.update_signal_plot)
 
         self.alternans = QCheckBox()
         self.alternans.setChecked(
             self.settings.child("Stacking Parameters").child("Alternans").value()
         )
+        self.alternans.checkStateChanged.connect(self.update_signal_plot)
 
-        self.options.addWidget(QLabel("Start Time: "))
-        self.options.addWidget(self.start_time)
-        self.options.addWidget(QLabel("End Time: "))
-        self.options.addWidget(self.end_time)
+        self.options1.addWidget(QLabel("Start Time: "))
+        self.options1.addWidget(self.start_time)
+        self.options1.addWidget(QLabel("End Time: "))
+        self.options1.addWidget(self.end_time)
 
-        self.actions_bar.addWidget(QLabel("# Beats: "))
-        self.actions_bar.addWidget(self.beats)
+        self.options2.addWidget(QLabel("# of Beats: "))
+        self.options2.addWidget(self.beats)
+        self.options2.addWidget(QLabel("Min Slice Width: "))
+        self.options2.addWidget(self.min_width)
+        
         self.actions_bar.addWidget(QLabel("Alternans: "))
         self.actions_bar.addWidget(self.alternans)
 
-        self.options.setStyleSheet(QTOOLBAR_STYLE)
+        self.options1.setStyleSheet(QTOOLBAR_STYLE)
+        self.options2.setStyleSheet(QTOOLBAR_STYLE)
         self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
 
 
@@ -303,7 +322,9 @@ class StackingWindow(QMainWindow):
         # TODO: Overlay
         # self.overlay = QCheckBox()
 
-        layout.addWidget(self.options)
+        layout.addWidget(self.options1)
+        layout.addSpacing(5)
+        layout.addWidget(self.options2)
         layout.addSpacing(5)
         layout.addWidget(self.actions_bar)
 
@@ -311,21 +332,85 @@ class StackingWindow(QMainWindow):
 
     @loading_popup
     def perform_stacking(self, update_progress=None):
-        start = int(self.start_time.value())
-        end = int(self.end_time.value()
-        )
+        start = int(self.start_time.value() // self.ms)
+        end = int(self.end_time.value() // self.ms)
         beats = int(self.beats.value())
+        offset = .1
+        distance = int(self.min_width.value() // self.ms)
         alternans = self.alternans.isChecked()
 
-        self.stack = self.parent.signal.perform_stacking(start, end, beats, alternans, update_progress)
+        self.stack = self.parent.signal.perform_stacking(start, end, beats, distance, offset, alternans, update_progress)
         self.xVals = self.parent.xVals[0 : len(self.stack)]
         self.update_signal_plot()
 
     def update_signal_plot(self):
         if self.stack is not None:
-            self.signal_tab.signal_data.setData(
+            self.stack_tab.signal_data.setData(
                 x=self.xVals, y=self.stack[:, self.y, self.x]
             )
+            
+        start = int(self.start_time.value()//self.ms)
+        end = int(self.end_time.value()//self.ms)
+
+        self.preview = self.parent.signal.transformed_data[start:end, self.y, self.x]
+        self.preview_tab.signal_data.setData(x=np.arange(len(self.preview))* int(self.ms), y=self.preview)
+        self.update_lines()
 
     def update_signal_value(self, evt, idx=None):
         return
+    
+    def update_lines(self):
+        # generate proper number of lines for selected number of beats
+        while self.line_count != int(self.beats.value() + 1):
+            if self.line_count < int(self.beats.value() + 1):
+                self.add_line(self.preview_tab)
+            elif self.line_count > int(self.beats.value() + 1):
+                self.remove_line(self.preview_tab)
+
+        derivative = np.gradient(self.preview)
+        
+        if int(self.min_width.value()) != 0:
+            peaks = find_peaks(NormalizeData(derivative), distance=(self.min_width.value() + 1)//2, prominence=0.3)[0]
+        else:
+            peaks = find_peaks(NormalizeData(derivative), prominence=0.3)[0]
+        
+        offset = .1
+        if self.alternans.isChecked():
+            peaks = peaks[::2]  # take only even peaks
+            offset // 2
+        periodLen = np.mean(np.diff(peaks))
+        peaks -= int(periodLen * offset)
+        
+        # trim peaks
+        while len(peaks) > 0 and peaks[0] <= 0:
+            peaks = peaks[1:]
+        peaks = peaks[:self.line_count]
+        
+        # set lines to stacking indices
+        for i in range(self.line_count):
+            if len(peaks) > i:
+                self.lines[i].setPos((int(peaks[i] * self.ms), 0))
+            else:
+                self.lines[i].setPos((int(peaks[0] * self.ms), 0))
+            
+    def add_line(self, panel: SignalPanel):
+        line = pg.InfiniteLine(movable = False)
+        panel.plot.addItem(line)
+        
+        if self.lines is None:
+            self.lines = np.array([line])
+        else:
+            self.lines = np.append(self.lines, line)
+            
+        self.line_count += 1
+        
+    def remove_line(self, panel: SignalPanel):
+        if self.line_count > 0:
+            self.line_count -= 1
+            line = self.lines[-1]
+            panel.plot.removeItem(line)
+            self.lines = self.lines[:-1]
+            
+def NormalizeData(data):
+    data = data - data.min(axis=0)
+    return data / data.max(axis=0)
