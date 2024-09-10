@@ -283,9 +283,9 @@ class StackingWindow(QMainWindow):
         self.end_time.sigValueChanged.connect(self.update_signal_plot)
         
         self.min_width = Spinbox(
-            min=1,
+            min=self.ms,
             max=len(self.parent.signal.transformed_data),
-            val=1,
+            val=self.ms,
             step=1,
             min_width=60,
             max_width=60,
