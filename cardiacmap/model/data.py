@@ -247,10 +247,13 @@ class CascadeSignal:
         else:
             data = self.base_data
         derivative = np.gradient(self.transformed_data, axis=0)
-
+        
+        #plt.plot(derivative[:, 64, 64])
+        #plt.show()
         # trim data
         if endingFrame > len(derivative) or endingFrame <= startingFrame:
             endingFrame = len(derivative)
+            
         data = data[
             startingFrame
             + self.trimmed[0] : startingFrame
@@ -268,8 +271,8 @@ class CascadeSignal:
         results = np.moveaxis(results, -1, 0)
         return NormalizeData(results)
 
-    def perform_fft(self):
-        return FFT(self.transformed_data)
+    def perform_fft(self, start, end):
+        return FFT(self.transformed_data[start:end])
 
 
 # helper function to pad an array with zeros until it is rectangular
