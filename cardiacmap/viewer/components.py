@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QWidgetAction,
+    QDialogButtonBox,
+    QMessageBox
 )
 
 SPINBOX_STYLE = """SpinBox
@@ -194,3 +196,57 @@ class Spinbox(pg.SpinBox):
         self.setValue(val)
         self.setSingleStep(step)
         self.setStyleSheet(SPINBOX_STYLE)
+
+class FrameInputDialog(QDialog):
+    def __init__(self, tLen, maxFrames, parent=None):
+        super(FrameInputDialog, self).__init__(parent)
+        self.tLen = tLen
+        self.maxFrames = maxFrames
+
+        self.setWindowTitle("Large File Handler")
+
+        layout = QVBoxLayout(self)
+
+        self.startLabel = QLabel(f"Enter Start Frame (0, {tLen}):")
+        self.startInput = Spinbox(0, tLen, 0, min_width=100, max_width=100)
+        layout.addWidget(QLabel(f"File too large. Recommended max frames at {maxFrames} frames."))
+        layout.addWidget(self.startLabel)
+        layout.addWidget(self.startInput)
+
+        self.endLabel = QLabel(f"Enter End Frame (1, {tLen}):")
+        self.endInput = Spinbox(1, tLen, tLen, min_width=100, max_width=100)
+        layout.addWidget(self.endLabel)
+        layout.addWidget(self.endInput)
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        layout.addWidget(self.buttons)
+
+    def accept(self):
+        start = int(self.startInput.value())
+        end = int(self.endInput.value())
+
+        if end and start:
+
+            if start < 0 or start >= self.tLen:
+                QMessageBox.warning(self, "Invalid Input", f"Start frame must be between 0 and {self.tLen - 1}.")
+                return
+
+            if end <= start or end > self.tLen:
+                QMessageBox.warning(self, "Invalid Input", f"End frame must be between {start + 1} and {self.tLen}.")
+                return
+
+            if end - start > self.maxFrames:
+                QMessageBox.warning(self, "Invalid Input", f"Maximum frame range is {self.maxFrames}.")
+                return
+
+        self.start = start
+        self.end = end
+        super().accept()
+
+    def reject(self):
+        super().reject()
+
+    def getValues(self):
+        return self.start, self.end
