@@ -34,6 +34,11 @@ def Stacking(data, derivative, numPeriods, alternans, update_progress=None):
 def stack(data, derivative, n, alternans):
     # Find derivative peaks and offset
     peaks = find_peaks(NormalizeData(derivative), prominence=0.3)[0]
+    
+    if len(peaks) <= 1:
+        print("No Peaks Found @ index")
+        return [0]
+    
     if alternans:
         peaks = peaks[::2]  # take only even peaks
         offset = 0.05

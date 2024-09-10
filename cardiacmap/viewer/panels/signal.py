@@ -327,5 +327,5 @@ class SignalPanel(QWidget):
 
     def point_hover_tooltip(self, x, y, data, xLabel="x: ", yLabel="y: "):
         """Called by signal_panel when hovering over a point"""
-        tooltip = xLabel + str(int(x)) + "\n" + yLabel + f"{y:.3f}"
+        tooltip = xLabel + f"{x:.3f}" + "\n" + yLabel + f"{y:.3f}"
         return tooltip
