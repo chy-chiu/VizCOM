@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter, uniform_filter
 from scipy.signal import find_peaks
 
 
-def GetIntersectionsAPD_DI(data, threshold):
+def GetIntersectionsAPD_DI(data, threshold, mask):
     """Function to Find intersections between threshold and data
     Args:
         data (array): input data

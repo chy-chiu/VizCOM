@@ -239,14 +239,17 @@ class PositionView(QWidget):
 
     def update_data(self):
         mode = self.normalize.currentText() or "Base"
-        
+        mask = np.ones((self.parent.signal.span_X, self.parent.signal.span_X))
+        if self.parent.signal.mask is not None:
+            mask = self.parent.signal.mask
+            #print(mask)
         if mode == "Base":
             self.image_view.setImage(
-                self.parent.signal.image_data, autoLevels=False, autoRange=False
+                self.parent.signal.image_data * mask, autoLevels=False, autoRange=False
             )
         elif mode == "Transformed":
             self.image_view.setImage(
-                self.parent.signal.transformed_data, autoLevels=False, autoRange=False
+                self.parent.signal.transformed_data * mask, autoLevels=False, autoRange=False
             )
             
         self.image_view.setColorMap(self.cmap)
