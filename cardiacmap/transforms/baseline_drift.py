@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads, update_progress=None):
+def RemoveBaselineDrift(t, data, mask, baselineXs, baselineYs, threads, update_progress=None):
     """Function to remove baseline drift from data
     Args:
         t (array): list of t values from 0 to len(data)
@@ -26,14 +26,16 @@ def RemoveBaselineDrift(t, data, baselineXs, baselineYs, threads, update_progres
     for y in range(yLen):
         for x in range(xLen):
             index = y * yLen + x
+            if mask[y, x] != 0:
+                if update_progress:
+                    update_progress(index / total)
 
-            if update_progress:
-                update_progress(index / total)
-
-            d = data[y][x]
-            xs = baselineXs[index]
-            ys = baselineYs[index]
-            executor.submit(baselineDriftThread, t, d, resData, index, xs, ys)
+                d = data[y][x]
+                xs = baselineXs[index]
+                ys = baselineYs[index]
+                executor.submit(baselineDriftThread, t, d, resData, index, xs, ys)
+            else:
+                resData[index] = data[y][x]
 
     executor.shutdown(wait=True)
     # reshape results array, then convert to int from float
@@ -70,7 +72,7 @@ def baselineDriftThread(t, d, output, outputIndex, minsX, minsY):
     return 0
 
 
-def GetMins(t, data, prominence, periodLen, threshold, alternans, threads):
+def GetMins(t, data, mask, prominence, periodLen, threshold, alternans, threads):
     """Function for calculating the baseline of the data for each xy pair
     Args:
         t (array): list of t values from 0 to len(data)
@@ -105,8 +107,12 @@ def GetMins(t, data, prominence, periodLen, threshold, alternans, threads):
     for y in range(yLen):
         for x in range(xLen):
             index = y * yLen + x
-            d = data[y][x]
-            executor.submit(getMinsThread, t, d, baselineX, baselineY, index, params)
+            if mask[y][x] == 1:
+                d = data[y][x]
+                executor.submit(getMinsThread, t, d, baselineX, baselineY, index, params)
+            else:
+                baselineX[index] = np.array([np.argmin(data[y][x])])
+                baselineY[index] = np.array([np.min(data[y][x])])
     executor.shutdown(wait=True)
 
     return baselineX, baselineY

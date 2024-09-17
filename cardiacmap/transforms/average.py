@@ -31,7 +31,7 @@ def TimeAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
         raise ValueError("sigma must be non-negative")
     if radius < 0:
         raise ValueError("radius must be non-negative")
-
+    #print("Mask is:", mask is not None)
     if isinstance(mask, NoneType):
         if axis != 0:
             return avgFunc(arr, sigma, radius=radius, axes=axis).swapaxes(-1, 0)
@@ -39,17 +39,16 @@ def TimeAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     else:
         print(arr.shape)
 
-        # if np.array(mask).shape != np.array(arr[0]).shape:
-        #     raise IndexError("mask must have same shape as a single frame")
+        if np.array(mask).shape != np.array(arr[0]).shape:
+            raise IndexError("mask must have same shape as a single frame")
 
         data = avgFunc(arr, sigma, radius=radius, axes=axis)
         # set masked points back to original value
-        data = np.where(np.expand_dims(mask, axis) == 1, arr, data)
-
+        data = np.where(mask == 0, arr, data)
         if axis != 0:
             data = data.swapaxes(-1, 0)
 
-        return data.astype("int")
+        return data
 
 
 def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
@@ -77,6 +76,7 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     # convert sigma to sqrt(sigma/2)
     # replicates Java version functionality
     newSigma = np.sqrt(sigma / 2)
+    #print("Mask is:", mask is not None)
     if isinstance(mask, NoneType):
         return avgFunc(arr, newSigma, radius=radius, axes=(1, 2))
     else:
@@ -84,14 +84,14 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
             raise IndexError("mask must have same shape as a single frame")
 
         maskedData = avgFunc(arr * mask, newSigma, radius=radius, axes=(1, 2))
-        maskWeights = avgFunc(mask, newSigma, radius=radius, axes=(0, 1))
+        #maskWeights = avgFunc(mask, newSigma, radius=radius, axes=(0, 1))
 
         # normalize data by relative mask weights
-        data = maskedData / maskWeights
+        #data = maskedData / maskWeights
 
         # set masked points back to original value
-        data = np.where(mask == 0, arr, data)
-        return data.astype("int")
+        data = np.where(mask == 0, arr, maskedData)
+        return data
 
 
 def useUniform(arr, sig, radius=1, axes=-1):

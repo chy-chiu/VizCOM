@@ -31,14 +31,12 @@ class CascadeSignal:
     """
 
     span_T: int
-    # TODO: In the event that we do anything other than 128x128 images, this cannot be hardcoded anymore
-    span_X: int = 128
-    span_Y: int = 128
+    span_X: int
+    span_Y: int
     base_data: np.ndarray
     transformed_data: np.ndarray
     position: np.ndarray
-    mask: List[Tuple[int, int]]
-    mask_arr: np.ndarray
+    mask: np.ndarray
     spatial_apds = []
 
     def __init__(
@@ -69,6 +67,9 @@ class CascadeSignal:
 
         # This is the length of the data
         self.span_T = len(signal)
+        self.span_Y = len(signal[0])
+        self.span_X = len(signal[0][0])
+        
         self.trimmed = [0, 0]
 
         # Inverted Flag, used when accessing base_data
@@ -91,8 +92,7 @@ class CascadeSignal:
         self.spatial_apds = []
 
         # Mask to isolate relevant bits of the signal only
-        self.mask = []
-        self.mask_arr = None
+        self.mask = np.ones((self.span_Y, self.span_X))
 
     def perform_average(
         self,
@@ -106,12 +106,12 @@ class CascadeSignal:
             update_progress(0.2)
         if type == "time":
             self.transformed_data = TimeAverage(
-                self.transformed_data, sig, rad, self.mask_arr, mode
+                self.transformed_data, sig, rad, self.mask, mode
             )
 
         elif type == "spatial":
             self.transformed_data = SpatialAverage(
-                self.transformed_data, sig, rad, self.mask_arr, mode
+                self.transformed_data, sig, rad, self.mask, mode
             )
 
         return
@@ -119,7 +119,7 @@ class CascadeSignal:
     def calc_apd_di_threshold(self, threshold):
         data = np.moveaxis(self.transformed_data, 0, -1)
         self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
-            data, threshold
+            data, threshold, self.mask
         )
         self.apdThreshold = threshold
 
@@ -153,23 +153,23 @@ class CascadeSignal:
     def calc_baseline(self, periodLen, threshold, prominence, alternans):
         print("Calculating baseline:", periodLen, threshold, prominence, alternans)
         data = self.transformed_data
+        mask = self.mask
         t = np.arange(len(data))
         threads = 4
 
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
         self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, prominence, periodLen, threshold, alternans, threads
+            t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
         )
 
     def remove_baseline_drift(self, update_progress=None):
         data = self.transformed_data
         baselineXs = self.baselineX
         baselineYs = self.baselineY
+        mask = self.mask
         t = np.arange(len(data))
-        threads = (
-            8  # this seems to be optimal thread count, needs more testing to confirm
-        )
+        threads = 4
 
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
@@ -177,6 +177,7 @@ class CascadeSignal:
         dataMinusBaseline = RemoveBaselineDrift(
             t,
             dataSwapped,
+            mask,
             baselineXs,
             baselineYs,
             threads,
@@ -184,7 +185,6 @@ class CascadeSignal:
         )
 
         # flip data axes back and store results
-        # NB: np.int16 is double the size of np.uint16
         self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
 
     def get_baseline(self):
@@ -226,19 +226,19 @@ class CascadeSignal:
 
         key_frame = self.base_data[key_frame_idx]
 
-        if self.mask_arr is not None:
+        if self.mask is not None:
 
-            key_frame = key_frame * self.mask_arr
+            key_frame = key_frame * self.mask
 
         return key_frame
 
     def apply_mask(self, mask_arr):
-        self.mask_arr = mask_arr
-        print(mask_arr.shape)
-        print(self.transformed_data.shape)
-        print(self.image_data.shape)
-        self.transformed_data = self.transformed_data * np.expand_dims(self.mask_arr, 0)
-        self.image_data = self.image_data * self.mask_arr
+        self.mask = mask_arr
+        print("Mask Applied")
+        #print(self.transformed_data.shape)
+        #print(self.image_data.shape)
+        #self.transformed_data = self.transformed_data * np.expand_dims(self.mask, 0)
+        #self.image_data = self.image_data * self.mask
 
     def get_curr_signal(self):
         return self.transformed_data

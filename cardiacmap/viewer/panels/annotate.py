@@ -137,7 +137,7 @@ class AnnotateView(QtWidgets.QWidget):
 
         # mask = resize(mask, (128, 128), order=0)
 
-        self.image_data = self.parent.signal.image_data
+        self.image_data = self.parent.signal.image_data * self.parent.signal.mask
 
         self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
 
