@@ -74,6 +74,7 @@ class IsochromeWindow(QMainWindow):
 
         super().__init__()
         self.parent = parent
+        self.mask = parent.signal.mask
         self.setWindowTitle("Isochrome View")
 
         central_widget = QWidget()
@@ -190,7 +191,7 @@ class IsochromeWindow(QMainWindow):
 
         isochrome = (
             _calculate_isochrome(
-                self.parent.signal.transformed_data,
+                self.parent.signal.transformed_data * self.mask,
                 t=self.threshold.value(),
                 start_frame=int(self.start_frame.value()),
                 cycles=cycles,
@@ -207,7 +208,7 @@ class IsochromeWindow(QMainWindow):
 
     def update_keyframe(self, i):
         self.image_item.setImage(
-            self.parent.signal.transformed_data[int(i)],
+            self.parent.signal.transformed_data[int(i)] * self.mask,
             autoLevels=False,
             autoRange=False,
         )
