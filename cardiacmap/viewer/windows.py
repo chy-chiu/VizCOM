@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.model.cascade import load_cascade_file
+from cardiacmap.model.scimedia import load_scimedia_data
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import (
     AnnotateView,
@@ -135,6 +136,9 @@ class CardiacMap(QMainWindow):
             partial(self.load_cascade, calcium_mode=True)
         )
 
+        self.load_scimedia_single = QAction("Load SciMedia Data (Beta)")
+        self.load_scimedia_single.triggered.connect(self.load_scimedia)
+
         self.load_saved_signal = QAction("Load Saved Signal")
         self.load_saved_signal.triggered.connect(self.load_preprocessed)
 
@@ -143,6 +147,8 @@ class CardiacMap(QMainWindow):
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
+        self.file_menu.addSeparator()
+        self.file_menu.addAction(self.load_scimedia_single)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
         self.file_menu.addSeparator()
@@ -281,13 +287,33 @@ class CardiacMap(QMainWindow):
 
             self._load_signal(filepath, calcium_mode=calcium_mode)
 
-    def _load_signal(self, filepath, calcium_mode: bool, update_progress=None):
+    @loading_popup
+    def load_scimedia(self, update_progress=None):
+
+        filepath = QFileDialog.getOpenFileName(
+            self,
+            "Load SciMedia File",
+            "",
+            "SciMedia CMOS File(*.gsd);;All Files (*)",
+        )[0]
+
+        if filepath and ".gsd" in filepath:
+
+            self._load_signal(filepath, calcium_mode=False, mode="scimedia", update_progress=update_progress)
+
+
+    def _load_signal(self, filepath, calcium_mode: bool, mode: Literal["cascade", "scimedia"]="cascade", update_progress=None):
 
         filename = os.path.split(filepath)[-1]
 
-        signals = load_cascade_file(
-            filepath, self.largeFilePopUp, dual_mode=calcium_mode
-        )
+        if mode == "cascade":
+            signals = load_cascade_file(
+                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+            )
+        elif mode == "scimedia":
+            signals = load_scimedia_data(
+                filepath, self.largeFilePopUp
+            )
 
         if update_progress:
             update_progress(0.5)
@@ -436,8 +462,6 @@ class CardiacMap(QMainWindow):
         update_progress=None,
     ):
         if update_progress:
-            print(update_progress)
-            print("progres update?")
             update_progress(0.1)
         # Calls a transform function within the signal item
         if transform == "spatial_average":
