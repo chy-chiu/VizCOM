@@ -1,0 +1,49 @@
+body {
+    background-color: #003057;
+}
+
+p {
+    color: #ced6dd;
+}
+
+h1 {
+    color: #b3a369;
+}
+
+h2 {
+    color: #b3a369;
+}
+
+li {
+    color: #b3a369;
+}
+
+a {
+    color: #eaaa00;
+    text-decoration: none;
+}
+
+img {
+    height: 50%;
+    width: 25%;
+    vertical-align: middle;
+}
+
+.parameter {
+    background-color: #54585a;
+    color: #eaaa00;
+    border-radius: 5px 5px 5px;
+    border: 1px solid black;
+    padding: 1px 2px 1px 2px;
+    font-family: monospace
+}
+
+.math {
+    background-color: #222832;
+    color: #f3c7ee;
+    border-radius: 5px 5px 5px;
+    border: 1px solid black;
+    padding: 3px 4px 3px 4px;
+    font-family: monospace
+}
+

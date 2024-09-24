@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 
-def Stacking(data, derivative, numPeriods, distance, offset, alternans, update_progress=None):
+def Stacking(data, derivative, numPeriods, distance, offset, alternans, mask=None, update_progress=None):
     # speeds computation
     derivative = np.moveaxis(derivative, 0, -1)
     data = np.moveaxis(data, 0, -1)
@@ -14,10 +14,13 @@ def Stacking(data, derivative, numPeriods, distance, offset, alternans, update_p
     # stack each pixel
     for y in range(len(data)):
         for x in range(len(data[0])):
-            d = data[y][x]
-            # print(len(d))
-            dYdX = derivative[y][x]
-            result = stack(d, dYdX, numPeriods, distance, offset, alternans)
+            if mask[y][x] == 0:
+                result = np.ones(2)
+            else:
+                d = data[y][x]
+                # print(len(d))
+                dYdX = derivative[y][x]
+                result = stack(d, dYdX, numPeriods, distance, offset, alternans)
 
             if len(result) > longestRes:
                 longestRes = len(result)

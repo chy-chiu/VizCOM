@@ -178,7 +178,8 @@ class StackingWindow(QMainWindow):
         super().__init__()
         self.parent = parent
         self.settings = parent.settings
-        self.ms = self.parent.ms
+        self.ms = parent.ms
+        self.mask = parent.signal.mask
         self.setWindowTitle("Stacking")
         
         self.x = 64
@@ -191,7 +192,7 @@ class StackingWindow(QMainWindow):
 
         # Create viewer tabs
         self.image_tab = StackingPositionView(
-            self, self.parent.signal.transformed_data[0]
+            self, self.parent.signal.transformed_data[0] * self.mask
         )  # ----------------------------
 
         self.image_tabs = QTabWidget()
@@ -249,6 +250,7 @@ class StackingWindow(QMainWindow):
         layout = QVBoxLayout()
         self.options1 = QToolBar()
         self.options2 = QToolBar()
+        self.options3 = QToolBar()
         self.actions_bar = QToolBar()
 
         self.beats = Spinbox(
@@ -267,8 +269,8 @@ class StackingWindow(QMainWindow):
             max=max_time,
             val=self.settings.child("Stacking Parameters").child("Start Time").value(),
             step=1,
-            min_width=60,
-            max_width=60,
+            min_width=50,
+            max_width=50,
         )
         self.start_time.sigValueChanged.connect(self.update_signal_plot)
         
@@ -277,8 +279,8 @@ class StackingWindow(QMainWindow):
             max=max_time,
             val=max_time,
             step=1,
-            min_width=60,
-            max_width=60,
+            min_width=50,
+            max_width=50,
         )
         self.end_time.sigValueChanged.connect(self.update_signal_plot)
         
@@ -287,10 +289,31 @@ class StackingWindow(QMainWindow):
             max=len(self.parent.signal.transformed_data),
             val=self.ms,
             step=1,
-            min_width=60,
-            max_width=60,
+            min_width=50,
+            max_width=50,
         )
         self.min_width.sigValueChanged.connect(self.update_signal_plot)
+        
+        self.offset = Spinbox(
+            min=0,
+            max=1,
+            val=.1,
+            step=.05,
+            min_width=50,
+            max_width=50,
+        )
+        
+        self.offset.sigValueChanged.connect(self.update_signal_plot)
+        
+        self.sensitivity = Spinbox(
+            min=.01,
+            max=1,
+            val=.7,
+            step=.05,
+            min_width=50,
+            max_width=50,
+        )
+        self.sensitivity.sigValueChanged.connect(self.update_signal_plot)
 
         self.alternans = QCheckBox()
         self.alternans.setChecked(
@@ -298,21 +321,26 @@ class StackingWindow(QMainWindow):
         )
         self.alternans.checkStateChanged.connect(self.update_signal_plot)
 
-        self.options1.addWidget(QLabel("Start Time: "))
+        self.options1.addWidget(QLabel(" Start Time:"))
         self.options1.addWidget(self.start_time)
-        self.options1.addWidget(QLabel("End Time: "))
+        self.options1.addWidget(QLabel(" End Time:"))
         self.options1.addWidget(self.end_time)
 
-        self.options2.addWidget(QLabel("# of Beats: "))
+        self.options2.addWidget(QLabel(" # of Beats:"))
         self.options2.addWidget(self.beats)
-        self.options2.addWidget(QLabel("Min Slice Width: "))
-        self.options2.addWidget(self.min_width)
+        self.options2.addWidget(QLabel(" Alternans:"))
+        self.options2.addWidget(self.alternans)
         
-        self.actions_bar.addWidget(QLabel("Alternans: "))
-        self.actions_bar.addWidget(self.alternans)
+        self.options3.addWidget(QLabel(" Min Slice Width:"))
+        self.options3.addWidget(self.min_width)
+        self.options3.addWidget(QLabel(" Offset:"))
+        self.options3.addWidget(self.offset)
+        self.options3.addWidget(QLabel(" Sensitivity:"))
+        self.options3.addWidget(self.sensitivity)
 
         self.options1.setStyleSheet(QTOOLBAR_STYLE)
         self.options2.setStyleSheet(QTOOLBAR_STYLE)
+        self.options3.setStyleSheet(QTOOLBAR_STYLE)
         self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
 
 
@@ -326,6 +354,8 @@ class StackingWindow(QMainWindow):
         layout.addSpacing(5)
         layout.addWidget(self.options2)
         layout.addSpacing(5)
+        layout.addWidget(self.options3)
+        layout.addSpacing(5)
         layout.addWidget(self.actions_bar)
 
         self.options_widget.setLayout(layout)
@@ -335,18 +365,19 @@ class StackingWindow(QMainWindow):
         start = int(self.start_time.value() // self.ms)
         end = int(self.end_time.value() // self.ms)
         beats = int(self.beats.value())
-        offset = .1
+        offset = self.offset.value()
         distance = int(self.min_width.value() // self.ms)
         alternans = self.alternans.isChecked()
+        mask = self.mask
 
-        self.stack = self.parent.signal.perform_stacking(start, end, beats, distance, offset, alternans, update_progress)
+        self.stack = self.parent.signal.perform_stacking(start, end, beats, distance, offset, alternans, mask, update_progress)
         self.xVals = self.parent.xVals[0 : len(self.stack)]
         self.update_signal_plot()
 
     def update_signal_plot(self):
         if self.stack is not None:
             self.stack_tab.signal_data.setData(
-                x=self.xVals, y=self.stack[:, self.y, self.x]
+                x=self.xVals, y=self.stack[:, self.x, self.y] # stacking results are transposed
             )
             
         start = int(self.start_time.value()//self.ms)
@@ -367,14 +398,16 @@ class StackingWindow(QMainWindow):
             elif self.line_count > int(self.beats.value() + 1):
                 self.remove_line(self.preview_tab)
 
-        derivative = np.gradient(self.preview)
+        derivative = NormalizeData(np.gradient(self.preview))
+        prominence = 1 - self.sensitivity.value()
         
         if int(self.min_width.value()) != 0:
-            peaks = find_peaks(NormalizeData(derivative), distance=(self.min_width.value() + 1)//2, prominence=0.3)[0]
+            peaks = find_peaks(derivative, distance=(self.min_width.value() + 1)//int(self.ms), prominence=prominence)[0]
         else:
-            peaks = find_peaks(NormalizeData(derivative), prominence=0.3)[0]
-        
-        offset = .1
+            peaks = find_peaks(derivative, prominence=prominence)[0]
+        if peaks is None:
+            return
+        offset = self.offset.value()
         if self.alternans.isChecked():
             peaks = peaks[::2]  # take only even peaks
             offset // 2
