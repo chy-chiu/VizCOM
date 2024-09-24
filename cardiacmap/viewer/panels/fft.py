@@ -198,9 +198,10 @@ class FFTWindow(QMainWindow):
         self.data = []
         self.parent = parent
         self.ms = parent.ms
+        self.mask = parent.signal.mask
         self.settings = parent.settings
         
-        self.img_data = [parent.signal.transformed_data[0]]
+        self.img_data = [parent.signal.transformed_data[0] * self.mask]
         self.img_index = 0
         
         self.setWindowTitle("FFT")
@@ -509,8 +510,8 @@ class FFTWindow(QMainWindow):
         # freqs = np.fft.fftfreq(endIdx - startIdx, self.ms)
         # # scale to hertz and cut in half
         # freqs = freqs[:len(freqs)//2] * 1000
-        
-        self.set_data(ffts, freqs)
+
+        self.set_data(ffts * self.mask, freqs)
         self.init_image()
         self.update_signal_plot()
         
