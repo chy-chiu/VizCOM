@@ -11,6 +11,7 @@ from pyqtgraph.parametertree import Parameter
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -337,21 +338,40 @@ class CardiacMap(QMainWindow):
     # TODO: Fix scroll / header issue here
     def load_help(self):
         self.help_window = QtWidgets.QMainWindow(self)
-        help_text_browser = QtWidgets.QTextBrowser()
-
-        help_text_browser.anchorClicked.connect(lambda x: print(x))
-
-        file_path = "./TUTORIAL.md"
-        url = QtCore.QUrl.fromLocalFile(file_path)
-
-        help_text_browser.setSource(url)
-        self.help_window.setCentralWidget(help_text_browser)
-
+        self.help_browser = QWebEngineView()
+        self.help_toolbar = QtWidgets.QToolBar()
+        #self.help_browser.urlChanged.connect(lambda url: print("New URL:", url))
+        
+        self.forward_button = QAction(">")
+        self.forward_button.triggered.connect(self.help_browser.forward)
+        self.back_button = QAction("<")
+        self.back_button.triggered.connect(self.help_browser.back)
+        
+        self.help_toolbar.addAction(self.back_button)
+        self.help_toolbar.addAction(self.forward_button)
+        
+        # Load Help Pages                                
+        file_path = "../help/HelpGuide.html"
+        url = QtCore.QUrl.fromLocalFile(QtCore.QFileInfo(file_path).absoluteFilePath())
+        self.help_browser.load(url)
+        
+        # Help
+        self.pages_widget = QWidget()
+        layout = QVBoxLayout()
+        layout.addWidget(self.help_toolbar)
+        layout.addWidget(self.help_browser)
+        self.pages_widget.setLayout(layout)
+        
+        self.help_window.setCentralWidget(self.pages_widget)
+        
         self.help_window.setWindowTitle("Help")
         self.help_window.resize(600, 400)
 
         # Store the help window in the instance, so it doesn't get garbage collected
         self.help_window.show()
+        
+    def anchorClicked(self, x):
+        print("clicked:", x)
 
     def create_viewer(self, signal: CascadeSignal, title: str):
         """IF there is a signal already, create a new viewer window. Otherwise
@@ -436,8 +456,8 @@ class CardiacMap(QMainWindow):
         update_progress=None,
     ):
         if update_progress:
-            print(update_progress)
-            print("progres update?")
+            #print(update_progress)
+            #print("progres update?")
             update_progress(0.1)
         # Calls a transform function within the signal item
         if transform == "spatial_average":

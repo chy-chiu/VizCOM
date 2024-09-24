@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <h1>Baseline Drift Removal</h1>
+    <p>
+        The Baseline Drift Removal function attempts to flatten each pixel's signal. 
+        First, it finds relative minima in each signal and displays the detected baseline points from confirmation. 
+        After confirmation, the detected baseline is subtracted from the corresponding signal.
+    </p>
+    <ul>
+        <li>
+            <h2>Baseline Point Finding</h2>
+            <p>
+                To find baseline points, we search each pixel's signal for relative minima using SciPy.signal's
+                <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html">find_peaks</a>
+                function.
+            </p>
+            <p>
+                The <span class="parameter">prominence</span> parameter defines the minimum prominence a point must have 
+                in order to be considered for the baseline. Prominence of a given point is equal to the depth of the valley 
+                relative to the lowest neighboring peak
+            </p>
+            <p>
+                The <span class="parameter">threshold</span> parameter defines the maximum <span class="math">y</span> value that 
+                will be considered for the baseline.
+            </p>
+            <p>
+                The <span class="parameter">distance</span> parameter defines the minimum time required between baseline 
+                points. If two baseline points are found within
+                <span class="parameter">distance</span> ms of each other, the lower of the two points will be kept.
+            </p>
+        </li>
+        <li>
+            <h2>Baseline Interpolation & Removal</h2>
+            <p>
+                Once the user confirms the detected baseline points, baselines are constructed via linear interpolation 
+                between baseline points. The first and last baseline points are extended horizontally to beginning and 
+                end of the signal, respectively.
+            </p>
+            <p>
+                These baselines are then subtracted from the signal at each pixel. Values that lie below the baseline 
+                are set to <span class="math">0</span>.
+            </p>
+        </li>
+    </ul>
+</body>
+</html>
