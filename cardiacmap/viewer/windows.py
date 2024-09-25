@@ -149,8 +149,8 @@ class CardiacMap(QMainWindow):
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
         self.file_menu.addSeparator()
-        self.file_menu.addAction(self.load_scimedia_single)
-        self.file_menu.addSeparator()
+        # self.file_menu.addAction(self.load_scimedia_single)
+        # self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
         self.file_menu.addSeparator()
         # TODO - Save Signal
@@ -377,8 +377,9 @@ class CardiacMap(QMainWindow):
         self.help_toolbar.addAction(self.forward_button)
         
         # Load Help Pages                                
-        file_path = "../help/HelpGuide.html"
+        file_path = "./help/HelpGuide.html"
         url = QtCore.QUrl.fromLocalFile(QtCore.QFileInfo(file_path).absoluteFilePath())
+        print(url)
         self.help_browser.load(url)
         
         # Help
