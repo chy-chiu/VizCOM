@@ -149,8 +149,8 @@ class CardiacMap(QMainWindow):
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
         self.file_menu.addSeparator()
-        # self.file_menu.addAction(self.load_scimedia_single)
-        # self.file_menu.addSeparator()
+        self.file_menu.addAction(self.load_scimedia_single)
+        self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
         self.file_menu.addSeparator()
         # TODO - Save Signal

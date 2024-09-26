@@ -40,8 +40,8 @@ def read_scimedia_data(filepath: str, update_progress=None):
 
     sig_array = np.frombuffer(
         file.read(xPixels * yPixels * nFrames * 2), dtype=dt
-    ).reshape(xPixels, yPixels, nFrames)
-    pooled_array = skimage.measure.block_reduce(sig_array, (2, 2, 1), np.sum)
+    ).reshape(nFrames, xPixels, yPixels)
+    pooled_array = skimage.measure.block_reduce(sig_array, (1, 2, 2), np.mean)
 
     print(pooled_array.shape)
 
@@ -55,7 +55,7 @@ def read_scimedia_data(filepath: str, update_progress=None):
         filename=os.path.basename(filepath),
     )
 
-    return metadata, pooled_array.transpose(2, 0, 1)
+    return metadata, pooled_array
 
 
 def load_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
