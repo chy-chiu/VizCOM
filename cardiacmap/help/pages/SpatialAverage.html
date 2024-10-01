@@ -6,15 +6,13 @@
 <body>
     <h1>Spatial Averaging</h1>
     <p>
-        The Time Average function uses SciPy.ndimage to apply a 2-D convolution kernel with dimensions
-        <span class="math">(2 * <span class="parameter">radius</span> + 1)<sup>2</sup></span>
-        to each image.
+        The Time Average function uses SciPy.ndimage to apply a 2-D convolution kernel to each image.
     </p>
     <ul>
         <li>
             <h2>Uniform <span class="parameter">mode</span></h2>
             <p>
-                Uniform mode applies averaging via a uniform kernel. <span class="parameter">sigma</span> is ignored.
+                Uniform mode applies averaging via a uniform kernel of size <span class="parameter">radius</span>. <span class="parameter">sigma</span> is ignored.
             </p>
             <div>
                 <img src="../images/spatial-avg-raw.jpg" width="100" />
@@ -22,13 +20,16 @@
                 <img src="../images/spatial-avg-uni.jpg" width="100" />
             </div>
             <p>
-                See <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.uniform_filter.html">uniform_filter</a> for more details.
+                See <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.uniform_filter.html">uniform_filter</a> 
+                for more details.
             </p>
         </li>
         <li>
             <h2>Gaussian <span class="parameter">mode</span></h2>
             <p>
-                Gaussian mode applies averaging via a gaussian kernel, and a standard deviation of <span class="math">√(<span class="parameter">sigma</span>/2)</span>.
+                Gaussian mode applies averaging via a gaussian kernel,
+                with a width of <span class="math">2 * <span class="parameter">radius</span> + 1</span>
+                and a standard deviation of <span class="math">√(<span class="parameter">sigma</span>/2)</span>.
             </p>
             <div>
                 <img src="../images/spatial-avg-raw.jpg" width="100" />

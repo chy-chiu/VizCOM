@@ -6,22 +6,25 @@
 <body>
     <h1>Baseline Drift Removal</h1>
     <p>
-        The Baseline Drift Removal function attempts to flatten each pixel's signal. 
-        First, it finds relative minima in each signal and displays the detected baseline points from confirmation. 
+        The Baseline Drift Removal function attempts to flatten each pixel's signal over time. 
+        First, it finds relative minima in each signal and displays the detected baseline points for confirmation. 
         After confirmation, the detected baseline is subtracted from the corresponding signal.
     </p>
     <ul>
         <li>
-            <h2>Baseline Point Finding</h2>
+            <h2>Baseline Finding</h2>
             <p>
-                To find baseline points, we search each pixel's signal for relative minima using SciPy.signal's
+                Each pixel's signal is searched for valleys by inverting the data and using SciPy.signal's
                 <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html">find_peaks</a>
                 function.
             </p>
             <p>
                 The <span class="parameter">prominence</span> parameter defines the minimum prominence a point must have 
-                in order to be considered for the baseline. Prominence of a given point is equal to the depth of the valley 
-                relative to the lowest neighboring peak
+                in order to be considered for the baseline. Prominence of a given point is equal height of the shortest neighboring peak.
+            </p>
+            <p>
+                See <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.peak_prominences.html">peak_prominences</a>
+                for more details.
             </p>
             <p>
                 The <span class="parameter">threshold</span> parameter defines the maximum <span class="math">y</span> value that 
@@ -41,7 +44,7 @@
                 end of the signal, respectively.
             </p>
             <p>
-                These baselines are then subtracted from the signal at each pixel. Values that lie below the baseline 
+                The baseline is then subtracted from the signal. Values that lie below the baseline 
                 are set to <span class="math">0</span>.
             </p>
         </li>

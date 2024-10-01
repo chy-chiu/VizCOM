@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
     <head>
         <link rel="stylesheet" href="../styles.css">
@@ -6,15 +6,13 @@
     <body>
         <h1>Time Averaging</h1>
         <p>
-            The Time Average function uses SciPy.ndimage to apply a 1-D convolution kernel with a width of
-            <span class="math">2 * <span class="parameter">radius</span> + 1</span>
-            to the signal at each pixel coordinate.
+            The Time Average function uses SciPy.ndimage to apply a 1-D convolution kernel to the signal at each pixel coordinate.
         </p>
         <ul>
             <li>
                 <h2>Uniform <span class="parameter">mode</span></h2>
                 <p>
-                    Uniform mode applies averaging via a uniform kernel. <span class="parameter">sigma</span> is ignored.
+                    Uniform mode applies averaging via a uniform kernel of size <span class="parameter">radius</span>. <span class="parameter">sigma</span> is ignored.
                 </p>
                 <div>
                     <img src="../images/time-avg-uni-raw.png" width="200"/>
@@ -22,13 +20,16 @@
                     <img src="../images/time-avg-uni-res.png" width="200"/>
                 </div>
                 <p>
-                    See <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.uniform_filter.html">uniform_filter</a> for more details.
+                    See <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.uniform_filter.html">uniform_filter</a>
+                    for more details.
                 </p>
             </li>
             <li>
                 <h2>Gaussian <span class="parameter">mode</span></h2>
                 <p>
-                    Gaussian mode applies averaging via a gaussian kernel, and a standard deviation of <span class="parameter">sigma</span>.
+                    Gaussian mode applies averaging via a gaussian kernel,
+                    with a width of <span class="math">2 * <span class="parameter">radius</span> + 1</span>
+                    and a standard deviation of <span class="parameter">sigma</span>.
                 </p>
                 <div>
                     <img src="../images/time-avg-gauss-raw.png" width="200" />
