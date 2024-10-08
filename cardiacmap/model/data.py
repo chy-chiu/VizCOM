@@ -60,8 +60,8 @@ class CardiacSignal:
         # This is the single source of truth that will be referred to again
         self.base_data = deepcopy(signal)
 
-        # Variable to hold the data signal for transformations
-        self.transformed_data = deepcopy(signal)
+        # Variable to hold the data signal for transformations. We use np.float32 to conserve memory
+        self.transformed_data = deepcopy(signal).astype(np.float32) 
         
         # Extra copy to save the previous transform in case user wants to undo an action
         self.previous_transform = deepcopy(signal)
@@ -104,21 +104,26 @@ class CardiacSignal:
         sig,
         rad,
         mode: Literal["Gaussian", "Uniform"] = "Gaussian",
-        update_progress=None
+        update_progress=None, 
+        start=None,
+        end=None
     ):
+        start = start or 0
+        end = end or len(self.transformed_data) - 1
+
         if update_progress:
             update_progress(0.2)
+
+        self.previous_transform = self.transformed_data
+        
         if type == "time":
-            self.transformed_data = TimeAverage(
-                self.transformed_data, sig, rad, self.mask, mode
+            self.transformed_data[start:end] = TimeAverage(
+                self.transformed_data[start:end], sig, rad, self.mask, mode
             )
-
         elif type == "spatial":
-            self.transformed_data = SpatialAverage(
-                self.transformed_data, sig, rad, self.mask, mode
+            self.transformed_data[start:end] = SpatialAverage(
+                self.transformed_data[start:end], sig, rad, self.mask, mode
             )
-
-        return
 
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)
@@ -126,21 +131,31 @@ class CardiacSignal:
 
     def trim_data(self, startTrim, endTrim):
         self.trimmed = [self.trimmed[0] + startTrim, self.trimmed[1] + endTrim]
-        self.transformed_data = TrimSignal(self.transformed_data, startTrim, endTrim)
+        self.previous_transform = self.transformed_data
+        self.transformed_data = self.transformed_data[startTrim:-endTrim, :, :]
 
     def reset_data(self):
         self.transformed_data = deepcopy(self.base_data)
 
+    def undo(self):
+        self.transformed_data = self.previous_transform    
+
     def reset_image(self):
         self.image_data = (self.base_data - self.base_data.min()) / self.base_data.max()
 
-    def normalize(self):
-        self.transformed_data = NormalizeData(self.transformed_data)
+    def normalize(self, start=None, end=None):
+        start = start or 0
+        end = end or len(self.transformed_data)
+        n = NormalizeData(self.transformed_data[start:end, :, :])
+        self.transformed_data[start:end, :, :] = n
 
     ############## Baseline drift related methods
-    def calc_baseline(self, periodLen, threshold, prominence, alternans):
+    def calc_baseline(self, periodLen, threshold, prominence, alternans, start=None, end=None):
+        start = start or 0
+        end = end or len(self.transformed_data) - 1
+
         print("Calculating baseline:", periodLen, threshold, prominence, alternans)
-        data = self.transformed_data
+        data = self.transformed_data[start:end]
         mask = self.mask
         t = np.arange(len(data))
         threads = 4

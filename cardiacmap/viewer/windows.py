@@ -298,10 +298,20 @@ class CardiacMap(QMainWindow):
 
         if filepath and ".gsd" in filepath:
 
-            self._load_signal(filepath, calcium_mode=False, mode="scimedia", update_progress=update_progress)
+            self._load_signal(
+                filepath,
+                calcium_mode=False,
+                mode="scimedia",
+                update_progress=update_progress,
+            )
 
-
-    def _load_signal(self, filepath, calcium_mode: bool, mode: Literal["cascade", "scimedia"]="cascade", update_progress=None):
+    def _load_signal(
+        self,
+        filepath,
+        calcium_mode: bool,
+        mode: Literal["cascade", "scimedia"] = "cascade",
+        update_progress=None,
+    ):
 
         filename = os.path.split(filepath)[-1]
 
@@ -310,9 +320,7 @@ class CardiacMap(QMainWindow):
                 filepath, self.largeFilePopUp, dual_mode=calcium_mode
             )
         elif mode == "scimedia":
-            signals = load_scimedia_data(
-                filepath, self.largeFilePopUp
-            )
+            signals = load_scimedia_data(filepath, self.largeFilePopUp)
 
         if update_progress:
             update_progress(0.5)
@@ -364,37 +372,37 @@ class CardiacMap(QMainWindow):
         self.help_window = QtWidgets.QMainWindow(self)
         self.help_browser = QWebEngineView()
         self.help_toolbar = QtWidgets.QToolBar()
-        #self.help_browser.urlChanged.connect(lambda url: print("New URL:", url))
-        
+        # self.help_browser.urlChanged.connect(lambda url: print("New URL:", url))
+
         self.forward_button = QAction(">")
         self.forward_button.triggered.connect(self.help_browser.forward)
         self.back_button = QAction("<")
         self.back_button.triggered.connect(self.help_browser.back)
-        
+
         self.help_toolbar.addAction(self.back_button)
         self.help_toolbar.addAction(self.forward_button)
-        
-        # Load Help Pages                                
+
+        # Load Help Pages
         file_path = "./help/HelpGuide.html"
         url = QtCore.QUrl.fromLocalFile(QtCore.QFileInfo(file_path).absoluteFilePath())
         print(url)
         self.help_browser.load(url)
-        
+
         # Help
         self.pages_widget = QWidget()
         layout = QVBoxLayout()
         layout.addWidget(self.help_toolbar)
         layout.addWidget(self.help_browser)
         self.pages_widget.setLayout(layout)
-        
+
         self.help_window.setCentralWidget(self.pages_widget)
-        
+
         self.help_window.setWindowTitle("Help")
         self.help_window.resize(600, 400)
 
         # Store the help window in the instance, so it doesn't get garbage collected
         self.help_window.show()
-        
+
     def anchorClicked(self, x):
         print("clicked:", x)
 
@@ -480,9 +488,12 @@ class CardiacMap(QMainWindow):
         ],
         update_progress=None,
     ):
+        start_frame = self.signal_panel.start_slider.value()
+        end_frame = self.signal_panel.end_slider.value()
+
         if update_progress:
-            #print(update_progress)
-            #print("progres update?")
+            # print(update_progress)
+            # print("progres update?")
             update_progress(0.1)
         # Calls a transform function within the signal item
         if transform == "spatial_average":
@@ -490,16 +501,29 @@ class CardiacMap(QMainWindow):
             radius = self.settings.child("Spatial Average").child("Radius").value()
             mode = self.settings.child("Spatial Average").child("Mode").value()
             self.signal.perform_average(
-                type="spatial", sig=sigma, rad=radius, mode=mode, update_progress=update_progress
+                type="spatial",
+                sig=sigma,
+                rad=radius,
+                mode=mode,
+                update_progress=update_progress,
+                start=start_frame,
+                end=end_frame,
             )
-            self.signal.normalize()
+            self.signal.normalize(start=start_frame, end=end_frame)
 
         elif transform == "time_average":
             sigma = self.settings.child("Time Average").child("Sigma").value()
             radius = self.settings.child("Time Average").child("Radius").value()
             mode = self.settings.child("Time Average").child("Mode").value()
-            self.signal.perform_average(type="time", sig=sigma, rad=radius, mode=mode)
-            self.signal.normalize()
+            self.signal.perform_average(
+                type="time",
+                sig=sigma,
+                rad=radius,
+                mode=mode,
+                start=start_frame,
+                end=end_frame,
+            )
+            self.signal.normalize(start=start_frame, end=end_frame)
 
         elif transform == "trim":
             left = int(
@@ -512,7 +536,7 @@ class CardiacMap(QMainWindow):
             self.signal.normalize()
 
         elif transform == "normalize":
-            self.signal.normalize()
+            self.signal.normalize(start=start_frame, end=end_frame)
 
         elif transform == "reset":
             self.signal.reset_data()
@@ -529,6 +553,9 @@ class CardiacMap(QMainWindow):
     def calculate_baseline_drift(
         self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
+        start_frame = self.signal_panel.start_slider.value()
+        end_frame = self.signal_panel.end_slider.value()
+
         period = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
         )
@@ -537,7 +564,7 @@ class CardiacMap(QMainWindow):
         alternans = self.settings.child("Baseline Drift").child("Alternans").value()
 
         if action == "calculate":
-            self.signal.calc_baseline(period, threshold, prominence, alternans)
+            self.signal.calc_baseline(period, threshold, prominence, alternans, start=start_frame, end=end_frame)
 
             self.signal_panel.baseline_drift.enable_confirm_buttons()
             self.signal.show_baseline = True
@@ -557,7 +584,6 @@ class CardiacMap(QMainWindow):
         self.apd_window = APDWindow(self)
         self.apd_window.show()
 
-
     def create_stacking_window(self):
         self.stacking_window = StackingWindow(self)
         self.stacking_window.show()
@@ -574,6 +600,7 @@ class CardiacMap(QMainWindow):
 
         _settings = SettingsDialog(self.settings)
         _settings.exec()
+
 
 if __name__ == "__main__":
 

@@ -31,11 +31,9 @@ def TrimSignal(arr, trimStart, trimEnd):
     return newArr
 
 
-def NormalizeData(data):
-    data = data - data.min(axis=0)
-
-    return data / data.max(axis=0)
-
+def NormalizeData(data: np.ndarray):
+    d = (data - data.min(axis=0))
+    return  d / d.max(axis=0)
 
 def FFT(signal):
     """
