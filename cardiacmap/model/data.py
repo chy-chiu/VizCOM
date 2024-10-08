@@ -8,8 +8,6 @@ from pydantic import BaseModel
 
 from cardiacmap.transforms import (
     FFT,
-    CalculateAPD_DI,
-    GetIntersectionsAPD_DI,
     GetMins,
     InvertSignal,
     NormalizeData,
@@ -121,6 +119,23 @@ class CardiacSignal:
             )
 
         return
+
+    # def calc_apd_di_threshold(self, threshold):
+    #     data = np.moveaxis(self.transformed_data, 0, -1)
+    #     self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
+    #         data, threshold, self.mask
+    #     )
+    #     self.apdThreshold = threshold
+
+    # def calc_apd_di(self):
+    #     self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
+    #         self.apdDIThresholdIdxs, self.apdIndicators
+    #     )
+
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = self.dis = self.di_indices = []
+        self.apdThreshold = 0
 
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)

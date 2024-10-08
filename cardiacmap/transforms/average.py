@@ -6,16 +6,16 @@ from scipy.ndimage import gaussian_filter, uniform_filter
 import time
 
 
-def TimeAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
+def TimeAverage(arr, sigma, radius, mask=None, mode="Uniform"):
     """Function to apply a gaussian filter to a data array along Time Axis
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
-        radius (int): radius of averaging, kernel width = 2 * radius + 1
+        radius (int): radius of averaging
         mask (array): 2d array with same dimensions as arr[0]
 
     Returns:
-        ndarray: result of averaging along time axis
+        array: result of averaging along time axis
     """
     #s = time.time()
     if sigma < 0:
@@ -47,11 +47,11 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     Args:
         arr (array): data, must be 3-dimensional with time on the first axis
         sigma (float): intensity of averaging, higher values -> more blur
-        radius (int): radius of averaging, kernel width = 2 * radius + 1
+        radius (int): radius of averaging
         mask (array): 2d array with same dimensions as arr[0]
 
     Returns:
-        ndarray: result of averaging along spatial axes
+        array: result of averaging along spatial axes
     """
     #s = time.time()
     
@@ -83,15 +83,3 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     #e = time.time()
     #print("Spatial Avg Runtime:", e-s)
     return data
-
-
-def useUniform(arr, sig, radius=1, axes=-1):
-    """Function to convert gaussian_filter inputs for a uniform_filter
-       Doing it this way avoids several if statements
-    Args:
-        arr (array): data
-        sig (int): this param is ignored in this function
-        radius(int): radius of averaging, kernel width = 2*radius+1
-        axes (int, tuple): axes of averaging
-    """
-    return uniform_filter(arr, size=2 * radius + 1, axes=axes)

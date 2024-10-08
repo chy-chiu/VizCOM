@@ -114,12 +114,11 @@ class SpatialDragPlot(pg.PlotItem):
 
 class SpatialPlotView(QWidget):
 
-    def __init__(self, parent, mode):
+    def __init__(self, parent):
 
         super().__init__(parent=parent)
 
         self.parent = parent
-        self.mode = mode
 
         self.init_image_view()
         self.init_player_bar()
@@ -180,8 +179,8 @@ class SpatialPlotView(QWidget):
 
         self.frameIdx = QtWidgets.QSpinBox()
         self.frameIdx.setFixedWidth(60)
-        self.frameIdx.setMaximum(len(self.parent.data[self.mode][0]) - 1)
-        self.frameIdx.setValue(0)
+        self.frameIdx.setMaximum(len(self.parent.data))
+        self.frameIdx.setValue(1)
         self.frameIdx.setSingleStep(1)
         self.frameIdx.setStyleSheet(SPINBOX_STYLE)
         self.frameIdx.valueChanged.connect(self.jump_frames)
@@ -191,7 +190,7 @@ class SpatialPlotView(QWidget):
         self.diff_min.setFixedWidth(60)
         self.diff_min.setMinimum(-100000)
         self.diff_min.setMaximum(100000)
-        self.diff_min.setValue(np.min(np.diff(self.parent.data[self.mode])))
+        self.diff_min.setValue(np.min(np.diff(self.parent.data)))
         self.diff_min.setStyleSheet(SPINBOX_STYLE)
         self.diff_min.valueChanged.connect(self.update_data)
 
@@ -207,20 +206,20 @@ class SpatialPlotView(QWidget):
         self.max_val.setFixedWidth(60)
         self.max_val.setMinimum(-100000)
         self.max_val.setMaximum(100000)
-        self.max_val.setValue(np.max(self.parent.data[self.mode]))
+        self.max_val.setValue(np.max(self.parent.data))
         self.max_val.setStyleSheet(SPINBOX_STYLE)
         self.max_val.valueChanged.connect(self.update_data)
 
         self.beatNumber = self.frameIdx.value()
 
-        self.player_bar.addWidget(QLabel("   Beat #: "))
+        self.player_bar.addWidget(QLabel("   Beat/Interval #: "))
         self.player_bar.addWidget(self.frameIdx)
 
-        self.player_bar.addWidget(QLabel("   Minimum: "))
+        self.player_bar.addWidget(QLabel("   Image Min: "))
         self.diff_min_spinbox = self.player_bar.addWidget(self.diff_min)
         self.min_spinbox = self.player_bar.addWidget(self.zero_val)
 
-        self.player_bar.addWidget(QLabel("   Maximum: "))
+        self.player_bar.addWidget(QLabel("   Image Max: "))
         self.player_bar.addWidget(self.max_val)
 
         self.show_diff = QCheckBox()
@@ -292,23 +291,23 @@ class SpatialPlotView(QWidget):
     def update_data(self):
         if self.show_diff.isChecked():
             color_range = (self.diff_min.value(), self.max_val.value())
-            self.frameIdx.setMaximum(len(self.parent.data[self.mode][0]) - 2)
+            self.frameIdx.setMaximum(len(self.parent.data) - 1)
             self.image_view.setImage(
-                np.diff(self.parent.data[self.mode][self.frameIdx.value()]),
+                np.diff(self.parent.data[self.frameIdx.value()-1]),
                 levels=color_range,
                 autoRange=False,
             )
         else:
             color_range = (self.zero_val.value(), self.max_val.value())
-            self.frameIdx.setMaximum(len(self.parent.data[self.mode][0]) - 1)
+            self.frameIdx.setMaximum(len(self.parent.data))
             self.image_view.setImage(
-                self.parent.data[self.mode][self.frameIdx.value()],
+                self.parent.data[self.frameIdx.value()-1],
                 levels=color_range,
                 autoRange=False,
             )
 
-        # print(self.frameIdx.value())
-        # print(self.parent.data[self.mode].shape)
+        #print(self.frameIdx.value())
+        #print(self.parent.data.shape)
 
         self.update_line()
         self.update_ui()
