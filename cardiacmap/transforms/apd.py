@@ -2,60 +2,39 @@ import concurrent.futures as cf
 from types import NoneType
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, uniform_filter
-from scipy.signal import find_peaks
 
 
-def GetIntersectionsAPD_DI(data, threshold, mask):
+def GetThresholdIntersections(data, threshold, mask = None):
     """Function to Find intersections between threshold and data
     Args:
         data (array): input data
         threshold (int): threshold value
     """
-    yLen = len(data)
-    xLen = len(data[0])
+    flat_swapped_arr = np.swapaxes(data.reshape(data.shape[0], -1), 0, 1)
+    pixels =  np.arange(flat_swapped_arr.shape[0])
+    intersections = []
+    apdFlags = []
+    for p in pixels:
+        ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold)
+        intersections.append(ints)
+        apdFlags.append(apd)
+    apdArr, diArr = CalculateIntervals(intersections, apdFlags)
+    print(apdArr.shape, diArr.shape)
+    apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], data.shape[1], data.shape[2])
+    diArr = np.swapaxes(diArr, 1, 0).reshape((diArr.shape[1], data.shape[1], data.shape[2]))
+    return apdArr, diArr
 
-    # get crossing indices
-    idx = np.argwhere(
-        np.diff(np.sign(data - threshold))
-    )  # this line is by far the most time consuming
-    # TODO: Is there a better way?
+def GetThresholdIntersections1D(data, threshold, spacing = 1):
+    # get all indices where the data crosses the threshold
+    t0 = np.argwhere( np.diff( np.sign( data - threshold )))[:, 0] # idx before crossing
+    t1 = t0 + 1 # idx after
 
-    ys = idx[:, 0]
-    xs = idx[:, 1]
-
-    validSigs = ys * xLen + xs
-    idx0 = idx[:, 2]  # index before
-    # split the index values by signal
-    split_idx = np.argwhere(np.diff(validSigs) != 0).flatten() + 1
-    splits0 = np.split(idx0, split_idx)
-    numInvalidSignals = 0  # splits offset
-
-    # get unique signals from "valid" list
-    # must do this AFTER splitting
-    validSigs = np.unique(validSigs)
-    outArr = []
-    apdsArr = []
-    indices = np.arange(xLen * yLen)
-    for index in indices:
-        x = int(index % yLen)
-        y = int(index / yLen)
-        # check if this signal is valid
-        if index in validSigs:
-            t0Idx = splits0[index - numInvalidSignals]
-            t1Idx = t0Idx + 1
-            # print(y, x)
-            # get t values for apds/dis
-            getIndicesAPD_DI(
-                threshold, t0Idx, data[y][x][t0Idx], data[y][x][t1Idx], outArr, apdsArr
-            )
-        else:
-            numInvalidSignals += 1
-
-    return outArr, apdsArr
+    y0 = data[t0]
+    y1 = data[t1]
+    return getIndices(threshold, t0, y0, y1)
 
 
-def getIndicesAPD_DI(threshold, x0s, y0s, y1s, resArr, apdArr):
+def getIndices(threshold, x0s, y0s, y1s):
     """Helper function to calculate the exact t values of intersection for a signal
     Args:
         threshold (int): threshold value
@@ -73,45 +52,52 @@ def getIndicesAPD_DI(threshold, x0s, y0s, y1s, resArr, apdArr):
     else:
         return -1
     intercepts = y0s - (slopes * x0s)
-    indices = (threshold - intercepts) / slopes
-    resArr.append(indices)
-    apdArr.append(apdFirst)
-    return 0
+    ts = (threshold - intercepts) / slopes
+    return ts, apdFirst
 
 
-def CalculateAPD_DI(intersections, firstIntervalFlag):
+def CalculateIntervals(intersections, firstIntervalFlag):
     """Function to measure the intervals between intersections and store interval time as apd/di
     Args:
-        intersections (array): intersections found by GetIntersectionsAPD_DI()
+        intersections (array): intersections found by GetThresholdIntersections()
         firstIntervalFlag (array): bool array indicating whether first interval of a signal is apd/di
     """
-    apdArr = [[] for s in range(len(intersections))]
-    apdIdxArr = [[] for s in range(len(intersections))]
-    diArr = [[] for s in range(len(intersections))]
-    diIdxArr = [[] for s in range(len(intersections))]
-    for sig in range(len(intersections)):
+    apdArr = []
+    diArr = []
+    longestAPD = 0
+    longestDI = 0
+    for sig in np.arange(len(intersections)):
         # get this signals intersections
-        signalIndices = intersections[sig]
+        sigInters = np.array(intersections[sig])
+        intervals = np.diff(sigInters)
         # check if the first interval is an apd or di
-        apdEvens = firstIntervalFlag[sig]
-        for i in range(1, len(signalIndices)):
-            index0 = signalIndices[i - 1]
-            index1 = signalIndices[i]
-            duration = index1 - index0
+        apdFirst = firstIntervalFlag[sig]
+        
+        if apdFirst:
+            apds = intervals[::2]
+            dis = intervals[1::2] 
+        else:
+            dis = intervals[::2]
+            apds = intervals[1::2]
+            
+        if len(apds) > longestAPD:
+            longestAPD = len(apds)
+            
+        if len(dis) > longestDI:
+            longestDI = len(dis)
+            
+        apdArr.append(apds)
+        diArr.append(dis)
 
-            # append duration and starting index of interval to appropriate array
-            if i % 2 == 1:
-                if apdEvens:
-                    apdArr[sig].append(duration)
-                    apdIdxArr[sig].append(index0)
-                else:
-                    diArr[sig].append(duration)
-                    diIdxArr[sig].append(index0)
-            else:
-                if apdEvens:
-                    diArr[sig].append(duration)
-                    diIdxArr[sig].append(index0)
-                else:
-                    apdArr[sig].append(duration)
-                    apdIdxArr[sig].append(index0)
-    return apdArr, apdIdxArr, diArr, diIdxArr
+    apdArr = pad(apdArr, longestAPD)
+    diArr = pad(diArr, longestDI)
+    return apdArr, diArr
+
+
+# helper function to pad an array with zeros until it is rectangular
+def pad(array, targetWidth):
+    for i in range(len(array)):
+        numZeros = targetWidth - len(array[i])
+        zeros = np.zeros(numZeros)
+        array[i] = np.concatenate((array[i], zeros))
+    return np.asarray(array)

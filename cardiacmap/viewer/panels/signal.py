@@ -178,10 +178,6 @@ class SignalPanel(QWidget):
         self.baseline_drift = ParameterConfirmButton(
             "Remove Baseline Drift", self.settings.child("Baseline Drift")
         )
-        # APD Button
-        self.apd = ParameterConfirmButton(
-            "Calculate APD / DI", self.settings.child("APD Parameters")
-        )
 
         # Display data points
         self.show_points = QCheckBox()
@@ -223,23 +219,12 @@ class SignalPanel(QWidget):
             partial(self.parent.calculate_baseline_drift, action="reset")
         )
 
-        self.apd.action.pressed.connect(
-            partial(self.parent.calculate_apd, action="calculate")
-        )
-        self.apd.confirm.pressed.connect(
-            partial(self.parent.calculate_apd, action="confirm")
-        )
-        self.apd.reset.pressed.connect(
-            partial(self.parent.calculate_apd, action="reset")
-        )
-
         self.transform_bar.addAction(self.reset)
         self.transform_bar.addAction(invert)
         self.transform_bar.addWidget(trim)
         self.transform_bar.addWidget(time_average)
         self.transform_bar.addWidget(spatial_average)
         self.transform_bar.addWidget(self.baseline_drift)
-        self.transform_bar.addWidget(self.apd)
 
         # colors
         self.color_button = ColorPaletteButton(self)

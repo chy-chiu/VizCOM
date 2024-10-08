@@ -41,15 +41,13 @@ from cardiacmap.model.scimedia import load_scimedia_data
 from cardiacmap.model.data import CascadeSignal
 from cardiacmap.viewer.panels import (
     AnnotateView,
+    APDWindow,
     FFTWindow,
     IsochromeWindow,
     MetadataPanel,
     PositionView,
-    ScatterPanel,
-    ScatterPlotView,
     SettingsDialog,
     SignalPanel,
-    SpatialPlotView,
     StackingWindow,
 )
 from cardiacmap.viewer.components import FrameInputDialog
@@ -159,15 +157,15 @@ class CardiacMap(QMainWindow):
         # Windows Menu
         self.stacking = QAction("Stacking")
         self.stacking.triggered.connect(self.create_stacking_window)
-        self.apd_window = QAction("APD / DI Plots")
-        self.apd_window.triggered.connect(self.plot_apds)
+        self.apd = QAction("APD / DI")
+        self.apd.triggered.connect(self.create_apd_window)
         self.isochrome = QAction("Isochrome / Vector Map")
         self.isochrome.triggered.connect(self.create_isochrome_window)
         self.fft = QAction("FFT", self)
         self.fft.triggered.connect(self.create_fft_window)
 
         self.windows_menu.addAction(self.stacking)
-        self.windows_menu.addAction(self.apd_window)
+        self.windows_menu.addAction(self.apd)
         self.windows_menu.addAction(self.isochrome)
         self.windows_menu.addAction(self.fft)
 
@@ -555,52 +553,10 @@ class CardiacMap(QMainWindow):
 
         self.update_signal_plot()
 
-    @loading_popup
-    def calculate_apd(
-        self, action: Literal["calculate", "confirm", "reset"], update_progress=None
-    ):
+    def create_apd_window(self):
+        self.apd_window = APDWindow(self)
+        self.apd_window.show()
 
-        threshold = self.settings.child("APD Parameters").child("Threshold").value()
-
-        if action == "calculate":
-            self.signal.calc_apd_di_threshold(threshold)
-
-            self.signal_panel.apd.enable_confirm_buttons()
-
-            self.signal.show_apd_threshold = True
-        else:
-            if action == "confirm":
-                self.signal.calc_apd_di()
-            else:
-                self.signal.reset_apd_di()
-
-            self.signal.show_apd_threshold = False
-            self.apd_window.setDisabled(False)
-
-            self.signal_panel.apd.disable_confirm_buttons()
-
-        if update_progress:
-            update_progress(0.95)
-        self.update_signal_plot()
-
-    def plot_apds(self):
-
-        if self.signal.apds:
-
-            apd = self.signal.get_spatial_apds() * self.ms
-            di = self.signal.get_spatial_dis() * self.ms
-            self.apd_spatial_plot = SpatialPlotWindow(
-                self, apd, di, self.signal.apdIndicators
-            )
-            self.apd_spatial_plot.show()
-
-        else:
-            apd_popup = QtWidgets.QMessageBox()
-            apd_popup.setWindowTitle("Warning")
-            apd_popup.setText(
-                "No APD / DI in signal.\nTo enable, first calculate APD / DI"
-            )
-            apd_popup.exec()
 
     def create_stacking_window(self):
         self.stacking_window = StackingWindow(self)
@@ -618,88 +574,6 @@ class CardiacMap(QMainWindow):
 
         _settings = SettingsDialog(self.settings)
         _settings.exec()
-
-
-class SpatialPlotWindow(QMainWindow):
-    def __init__(self, parent, apdData=None, diData=None, flags=None):
-        QMainWindow.__init__(self)
-        self.parent = parent
-        self.settings = parent.settings
-
-        self.x1 = self.y1 = self.x2 = self.y2 = 64
-        self.data = [apdData, diData]
-        self.flags = flags
-        apd_mode = 0
-        di_mode = 1
-        # Create viewer tabs
-        self.APD_view_tab = SpatialPlotView(self, apd_mode)
-        self.DI_view_tab = SpatialPlotView(self, di_mode)
-        self.APD_DI_view_tab = ScatterPlotView(self)
-
-        self.image_tabs = QTabWidget()
-        self.image_tabs.addTab(self.APD_view_tab, "Spatial APDs")
-        self.image_tabs.addTab(self.DI_view_tab, "Spatial DIs")
-        self.image_tabs.addTab(self.APD_DI_view_tab, "APD v.s. DI")
-        self.image_tabs.setMinimumWidth(380)
-        self.image_tabs.setMinimumHeight(500)
-
-        # Create Signal Views
-        self.APD_signal_tab = SignalPanel(
-            self,
-            toolbar=False,
-            signal_marker=False,
-            ms_conversion=False,
-            settings=self.settings,
-        )
-        # set up axes
-        leftAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.APD_signal_tab.plot.getPlotItem().getAxis(
-            "bottom"
-        )
-        leftAxis.setLabel(text="Action Potential Duration (ms)")
-        bottomAxis.setLabel(text="Linear Space (px)")
-        # self.DI_signal_tab = SignalPanel(self, False)
-        self.APD_DI_tab = ScatterPanel(self)
-
-        self.signal_tabs = QTabWidget()
-        self.signal_tabs.addTab(self.APD_signal_tab, "APD v.s. Linear Space")
-        # self.signal_tabs.addTab(self.DI_signal_tab, "DI v.s. Linear Space")
-        self.signal_tabs.addTab(self.APD_DI_tab, "APD v.s. DI")
-
-        # Create main layout
-        self.splitter = QSplitter()
-        self.splitter.addWidget(self.image_tabs)
-        self.splitter.addWidget(self.signal_tabs)
-
-        for i in range(self.splitter.count()):
-            self.splitter.setCollapsible(i, False)
-        layout = QHBoxLayout()
-        layout.addWidget(self.splitter)
-
-        self.signal_dock = QDockWidget("Signal View", self)
-        self.image_dock = QDockWidget("Image View", self)
-
-        self.signal_dock.setWidget(self.signal_tabs)
-        self.image_dock.setWidget(self.image_tabs)
-
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
-        self.image_dock.resize(400, 1000)
-        self.setLayout(layout)
-
-    def update_graph(self, coords, beatNum):
-        img = self.data[0][beatNum + 1]
-        data = []
-        for coord in coords:
-            data.append(img[coord[0]][coord[1]])
-        self.APD_signal_tab.signal_data.setData(data)
-
-    def update_signal_plot(self):
-        return
-
-    def update_signal_value(self, evt, idx=None):
-        return
-
 
 if __name__ == "__main__":
 
