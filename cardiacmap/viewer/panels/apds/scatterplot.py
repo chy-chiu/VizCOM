@@ -63,7 +63,7 @@ class ScatterPanel(QWidget):
         self.parent = parent
         self.apd_data = parent.data[0]
         self.di_data = parent.data[1]
-        self.flags = parent.flags
+        #self.flags = parent.flags
 
         self.init_plot()
 
@@ -74,8 +74,9 @@ class ScatterPanel(QWidget):
     def init_plot(self):
         # Set up Image View
         self.plot = pg.PlotWidget()
+        self.plot.setRange(xRange=(-2,np.max(self.di_data)), yRange=(-2,np.max(self.apd_data)))
         self.plot_item: pg.PlotDataItem = self.plot.plot(
-            pen=None, symbol="o", symbolSize=6
+            pen=None, symbol="o", symbolSize=6,
         )
         self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
 
@@ -91,9 +92,9 @@ class ScatterPanel(QWidget):
         apdData = self.apd_data[..., y, x]
         diData = self.di_data[..., y, x]
 
-        # only use apds with a preceding DI
-        if self.flags[y * IMAGE_SIZE + x]:
-            apdData = apdData[1:]
+        # # only use apds with a preceding DI
+        # if self.flags[y * IMAGE_SIZE + x]:
+        #     apdData = apdData[1:]
 
         xyData = tuple(zip(diData, apdData))
 
@@ -158,7 +159,7 @@ class ScatterPlotView(QWidget):
 
     def set_image(self):
         self.image_view.setImage(
-            self.parent.parent.signal.transformed_data[0],
+            self.parent.parent.img_data,
             autoRange=False,
             autoLevels=False,
         )
@@ -173,4 +174,5 @@ class ScatterPlotView(QWidget):
 
     def update_scatter(self, x, y):
         # call update_plot in ScatterPanel
-        self.parent.APD_DI_tab.update_plot(x, y)
+        self.parent.data_tab.update_plot(x, y)
+        self.parent.parent.image_tab.update_position(x, y) # link scatter coord to APDWindow coord
