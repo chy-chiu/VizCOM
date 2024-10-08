@@ -4,7 +4,7 @@ import struct
 import numpy as np
 import psutil
 
-from cardiacmap.model.data import CascadeSignal
+from cardiacmap.model.data import CardiacSignal
 
 
 def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
@@ -122,15 +122,15 @@ def load_cascade_file(filepath, largeFilePopup, dual_mode=False):
 
         if dual_mode:
             odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
-            signals[0] = CascadeSignal(
+            signals[0] = CardiacSignal(
                 signal=odd_frames, metadata=file_metadata, channel="Odd"
             )
-            signals[1] = CascadeSignal(
+            signals[1] = CardiacSignal(
                 signal=even_frames, metadata=file_metadata, channel="Even"
             )
             file_metadata["span_T"] = file_metadata["span_T"] // 2
         else:
-            signals[0] = CascadeSignal(
+            signals[0] = CardiacSignal(
                 signal=sigarray, metadata=file_metadata, channel="Single"
             )
 
@@ -144,7 +144,7 @@ def large_file_check(filepath, _callback, fileLen):
     Returns:
         tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
     """
-    USAGE_THRESHOLD = 0.05
+    USAGE_THRESHOLD = 0.5
     freeMem = psutil.virtual_memory()[1]
     estDataSize = (
         os.path.getsize(filepath) * 4

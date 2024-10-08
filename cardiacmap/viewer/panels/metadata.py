@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QSplitter, QWidget
 
-from cardiacmap.model.data import CascadeSignal
+from cardiacmap.model.data import CardiacSignal
 from cardiacmap.viewer.panels.settings import ParameterWidget
 
 
 class MetadataPanel(QWidget):
 
-    def __init__(self, signal: CascadeSignal, parent):
+    def __init__(self, signal: CardiacSignal, parent):
         super().__init__(parent=parent)
         self.parent = parent
 

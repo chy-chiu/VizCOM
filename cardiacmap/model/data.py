@@ -21,8 +21,9 @@ from cardiacmap.transforms import (
 )
 
 
-class CascadeSignal:
-    """Class for Cascade voltage / calcium signal data. The original data
+class CardiacSignal:
+    """Class for voltage / calcium signal data from cardiac optical mapping. The data
+    source could be from `cascade` or `scimedia`. . The original data
     is stored in base_data, and any additional transformations is done on
     transformed_data. Transformations are all done by calling the external
     transforms.py library, which provides methods to calculate various
@@ -44,6 +45,7 @@ class CascadeSignal:
         signal: np.ndarray,
         metadata: Dict[str, str],
         channel: Literal["Single", "Odd", "Even"],
+        source: Literal['cascade', 'scimedia'] = 'cascade',
     ):
 
         self.metadata = metadata
@@ -54,6 +56,7 @@ class CascadeSignal:
             else metadata.get("filename", "").split(".")[0] + "_" + channel
         )
 
+        # This is transposed to account go y-x instead of x-y
         signal = signal.transpose(0, 2, 1)
 
         # This is the single source of truth that will be referred to again
@@ -61,6 +64,9 @@ class CascadeSignal:
 
         # Variable to hold the data signal for transformations
         self.transformed_data = deepcopy(signal)
+        
+        # Extra copy to save the previous transform in case user wants to undo an action
+        self.previous_transform = deepcopy(signal)
 
         # This is the base image data
         self.image_data = (signal - signal.min()) / signal.max()
@@ -116,23 +122,6 @@ class CascadeSignal:
 
         return
 
-    def calc_apd_di_threshold(self, threshold):
-        data = np.moveaxis(self.transformed_data, 0, -1)
-        self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
-            data, threshold, self.mask
-        )
-        self.apdThreshold = threshold
-
-    def calc_apd_di(self):
-        self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
-            self.apdDIThresholdIdxs, self.apdIndicators
-        )
-
-    def reset_apd_di(self):
-        self.apdDIThresholdIdxs = self.apdIndicators = []
-        self.apds = self.apd_indices = self.dis = self.di_indices = []
-        self.apdThreshold = 0
-
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)
         self.inverted = not self.inverted
@@ -150,6 +139,7 @@ class CascadeSignal:
     def normalize(self):
         self.transformed_data = NormalizeData(self.transformed_data)
 
+    ############## Baseline drift related methods
     def calc_baseline(self, periodLen, threshold, prominence, alternans):
         print("Calculating baseline:", periodLen, threshold, prominence, alternans)
         data = self.transformed_data
@@ -193,6 +183,24 @@ class CascadeSignal:
     def reset_baseline(self):
         self.baselineX = self.baselineY = []
 
+    ############### APD / DI related methods
+    def calc_apd_di_threshold(self, threshold):
+        data = np.moveaxis(self.transformed_data, 0, -1)
+        self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
+            data, threshold, self.mask
+        )
+        self.apdThreshold = threshold
+
+    def calc_apd_di(self):
+        self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
+            self.apdDIThresholdIdxs, self.apdIndicators
+        )
+
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = self.dis = self.di_indices = []
+        self.apdThreshold = 0
+        
     def get_apd_threshold(self):
         return self.apdDIThresholdIdxs, self.apdThreshold
 

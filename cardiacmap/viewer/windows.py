@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.scimedia import load_scimedia_data
-from cardiacmap.model.data import CascadeSignal
+from cardiacmap.model.data import CardiacSignal
 from cardiacmap.viewer.panels import (
     AnnotateView,
     FFTWindow,
@@ -72,7 +72,7 @@ HEIGHT_SCALE = 0.4
 class CardiacMap(QMainWindow):
     """Main window for signal analysis"""
 
-    def __init__(self, signal: Optional[CascadeSignal] = None, title: str = ""):
+    def __init__(self, signal: Optional[CardiacSignal] = None, title: str = ""):
 
         super().__init__()
 
@@ -323,8 +323,8 @@ class CardiacMap(QMainWindow):
 
             if calcium_mode:
 
-                signal_odd: CascadeSignal = signals[0]
-                signal_even: CascadeSignal = signals[1]
+                signal_odd: CardiacSignal = signals[0]
+                signal_even: CardiacSignal = signals[1]
 
                 print(signal_odd.signal_name)
 
@@ -400,7 +400,7 @@ class CardiacMap(QMainWindow):
     def anchorClicked(self, x):
         print("clicked:", x)
 
-    def create_viewer(self, signal: CascadeSignal, title: str):
+    def create_viewer(self, signal: CardiacSignal, title: str):
         """IF there is a signal already, create a new viewer window. Otherwise
         load signal in current window"""
 
