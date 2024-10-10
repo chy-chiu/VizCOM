@@ -225,9 +225,10 @@ class SpatialPlotView(QWidget):
         self.show_diff = QCheckBox()
         self.show_diff.setChecked(False)
         self.show_diff.stateChanged.connect(self.update_data)
-
-        self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
-        self.colormap_bar.addWidget(self.show_diff)
+        
+        self.show_mean = QCheckBox()
+        self.show_mean.setChecked(False)
+        self.show_mean.stateChanged.connect(self.update_data)
 
         self.hide_line = QCheckBox()
         self.hide_line.setChecked(False)
@@ -235,6 +236,10 @@ class SpatialPlotView(QWidget):
 
         self.colormap_bar.addWidget(QLabel("   Hide Line: "))
         self.colormap_bar.addWidget(self.hide_line)
+        self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
+        self.colormap_bar.addWidget(self.show_diff)
+        self.colormap_bar.addWidget(QLabel("   Plot Mean: "))
+        self.colormap_bar.addWidget(self.show_mean)
 
     def update_spinbox_values(self):
         """Called When Range Changes"""
@@ -289,11 +294,16 @@ class SpatialPlotView(QWidget):
         # print("End", self.x2, self.y2)
 
     def update_data(self):
+        if self.show_mean.isChecked():
+            data = np.mean(self.parent.data, axis=0)
+        else:
+            data = self.parent.data[self.frameIdx.value()-1]
+
         if self.show_diff.isChecked():
             color_range = (self.diff_min.value(), self.max_val.value())
             self.frameIdx.setMaximum(len(self.parent.data) - 1)
             self.image_view.setImage(
-                np.diff(self.parent.data[self.frameIdx.value()-1]),
+                np.diff(data),
                 levels=color_range,
                 autoRange=False,
             )
@@ -301,7 +311,7 @@ class SpatialPlotView(QWidget):
             color_range = (self.zero_val.value(), self.max_val.value())
             self.frameIdx.setMaximum(len(self.parent.data))
             self.image_view.setImage(
-                self.parent.data[self.frameIdx.value()-1],
+                data,
                 levels=color_range,
                 autoRange=False,
             )

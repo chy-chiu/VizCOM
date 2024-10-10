@@ -355,10 +355,11 @@ class APDWindow(QMainWindow):
       
 
 class APDSubWindow(QMainWindow):
-    def __init__(self, parent, typeStr):
+    def __init__(self, parent, typeStr, intervals = 1):
         QMainWindow.__init__(self)
         self.parent = parent
         self.settings = parent.settings
+        self.intervals = intervals
         
         self.x1 = self.y1 = self.x2 = self.y2 = 64
 

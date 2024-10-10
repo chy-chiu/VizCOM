@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <h1>Fast Fourier Transform</h1>
+    <p>
+        The FFT Window calls <a href="https://numpy.org/doc/stable/reference/generated/numpy.fft.fft.html">
+        numpy.fft.fft</a> on the signal at each pixel.
+    </p>
+    <ul>
+        <li>
+            <h2>FFT Parameters</h2>
+            <p>
+                The <span class="parameter">Start Time</span> & <span class="parameter">End Time</span>
+                parameters define the width of the FFT window
+            </p>
+            <p>
+                The <span class="parameter">Subintervals</span> parameter defines the number of subintervals to calculate. By default,
+                each subinterval is evenly spaced over the interval defined by
+                <span class="parameter">Start Time</span> & <span class="parameter">End Time</span>.
+                Subintervals can be adjusted by clicking and dragging the vertical lines in the preview window 
+                AFTER selecting the desired number of subintervals.
+            </p>
+        </li>
+        <li>
+            <h2>FFT Output</h2>
+            <h3>Peak Freqency Tab</h3>
+            <p>
+                The <span class="parameter">Min</span> & <span class="parameter">Max</span>
+                parameters define the minimum and maximum values of the colormap for the Peak Frequency Tab.
+            </p>
+            <p>
+                The <span class="parameter">Interval #</span> parameter sets the subinterval that will be displayed in the Peak Frequency Tab
+            </p>
+            <h3>FFT Tab</h3>
+            <p>
+                The FFT Tab displays the FFT output at the selected pixel. The peak frequency value is marked.
+            </p>
+        </li>
+    </ul>
+</body>
+</html>
