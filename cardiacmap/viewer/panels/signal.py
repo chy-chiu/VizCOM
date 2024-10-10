@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QWidgetAction,
+    QSlider,
 )
 
 from cardiacmap.viewer.colorpalette import ColorPaletteButton
@@ -230,10 +231,10 @@ class SignalPanel(QWidget):
         self.color_button = ColorPaletteButton(self)
 
         self.transform_bar.setStyleSheet(QTOOLBAR_STYLE)
-        
+
     def init_plotting_bar(self):
         self.plotting_bar = QToolBar()
-        
+
         # Display data points
         self.show_points = QCheckBox()
         self.show_points.setChecked(False)
@@ -242,6 +243,11 @@ class SignalPanel(QWidget):
         self.plotting_bar.addWidget(QLabel("Show Data Points: "))
         self.plotting_bar.addWidget(self.show_points)
         
+        # Add sliders for start and end
+        self.start_slider = QSlider(Qt.Orientation.Horizontal)
+        self.end_slider = QSlider(Qt.Orientation.Horizontal)
+
+
         # signal marker
         if self.allow_signal_marker:
             self.show_signal_marker = QCheckBox()
@@ -251,7 +257,7 @@ class SignalPanel(QWidget):
             self.plotting_bar.addSeparator()
             self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
             self.plotting_bar.addWidget(self.show_signal_marker)
-            
+
         # frame to ms conversion
         if self.convertToMS:
             self.ms_per_frame = Spinbox(1, 500, 2)
@@ -259,14 +265,63 @@ class SignalPanel(QWidget):
             self.plotting_bar.addSeparator()
             self.plotting_bar.addWidget(self.ms_per_frame)
             self.plotting_bar.addWidget(QLabel("ms per frame"))
-            
-                
+
         # colors
         self.color_button = ColorPaletteButton(self)
         self.plotting_bar.addSeparator()
         self.plotting_bar.addAction(self.color_button)
+
+        self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)    
+        self.start_slider.setRange(0, len(self.parent.signal.transformed_data))
+        self.end_slider.setRange(0, len(self.parent.signal.transformed_data))
+
+        # Set initial values
+        self.start_slider.setValue(0)
+        self.end_slider.setValue(len(self.parent.signal.transformed_data))
+
+        # Add labels for start and end sliders
+        self.start_frame_label = QLabel("Start Frame: 0")
+        self.plotting_bar.addWidget(self.start_frame_label)
+        self.plotting_bar.addWidget(self.start_slider)
+        self.end_frame_label = QLabel(f"End Frame: {self.end_slider.value()}")
+        self.plotting_bar.addWidget(self.end_frame_label)
+        self.plotting_bar.addWidget(self.end_slider)
         
-        self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
+        # Connect sliders to update function
+        self.start_slider.valueChanged.connect(self.update_slice_range)
+        self.end_slider.valueChanged.connect(self.update_slice_range)
+
+    def update_slice_range(self):
+        start_frame = self.start_slider.value()
+        end_frame = self.end_slider.value()
+
+        self.start_frame_label.setText(f"Start Frame: {start_frame}")
+        self.end_frame_label.setText(f"End Frame: {end_frame}")
+
+        # Ensure start is always less than or equal to end
+        if start_frame > end_frame:
+            self.end_slider.setValue(start_frame)
+            start_frame = end_frame
+
+    def signal_transform(self, transform, update_progress=None, start=None, end=None):
+        # ... (existing code remains the same)
+
+        if transform == "spatial_average":
+            sigma = self.settings.child("Spatial Average").child("Sigma").value()
+            radius = self.settings.child("Spatial Average").child("Radius").value()
+            mode = self.settings.child("Spatial Average").child("Mode").value()
+            self.signal.perform_average(
+                type="spatial",
+                sig=sigma,
+                rad=radius,
+                mode=mode,
+                update_progress=update_progress,
+                start=start,
+                end=end,
+            )
+            self.signal.normalize(start=start, end=end)
+
+        # ... (rest of the method remains the same)
 
     def mouseMoved(self, evt):
         if not self.signal_marker.isVisible():

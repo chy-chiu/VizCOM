@@ -3,7 +3,7 @@ import struct
 import numpy as np
 import skimage
 
-from cardiacmap.model.data import CascadeSignal
+from cardiacmap.model.data import CardiacSignal
 
 
 # TODO: To test and make robust
@@ -66,7 +66,7 @@ def load_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
 
     signals = {}
 
-    signals[0] = CascadeSignal(
+    signals[0] = CardiacSignal(
         signal=sigarray, metadata=file_metadata, channel="Single"
     )
 

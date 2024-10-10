@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.data import CascadeSignal
+from cardiacmap.model.data import CardiacSignal
 from cardiacmap.viewer.components import Spinbox
 from cardiacmap.viewer.panels.settings import ParameterWidget
 

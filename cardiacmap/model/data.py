@@ -19,8 +19,9 @@ from cardiacmap.transforms import (
 )
 
 
-class CascadeSignal:
-    """Class for Cascade voltage / calcium signal data. The original data
+class CardiacSignal:
+    """Class for voltage / calcium signal data from cardiac optical mapping. The data
+    source could be from `cascade` or `scimedia`. . The original data
     is stored in base_data, and any additional transformations is done on
     transformed_data. Transformations are all done by calling the external
     transforms.py library, which provides methods to calculate various
@@ -42,6 +43,7 @@ class CascadeSignal:
         signal: np.ndarray,
         metadata: Dict[str, str],
         channel: Literal["Single", "Odd", "Even"],
+        source: Literal['cascade', 'scimedia'] = 'cascade',
     ):
 
         self.metadata = metadata
@@ -52,13 +54,17 @@ class CascadeSignal:
             else metadata.get("filename", "").split(".")[0] + "_" + channel
         )
 
+        # This is transposed to account go y-x instead of x-y
         signal = signal.transpose(0, 2, 1)
 
         # This is the single source of truth that will be referred to again
         self.base_data = deepcopy(signal)
 
-        # Variable to hold the data signal for transformations
-        self.transformed_data = deepcopy(signal)
+        # Variable to hold the data signal for transformations. We use np.float32 to conserve memory
+        self.transformed_data = deepcopy(signal).astype(np.float32) 
+        
+        # Extra copy to save the previous transform in case user wants to undo an action
+        self.previous_transform = deepcopy(signal)
 
         # This is the base image data
         self.image_data = (signal - signal.min()) / signal.max()
@@ -98,38 +104,26 @@ class CascadeSignal:
         sig,
         rad,
         mode: Literal["Gaussian", "Uniform"] = "Gaussian",
-        update_progress=None
+        update_progress=None, 
+        start=None,
+        end=None
     ):
+        start = start or 0
+        end = end or len(self.transformed_data) - 1
+
         if update_progress:
             update_progress(0.2)
+
+        self.previous_transform = self.transformed_data
+        
         if type == "time":
-            self.transformed_data = TimeAverage(
-                self.transformed_data, sig, rad, self.mask, mode
+            self.transformed_data[start:end] = TimeAverage(
+                self.transformed_data[start:end], sig, rad, self.mask, mode
             )
-
         elif type == "spatial":
-            self.transformed_data = SpatialAverage(
-                self.transformed_data, sig, rad, self.mask, mode
+            self.transformed_data[start:end] = SpatialAverage(
+                self.transformed_data[start:end], sig, rad, self.mask, mode
             )
-
-        return
-
-    # def calc_apd_di_threshold(self, threshold):
-    #     data = np.moveaxis(self.transformed_data, 0, -1)
-    #     self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
-    #         data, threshold, self.mask
-    #     )
-    #     self.apdThreshold = threshold
-
-    # def calc_apd_di(self):
-    #     self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
-    #         self.apdDIThresholdIdxs, self.apdIndicators
-    #     )
-
-    def reset_apd_di(self):
-        self.apdDIThresholdIdxs = self.apdIndicators = []
-        self.apds = self.apd_indices = self.dis = self.di_indices = []
-        self.apdThreshold = 0
 
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)
@@ -137,20 +131,31 @@ class CascadeSignal:
 
     def trim_data(self, startTrim, endTrim):
         self.trimmed = [self.trimmed[0] + startTrim, self.trimmed[1] + endTrim]
-        self.transformed_data = TrimSignal(self.transformed_data, startTrim, endTrim)
+        self.previous_transform = self.transformed_data
+        self.transformed_data = self.transformed_data[startTrim:-endTrim, :, :]
 
     def reset_data(self):
         self.transformed_data = deepcopy(self.base_data)
 
+    def undo(self):
+        self.transformed_data = self.previous_transform    
+
     def reset_image(self):
         self.image_data = (self.base_data - self.base_data.min()) / self.base_data.max()
 
-    def normalize(self):
-        self.transformed_data = NormalizeData(self.transformed_data)
+    def normalize(self, start=None, end=None):
+        start = start or 0
+        end = end or len(self.transformed_data)
+        n = NormalizeData(self.transformed_data[start:end, :, :])
+        self.transformed_data[start:end, :, :] = n
 
-    def calc_baseline(self, periodLen, threshold, prominence, alternans):
+    ############## Baseline drift related methods
+    def calc_baseline(self, periodLen, threshold, prominence, alternans, start=None, end=None):
+        start = start or 0
+        end = end or len(self.transformed_data) - 1
+
         print("Calculating baseline:", periodLen, threshold, prominence, alternans)
-        data = self.transformed_data
+        data = self.transformed_data[start:end]
         mask = self.mask
         t = np.arange(len(data))
         threads = 4
@@ -191,6 +196,24 @@ class CascadeSignal:
     def reset_baseline(self):
         self.baselineX = self.baselineY = []
 
+    ############### APD / DI related methods
+  # def calc_apd_di_threshold(self, threshold):
+    #     data = np.moveaxis(self.transformed_data, 0, -1)
+    #     self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
+    #         data, threshold, self.mask
+    #     )
+    #     self.apdThreshold = threshold
+
+    # def calc_apd_di(self):
+    #     self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
+    #         self.apdDIThresholdIdxs, self.apdIndicators
+    #     )
+
+    def reset_apd_di(self):
+        self.apdDIThresholdIdxs = self.apdIndicators = []
+        self.apds = self.apd_indices = self.dis = self.di_indices = []
+        self.apdThreshold = 0
+        
     def get_apd_threshold(self):
         return self.apdDIThresholdIdxs, self.apdThreshold
 
