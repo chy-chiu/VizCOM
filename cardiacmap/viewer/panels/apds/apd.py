@@ -206,7 +206,7 @@ class APDWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
         
         # Preview Panel
-        self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.preview_tab = SignalPanel(self, settings=self.settings)
         # set up axes        
         leftAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("bottom")
@@ -372,13 +372,7 @@ class APDSubWindow(QMainWindow):
                 self.data = self.parent.data[0]
                 self.view_tab = SpatialPlotView(self)
 
-                self.data_tab = SignalPanel(
-                    self,
-                    toolbar=False,
-                    signal_marker=False,
-                    ms_conversion=False,
-                    settings=self.settings,
-                )
+                self.data_tab = SignalPanel(self, settings=self.settings)
                 
             case "DI":
                 window_title = "Spatial DIs"
@@ -390,13 +384,7 @@ class APDSubWindow(QMainWindow):
                 
                 
                 # Create Signal Views
-                self.data_tab = SignalPanel(
-                    self,
-                    toolbar=False,
-                    signal_marker=False,
-                    ms_conversion=False,
-                    settings=self.settings,
-                )
+                self.data_tab = SignalPanel(self, settings=self.settings)
                 
             case "APD DI":
                 window_title = "APD v.s. DI"

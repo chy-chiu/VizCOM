@@ -225,7 +225,7 @@ class FFTWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
 
         # FFT Panel
-        self.fft_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.fft_tab = SignalPanel(self, settings=self.settings)
         # set up axes
         leftAxis: pg.AxisItem = self.fft_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.fft_tab.plot.getPlotItem().getAxis("bottom")
@@ -235,7 +235,7 @@ class FFTWindow(QMainWindow):
         # Preview Panel
         self.line_count = 0
         self.lines = None
-        self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.preview_tab = SignalPanel(self, settings=self.settings)
         self.add_line(self.preview_tab)
         self.add_line(self.preview_tab)
         self.update_lines()

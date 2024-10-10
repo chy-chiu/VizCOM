@@ -209,12 +209,12 @@ class StackingWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
 
         # Create Signal Views
-        self.stack_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.stack_tab = SignalPanel(self, settings=self.settings)
         
         # Preview Panel
         self.line_count = 0
         self.lines = None
-        self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.preview_tab = SignalPanel(self, settings=self.settings)
         self.add_line(self.preview_tab)
         self.add_line(self.preview_tab)
 

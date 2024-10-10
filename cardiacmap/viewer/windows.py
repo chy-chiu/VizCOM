@@ -200,7 +200,7 @@ class CardiacMap(QMainWindow):
             self.metadata_panel = MetadataPanel(self.signal, self)
 
             # Create Signal view
-            self.signal_panel = SignalPanel(self, settings=self.settings)
+            self.signal_panel = SignalPanel(self, main_signal=True, settings=self.settings)
 
             # Create Image tabs
             self.position_tab = PositionView(self)
