@@ -1,5 +1,8 @@
+
 import numpy as np
+import numpy.ma as ma
 import pyqtgraph as pg
+from pyqtgraph import ErrorBarItem
 from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -105,6 +108,14 @@ class ScatterPanel(QWidget):
             pen=None, symbol="o", symbolSize=6,
         )
         self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        
+        self.mean_item: pg.PlotDataItem = self.plot.plot(
+            pen=None, symbol="x", symbolSize=10,
+        )
+        self.mean_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.mean_item.setSymbolBrush(pg.mkBrush('g'))
+        
+        self.error_bar = None
 
         # set up axes
         leftAxis: pg.AxisItem = self.plot.getPlotItem().getAxis("left")
@@ -112,15 +123,42 @@ class ScatterPanel(QWidget):
         leftAxis.setLabel(text="Action Potential Duration (ms)")
         bottomAxis.setLabel(text="Diastolic Interval (ms)")
 
-        self.update_plot(0, 0, 0)
+        self.update_plot(0, 0, 0, False)
 
-    def update_plot(self, interval, x, y):
+    def update_plot(self, interval, x, y, show_err):
         #print(interval, x, y)
         interval = int(interval)
         x = int(x)
         y = int(y)
         apdData = self.apd_data[interval][..., y, x] * self.ms
         diData = self.di_data[interval][..., y, x] * self.ms
+        
+        mApd = ma.masked_array(apdData, mask = apdData == 0)
+        mDi = ma.masked_array(diData, mask = diData == 0)
+        
+        avgAPD = np.mean(mApd)
+        avgDI = np.mean(mDi)
+        
+        stdAPD = np.std(mApd)
+        stdDI = np.std(mDi)
+        
+        #print("X", avgDI, "Y", avgAPD)
+        
+        avg_pt = [(avgDI, avgAPD)]
+        #print(avg_pt)
+        self.mean_item.setData(np.array(avg_pt))
+        
+        # if there is already an error bar, remove it before adding another one
+        if self.error_bar is not None:
+            self.plot.removeItem(self.error_bar)
+            self.error_bar = None
+        if show_err:
+            self.mean_item.show()
+            self.error_bar = ErrorBarItem(x=avgDI, y=avgAPD, height=stdAPD, width=stdDI, beam = 2, pen = pg.mkPen('r'))
+            self.plot.addItem(self.error_bar)
+        else:
+            self.mean_item.hide()
+        #self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
 
         # # only use apds with a preceding DI
         # if self.flags[y * IMAGE_SIZE + x]:
@@ -198,8 +236,13 @@ class ScatterPlotView(QWidget):
         self.intervalIdx.valueChanged.connect(self.update_scatter)
         self.intervalIdx.valueChanged.connect(self.set_image)
         
+        self.show_err = QCheckBox()
+        self.show_err.checkStateChanged.connect(self.update_scatter)
+        
         self.toolbar.addWidget(QLabel("Interval #:"))
         self.toolbar.addWidget(self.intervalIdx)
+        self.toolbar.addWidget(QLabel("Show Mean/Std:"))
+        self.toolbar.addWidget(self.show_err)
 
     def set_image(self):
         self.image_view.setImage(
@@ -216,8 +259,8 @@ class ScatterPlotView(QWidget):
 
         self.marker.setData(pos=[[x, y]])
         self.update_scatter()
-
+    
     def update_scatter(self):
         # call update_plot in ScatterPanel
-        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y)
+        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y, self.show_err.isChecked())
         self.parent.parent.image_tab.update_position(self.x, self.y) # link scatter coord to APDWindow coord
