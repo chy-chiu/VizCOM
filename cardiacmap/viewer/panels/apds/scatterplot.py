@@ -27,6 +27,31 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+SPINBOX_STYLE = """QSpinBox
+            {
+                border: 1px solid;
+            }
+
+            QSpinBox::up-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                top: -5px;
+                right: 0px;
+            }
+
+            QSpinBox::down-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                bottom: -5px;
+                right: 0px;
+            }"""
+            
 IMAGE_SIZE = 128
 
 
@@ -61,8 +86,9 @@ class ScatterPanel(QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
-        self.apd_data = parent.data[0]
-        self.di_data = parent.data[1]
+        self.ms = parent.ms
+        self.apd_data = parent.data_slices[0]
+        self.di_data = parent.data_slices[1]
         #self.flags = parent.flags
 
         self.init_plot()
@@ -74,7 +100,7 @@ class ScatterPanel(QWidget):
     def init_plot(self):
         # Set up Image View
         self.plot = pg.PlotWidget()
-        self.plot.setRange(xRange=(-2,np.max(self.di_data)), yRange=(-2,np.max(self.apd_data)))
+        self.plot.setRange(xRange=(-2,np.max(self.di_data[0])), yRange=(-2,np.max(self.apd_data[0])))
         self.plot_item: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="o", symbolSize=6,
         )
@@ -86,11 +112,15 @@ class ScatterPanel(QWidget):
         leftAxis.setLabel(text="Action Potential Duration (ms)")
         bottomAxis.setLabel(text="Diastolic Interval (ms)")
 
-        self.update_plot(0, 0)
+        self.update_plot(0, 0, 0)
 
-    def update_plot(self, x, y):
-        apdData = self.apd_data[..., y, x]
-        diData = self.di_data[..., y, x]
+    def update_plot(self, interval, x, y):
+        #print(interval, x, y)
+        interval = int(interval)
+        x = int(x)
+        y = int(y)
+        apdData = self.apd_data[interval][..., y, x] * self.ms
+        diData = self.di_data[interval][..., y, x] * self.ms
 
         # # only use apds with a preceding DI
         # if self.flags[y * IMAGE_SIZE + x]:
@@ -119,11 +149,11 @@ class ScatterPlotView(QWidget):
         self.parent = parent
 
         self.init_image_view()
-        self.init_controller_bar()
+        self.init_toolbar()
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
-        layout.addWidget(self.controller_bar)
+        layout.addWidget(self.toolbar)
         self.setLayout(layout)
 
         self.set_image()
@@ -151,11 +181,25 @@ class ScatterPlotView(QWidget):
             pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
         self.image_view.getView().addItem(self.marker)
+        self.x = self.y = 64
 
         return self.image_view
 
-    def init_controller_bar(self):
-        self.controller_bar = QToolBar()
+    def init_toolbar(self):
+        self.toolbar = QToolBar()
+        self.intervalIdx = QtWidgets.QSpinBox()
+        self.intervalIdx.setFixedWidth(60)
+        self.intervalIdx.setMaximum(len(self.parent.data_slices[0]))
+        #print("Number of Slices", len(self.parent.data_slices[0]))
+        self.intervalIdx.setMinimum(1)
+        self.intervalIdx.setValue(1)
+        self.intervalIdx.setSingleStep(1)
+        self.intervalIdx.setStyleSheet(SPINBOX_STYLE)
+        self.intervalIdx.valueChanged.connect(self.update_scatter)
+        self.intervalIdx.valueChanged.connect(self.set_image)
+        
+        self.toolbar.addWidget(QLabel("Interval #:"))
+        self.toolbar.addWidget(self.intervalIdx)
 
     def set_image(self):
         self.image_view.setImage(
@@ -164,15 +208,16 @@ class ScatterPlotView(QWidget):
             autoLevels=False,
         )
         self.image_view.update()
+        self.parent.update_tab_title(self.intervalIdx.value()-1)
 
     def update_marker(self, x, y):
-        y = np.clip(y, 0, IMAGE_SIZE - 1)
-        x = np.clip(x, 0, IMAGE_SIZE - 1)
+        self.y = np.clip(y, 0, IMAGE_SIZE - 1)
+        self.x = np.clip(x, 0, IMAGE_SIZE - 1)
 
         self.marker.setData(pos=[[x, y]])
-        self.update_scatter(x, y)
+        self.update_scatter()
 
-    def update_scatter(self, x, y):
+    def update_scatter(self):
         # call update_plot in ScatterPanel
-        self.parent.data_tab.update_plot(x, y)
-        self.parent.parent.image_tab.update_position(x, y) # link scatter coord to APDWindow coord
+        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y)
+        self.parent.parent.image_tab.update_position(self.x, self.y) # link scatter coord to APDWindow coord
