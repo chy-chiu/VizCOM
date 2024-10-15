@@ -4,6 +4,8 @@ from typing import Literal
 import matplotlib.pyplot as plt
 import numpy as np
 import pyqtgraph as pg
+import numpy.ma as ma
+
 from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from pyqtgraph.parametertree import Parameter, ParameterTree
@@ -24,6 +26,7 @@ from PySide6.QtWidgets import (
     QMenuBar,
     QPlainTextEdit,
     QPushButton,
+    QRadioButton,
     QSplitter,
     QTabWidget,
     QToolBar,
@@ -119,14 +122,16 @@ class SpatialPlotView(QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
+        self.ms = parent.ms
 
         self.init_image_view()
-        self.init_player_bar()
+        self.init_toolbars()
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
         layout.addWidget(self.player_bar)
-        layout.addWidget(self.colormap_bar)
+        layout.addWidget(self.display_bar)
+        layout.addWidget(self.settings_bar)
         self.setLayout(layout)
 
         self.spatial_coords = None
@@ -173,24 +178,68 @@ class SpatialPlotView(QWidget):
 
         return self.image_view
 
-    def init_player_bar(self):
+    def init_toolbars(self):
         self.player_bar = QToolBar()
-        self.colormap_bar = QToolBar()
+        self.display_bar = QToolBar()
+        self.settings_bar = QToolBar()
 
+        self.intervalIdx = QtWidgets.QSpinBox()
+        self.intervalIdx.setFixedWidth(60)
+        self.intervalIdx.setMaximum(len(self.parent.data_slices))
+        self.intervalIdx.setMinimum(1)
+        self.intervalIdx.setValue(1)
+        self.intervalIdx.setSingleStep(1)
+        self.intervalIdx.setStyleSheet(SPINBOX_STYLE)
+        self.intervalIdx.valueChanged.connect(self.update_data)
+        self.intervalIdx.valueChanged.connect(self.update_graph)
+        
         self.frameIdx = QtWidgets.QSpinBox()
         self.frameIdx.setFixedWidth(60)
-        self.frameIdx.setMaximum(len(self.parent.data))
+        self.frameIdx.setMaximum(len(self.parent.data_slices[0]))
+        self.frameIdx.setMinimum(1)
         self.frameIdx.setValue(1)
         self.frameIdx.setSingleStep(1)
         self.frameIdx.setStyleSheet(SPINBOX_STYLE)
         self.frameIdx.valueChanged.connect(self.jump_frames)
         self.frameIdx.valueChanged.connect(self.update_graph)
 
+        self.beatNumber = self.frameIdx.value()
+
+        self.player_bar.addWidget(QLabel("   Interval #: "))
+        self.player_bar.addWidget(self.intervalIdx)
+        self.player_bar.addWidget(QLabel("   Beat #: "))
+        self.player_bar.addWidget(self.frameIdx)
+
+
+        self.show_raw = QRadioButton("Raw")
+        self.show_raw.setChecked(True)
+        self.show_raw.toggled.connect(lambda: self.radio_state(self.show_raw))
+        
+        self.show_diff = QRadioButton("Difference")
+        self.show_diff.setChecked(False)
+        self.show_diff.toggled.connect(lambda: self.radio_state(self.show_diff))
+        
+        self.show_mean = QRadioButton("Mean")
+        self.show_mean.setChecked(False)
+        self.show_mean.toggled.connect(lambda: self.radio_state(self.show_mean))
+        
+        self.show_min = QRadioButton("Min")
+        self.show_min.setChecked(False)
+        self.show_min.toggled.connect(lambda: self.radio_state(self.show_min))
+    
+        self.show_max = QRadioButton("Max")
+        self.show_max.setChecked(False)
+        self.show_max.toggled.connect(lambda: self.radio_state(self.show_max))
+
+        self.hide_line = QCheckBox()
+        self.hide_line.setChecked(False)
+        self.hide_line.checkStateChanged.connect(self.update_data)
+
         self.diff_min = QtWidgets.QSpinBox()
         self.diff_min.setFixedWidth(60)
         self.diff_min.setMinimum(-100000)
         self.diff_min.setMaximum(100000)
-        self.diff_min.setValue(np.min(np.diff(self.parent.data)))
+        self.diff_min.setValue(np.min(np.diff(self.parent.data_slices[0])))
         self.diff_min.setStyleSheet(SPINBOX_STYLE)
         self.diff_min.valueChanged.connect(self.update_data)
 
@@ -206,35 +255,30 @@ class SpatialPlotView(QWidget):
         self.max_val.setFixedWidth(60)
         self.max_val.setMinimum(-100000)
         self.max_val.setMaximum(100000)
-        self.max_val.setValue(np.max(self.parent.data))
+        self.max_val.setValue(np.max(self.parent.data_slices[0]))
         self.max_val.setStyleSheet(SPINBOX_STYLE)
         self.max_val.valueChanged.connect(self.update_data)
 
-        self.beatNumber = self.frameIdx.value()
+        self.display_bar.addWidget(self.show_raw)
+        self.display_bar.addWidget(self.show_min)
+        self.display_bar.addWidget(self.show_max)
+        self.display_bar.addWidget(self.show_mean)
+        self.display_bar.addWidget(self.show_diff)
+        
 
-        self.player_bar.addWidget(QLabel("   Beat/Interval #: "))
-        self.player_bar.addWidget(self.frameIdx)
+        self.settings_bar.addWidget(QLabel("   Hide Line: "))
+        self.settings_bar.addWidget(self.hide_line)
 
-        self.player_bar.addWidget(QLabel("   Image Min: "))
-        self.diff_min_spinbox = self.player_bar.addWidget(self.diff_min)
-        self.min_spinbox = self.player_bar.addWidget(self.zero_val)
+        self.settings_bar.addWidget(QLabel("   Image Min: "))
+        self.diff_min_spinbox = self.settings_bar.addWidget(self.diff_min)
+        self.min_spinbox = self.settings_bar.addWidget(self.zero_val)
 
-        self.player_bar.addWidget(QLabel("   Image Max: "))
-        self.player_bar.addWidget(self.max_val)
-
-        self.show_diff = QCheckBox()
-        self.show_diff.setChecked(False)
-        self.show_diff.stateChanged.connect(self.update_data)
-
-        self.colormap_bar.addWidget(QLabel("   Plot Difference: "))
-        self.colormap_bar.addWidget(self.show_diff)
-
-        self.hide_line = QCheckBox()
-        self.hide_line.setChecked(False)
-        self.hide_line.checkStateChanged.connect(self.update_data)
-
-        self.colormap_bar.addWidget(QLabel("   Hide Line: "))
-        self.colormap_bar.addWidget(self.hide_line)
+        self.settings_bar.addWidget(QLabel("   Image Max: "))
+        self.settings_bar.addWidget(self.max_val)
+        
+    def radio_state(self, b):
+        print(b.text())
+        self.update_data()
 
     def update_spinbox_values(self):
         """Called When Range Changes"""
@@ -289,28 +333,36 @@ class SpatialPlotView(QWidget):
         # print("End", self.x2, self.y2)
 
     def update_data(self):
+        interval_idx = self.intervalIdx.value()-1
+        color_range = (self.zero_val.value(), self.max_val.value())
+        self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]))
+        
         if self.show_diff.isChecked():
             color_range = (self.diff_min.value(), self.max_val.value())
-            self.frameIdx.setMaximum(len(self.parent.data) - 1)
-            self.image_view.setImage(
-                np.diff(self.parent.data[self.frameIdx.value()-1]),
-                levels=color_range,
-                autoRange=False,
-            )
+            self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]) - 1)
+            data = np.diff(self.parent.data_slices[interval_idx][self.frameIdx.value()-1]) * self.ms
+        elif self.show_min.isChecked():
+            d = self.parent.data_slices[interval_idx]
+            md = ma.masked_array(d, mask = d==0)
+            data = np.min(md, axis=0) * self.ms
+        elif self.show_max.isChecked():
+            data = np.max(self.parent.data_slices[interval_idx], axis=0) * self.ms
+        elif self.show_mean.isChecked():
+            d = self.parent.data_slices[interval_idx]
+            md = ma.masked_array(d, mask = d==0)
+            data = np.mean(md, axis=0) * self.ms
         else:
-            color_range = (self.zero_val.value(), self.max_val.value())
-            self.frameIdx.setMaximum(len(self.parent.data))
-            self.image_view.setImage(
-                self.parent.data[self.frameIdx.value()-1],
-                levels=color_range,
-                autoRange=False,
-            )
+            data = self.parent.data_slices[interval_idx][self.frameIdx.value()-1] * self.ms
+
+        # set image
+        self.image_view.setImage(data,levels=color_range,autoRange=False)
 
         #print(self.frameIdx.value())
         #print(self.parent.data.shape)
 
         self.update_line()
         self.update_ui()
+        self.parent.update_tab_title(interval_idx)
         self.image_view.update()
 
     def update_graph(self):

@@ -1,5 +1,8 @@
+
 import numpy as np
+import numpy.ma as ma
 import pyqtgraph as pg
+from pyqtgraph import ErrorBarItem
 from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -27,6 +30,31 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+SPINBOX_STYLE = """QSpinBox
+            {
+                border: 1px solid;
+            }
+
+            QSpinBox::up-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                top: -5px;
+                right: 0px;
+            }
+
+            QSpinBox::down-button
+            {
+                min-width: 5px;
+                min-height: 5px;
+                subcontrol-origin: margin;
+                subcontrol-position: right;
+                bottom: -5px;
+                right: 0px;
+            }"""
+            
 IMAGE_SIZE = 128
 
 
@@ -61,8 +89,9 @@ class ScatterPanel(QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
-        self.apd_data = parent.data[0]
-        self.di_data = parent.data[1]
+        self.ms = parent.ms
+        self.apd_data = parent.data_slices[0]
+        self.di_data = parent.data_slices[1]
         #self.flags = parent.flags
 
         self.init_plot()
@@ -74,11 +103,19 @@ class ScatterPanel(QWidget):
     def init_plot(self):
         # Set up Image View
         self.plot = pg.PlotWidget()
-        self.plot.setRange(xRange=(-2,np.max(self.di_data)), yRange=(-2,np.max(self.apd_data)))
+        self.plot.setRange(xRange=(-2,np.max(self.di_data[0])), yRange=(-2,np.max(self.apd_data[0])))
         self.plot_item: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="o", symbolSize=6,
         )
         self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        
+        self.mean_item: pg.PlotDataItem = self.plot.plot(
+            pen=None, symbol="x", symbolSize=10,
+        )
+        self.mean_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.mean_item.setSymbolBrush(pg.mkBrush('g'))
+        
+        self.error_bar = None
 
         # set up axes
         leftAxis: pg.AxisItem = self.plot.getPlotItem().getAxis("left")
@@ -86,11 +123,42 @@ class ScatterPanel(QWidget):
         leftAxis.setLabel(text="Action Potential Duration (ms)")
         bottomAxis.setLabel(text="Diastolic Interval (ms)")
 
-        self.update_plot(0, 0)
+        self.update_plot(0, 0, 0, False)
 
-    def update_plot(self, x, y):
-        apdData = self.apd_data[..., y, x]
-        diData = self.di_data[..., y, x]
+    def update_plot(self, interval, x, y, show_err):
+        #print(interval, x, y)
+        interval = int(interval)
+        x = int(x)
+        y = int(y)
+        apdData = self.apd_data[interval][..., y, x] * self.ms
+        diData = self.di_data[interval][..., y, x] * self.ms
+        
+        mApd = ma.masked_array(apdData, mask = apdData == 0)
+        mDi = ma.masked_array(diData, mask = diData == 0)
+        
+        avgAPD = np.mean(mApd)
+        avgDI = np.mean(mDi)
+        
+        stdAPD = np.std(mApd)
+        stdDI = np.std(mDi)
+        
+        #print("X", avgDI, "Y", avgAPD)
+        
+        avg_pt = [(avgDI, avgAPD)]
+        #print(avg_pt)
+        self.mean_item.setData(np.array(avg_pt))
+        
+        # if there is already an error bar, remove it before adding another one
+        if self.error_bar is not None:
+            self.plot.removeItem(self.error_bar)
+            self.error_bar = None
+        if show_err:
+            self.mean_item.show()
+            self.error_bar = ErrorBarItem(x=avgDI, y=avgAPD, height=stdAPD, width=stdDI, beam = 2, pen = pg.mkPen('r'))
+            self.plot.addItem(self.error_bar)
+        else:
+            self.mean_item.hide()
+        #self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
 
         # # only use apds with a preceding DI
         # if self.flags[y * IMAGE_SIZE + x]:
@@ -119,11 +187,11 @@ class ScatterPlotView(QWidget):
         self.parent = parent
 
         self.init_image_view()
-        self.init_controller_bar()
+        self.init_toolbar()
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
-        layout.addWidget(self.controller_bar)
+        layout.addWidget(self.toolbar)
         self.setLayout(layout)
 
         self.set_image()
@@ -151,11 +219,30 @@ class ScatterPlotView(QWidget):
             pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
         self.image_view.getView().addItem(self.marker)
+        self.x = self.y = 64
 
         return self.image_view
 
-    def init_controller_bar(self):
-        self.controller_bar = QToolBar()
+    def init_toolbar(self):
+        self.toolbar = QToolBar()
+        self.intervalIdx = QtWidgets.QSpinBox()
+        self.intervalIdx.setFixedWidth(60)
+        self.intervalIdx.setMaximum(len(self.parent.data_slices[0]))
+        #print("Number of Slices", len(self.parent.data_slices[0]))
+        self.intervalIdx.setMinimum(1)
+        self.intervalIdx.setValue(1)
+        self.intervalIdx.setSingleStep(1)
+        self.intervalIdx.setStyleSheet(SPINBOX_STYLE)
+        self.intervalIdx.valueChanged.connect(self.update_scatter)
+        self.intervalIdx.valueChanged.connect(self.set_image)
+        
+        self.show_err = QCheckBox()
+        self.show_err.checkStateChanged.connect(self.update_scatter)
+        
+        self.toolbar.addWidget(QLabel("Interval #:"))
+        self.toolbar.addWidget(self.intervalIdx)
+        self.toolbar.addWidget(QLabel("Show Mean/Std:"))
+        self.toolbar.addWidget(self.show_err)
 
     def set_image(self):
         self.image_view.setImage(
@@ -164,15 +251,16 @@ class ScatterPlotView(QWidget):
             autoLevels=False,
         )
         self.image_view.update()
+        self.parent.update_tab_title(self.intervalIdx.value()-1)
 
     def update_marker(self, x, y):
-        y = np.clip(y, 0, IMAGE_SIZE - 1)
-        x = np.clip(x, 0, IMAGE_SIZE - 1)
+        self.y = np.clip(y, 0, IMAGE_SIZE - 1)
+        self.x = np.clip(x, 0, IMAGE_SIZE - 1)
 
         self.marker.setData(pos=[[x, y]])
-        self.update_scatter(x, y)
-
-    def update_scatter(self, x, y):
+        self.update_scatter()
+    
+    def update_scatter(self):
         # call update_plot in ScatterPanel
-        self.parent.data_tab.update_plot(x, y)
-        self.parent.parent.image_tab.update_position(x, y) # link scatter coord to APDWindow coord
+        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y, self.show_err.isChecked())
+        self.parent.parent.image_tab.update_position(self.x, self.y) # link scatter coord to APDWindow coord

@@ -4,37 +4,68 @@ from types import NoneType
 import numpy as np
 
 
-def GetThresholdIntersections(data, threshold, mask = None):
+def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = None):
     """Function to Find intersections between threshold and data
     Args:
-        data (array): input data
+        data (np.ndarray): input data
         threshold (int): threshold value
+        spacing (float): minimum x-distance between two intersections
+        intervals (array): array of index values to slice 'data'
     """
-    flat_swapped_arr = np.swapaxes(data.reshape(data.shape[0], -1), 0, 1)
-    pixels =  np.arange(flat_swapped_arr.shape[0])
-    intersections = []
-    apdFlags = []
-    for p in pixels:
-        ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold)
-        intersections.append(ints)
-        apdFlags.append(apd)
-    apdArr, diArr = CalculateIntervals(intersections, apdFlags)
-    print(apdArr.shape, diArr.shape)
-    apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], data.shape[1], data.shape[2])
-    diArr = np.swapaxes(diArr, 1, 0).reshape((diArr.shape[1], data.shape[1], data.shape[2]))
-    return apdArr, diArr
+    print("Minimum Spacing is:", spacing)
+    apdArrs = []
+    diArrs = []
+    
+    if intervals is None:
+        slices = [data]
+    else:
+        slices = []
+        for i in range(1, len(intervals)):
+            start = intervals[i-1]
+            end = intervals[i]-1
+            slices.append(data[start:end])
+    
+    for data_slice in slices:
+        print(data_slice.shape)
+        flat_swapped_arr = np.swapaxes(data_slice.reshape(data_slice.shape[0], -1), 0, 1)
+        pixels =  np.arange(flat_swapped_arr.shape[0])
+        intersections = []
+        apdFlags = []
+        print(flat_swapped_arr.shape)
+        for p in pixels:
+            ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing)
+            intersections.append(ints)
+            apdFlags.append(apd)
+        apdArr, diArr = CalculateIntervals(intersections, apdFlags)
+        apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], data_slice.shape[1], data_slice.shape[2])
+        diArr = np.swapaxes(diArr, 1, 0).reshape((diArr.shape[1], data_slice.shape[1], data_slice.shape[2]))
+        
+        apdArrs.append(apdArr)
+        diArrs.append(diArr)
+        print(apdArr.shape, diArr.shape)
 
-def GetThresholdIntersections1D(data, threshold, spacing = 1):
+    return apdArrs, diArrs
+
+def GetThresholdIntersections1D(data, threshold, spacing = 0):
     # get all indices where the data crosses the threshold
-    t0 = np.argwhere( np.diff( np.sign( data - threshold )))[:, 0] # idx before crossing
-    t1 = t0 + 1 # idx after
+    idx0 = np.argwhere( np.diff( np.sign( data - threshold )))[:, 0] # idx before crossing
+    idx1 = idx0 + 1 # idx after
 
-    y0 = data[t0]
-    y1 = data[t1]
-    return getIndices(threshold, t0, y0, y1)
+    y0 = data[idx0]
+    y1 = data[idx1]
+    ts, apdFlags = getTimes(threshold, idx0, y0, y1)
+    
+    # filter out intersections that are less than spacing
+    validIdx = np.argwhere(np.diff(ts) >= spacing).flatten()
+    
+    # np.diff wont return the final index
+    # add it back to the valid list
+    validIdx = np.append(validIdx, -1)
+    
+    return ts[validIdx], apdFlags
 
 
-def getIndices(threshold, x0s, y0s, y1s):
+def getTimes(threshold, x0s, y0s, y1s):
     """Helper function to calculate the exact t values of intersection for a signal
     Args:
         threshold (int): threshold value
@@ -45,12 +76,18 @@ def getIndices(threshold, x0s, y0s, y1s):
         apdArr (array): apd/di indicator
     """
     slopes = np.subtract(y1s, y0s)
+    
+    # no intersections found
+    if len(slopes) == 0:
+        return np.array([0, 1]), False
+    
     if slopes[0] > 0:
         apdFirst = True
     elif slopes[0] < 0:
         apdFirst = False
     else:
         return -1
+    
     intercepts = y0s - (slopes * x0s)
     ts = (threshold - intercepts) / slopes
     return ts, apdFirst

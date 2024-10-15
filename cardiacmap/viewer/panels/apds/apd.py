@@ -206,7 +206,13 @@ class APDWindow(QMainWindow):
         self.image_widget = QWidget(layout=self.image_layout)
         
         # Preview Panel
-        self.preview_tab = SignalPanel(self, toolbar=False, signal_marker=False, ms_conversion=False, settings=self.settings)
+        self.line_count = 0
+        self.lines = None
+        self.preview_tab = SignalPanel(self, settings=self.settings)
+        self.add_line(self.preview_tab)
+        self.add_line(self.preview_tab)
+        self.update_lines()
+        
         # set up axes        
         leftAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("bottom")
@@ -267,16 +273,16 @@ class APDWindow(QMainWindow):
         
         self.plot_buttons = [self.APDvSpace, self.DIvSpace, self.APDvDI]
         self.setPlottingButtons(False)
-        
-        
     
     def init_options(self):
         self.options_widget = QWidget()
         layout = QVBoxLayout()
-        self.options = QToolBar()
+        self.apd_toolbar = QToolBar()
+        self.interval_toolbar = QToolBar()
         self.calculate_bar = QToolBar()
         self.plotting_bar = QToolBar()
         
+        # APD Parameters ========================================================
         self.threshold = Spinbox(
             min=.01,
             max=.99,
@@ -287,20 +293,61 @@ class APDWindow(QMainWindow):
         )
         self.threshold.valueChanged.connect(self.calculate_apds)
         
-        self.min_dist = Spinbox(
+        self.min_ms = Spinbox(
             min= 1,
             max= 500,
+            val=10,
+            step=1,
+            min_width=50,
+            max_width=50,
+        )
+        self.min_ms.valueChanged.connect(self.calculate_apds)
+        
+        
+        self.apd_toolbar.addWidget(QLabel("Threshold: "))
+        self.apd_toolbar.addWidget(self.threshold)
+        self.apd_toolbar.addWidget(QLabel("Min APD/DI Length: "))
+        self.apd_toolbar.addWidget(self.min_ms)
+        #========================================================================
+        
+        # Start and End times for intervals =====================================
+        max_time = int(len(self.parent.signal.transformed_data) * self.ms)
+        self.start_time = Spinbox(
+            min=0,
+            max=max_time,
+            val=0,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.start_time.valueChanged.connect(self.update_lines)
+        self.end_time = Spinbox(
+            min=0,
+            max=max_time,
+            val=max_time,
+            step=1,
+            min_width=60,
+            max_width=60,
+        )
+        self.end_time.valueChanged.connect(self.update_lines)
+        
+        self.subintervals = Spinbox(
+            min=1,
+            max=20,
             val=1,
             step=1,
             min_width=50,
             max_width=50,
         )
-        self.min_dist.valueChanged.connect(self.calculate_apds)
+        self.subintervals.valueChanged.connect(self.update_lines)
         
-        self.options.addWidget(QLabel("Threshold: "))
-        self.options.addWidget(self.threshold)
-        # self.options.addWidget(QLabel("Min APD/DI Length: "))
-        # self.options.addWidget(self.min_dist)
+        self.interval_toolbar.addWidget(QLabel("Start Time: "))
+        self.interval_toolbar.addWidget(self.start_time)
+        self.interval_toolbar.addWidget(QLabel("End Time: "))
+        self.interval_toolbar.addWidget(self.end_time)
+        self.interval_toolbar.addWidget(QLabel("Subintervals: "))
+        self.interval_toolbar.addWidget(self.subintervals)
+        #========================================================================
 
         self.confirm = QPushButton("Calculate")
         self.confirm.clicked.connect(self.setPlottingButtons)
@@ -308,14 +355,17 @@ class APDWindow(QMainWindow):
         self.calculate_bar.addWidget(self.confirm)
         
 
-        self.options.setStyleSheet(QTOOLBAR_STYLE)
+        self.apd_toolbar.setStyleSheet(QTOOLBAR_STYLE)
+        self.interval_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.calculate_bar.setStyleSheet(QTOOLBAR_STYLE)
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
         
         # TODO: Overlay
         # self.overlay = QCheckBox()
 
-        layout.addWidget(self.options)
+        layout.addWidget(self.apd_toolbar)
+        layout.addSpacing(5)
+        layout.addWidget(self.interval_toolbar)
         layout.addSpacing(5)
         layout.addWidget(self.calculate_bar)
 
@@ -323,14 +373,18 @@ class APDWindow(QMainWindow):
         
     def calculate_apds(self):
         threshold = self.threshold.value()
-        self.ts, _ = GetThresholdIntersections1D(self.parent.signal.transformed_data[:, self.x, self.y], threshold)
+        spacing = self.min_ms.value() / self.ms
+        self.ts, _ = GetThresholdIntersections1D(self.parent.signal.transformed_data[:, self.x, self.y], threshold, spacing)
         self.update_signal_plot()
         
     def calculate_all_apds(self):
         s = time.time()
         threshold = self.threshold.value()
-        print("APDs/DIs:", threshold)
-        self.apds, self.dis = GetThresholdIntersections(self.parent.signal.transformed_data, threshold)
+        spacing = self.min_ms.value() / self.ms
+        print("APDs/DIs:", "\nThreshold:", threshold, "\n:", spacing)
+        
+        self.line_idxs = [int(x.getPos()[0]//self.ms) for x in self.lines]
+        self.apds, self.dis = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs)
         e = time.time()
         print("Runtime:", e-s)
         self.data = [self.apds, self.dis]
@@ -352,57 +406,103 @@ class APDWindow(QMainWindow):
         for button in self.plot_buttons:
             button.setEnabled(b)
         self.plotting_bar.repaint() # update gui before proceeding
+        
+    def update_lines(self):
+        duration = self.end_time.value() - self.start_time.value()
+        interval = duration // self.subintervals.value()
+        timeVals = np.arange(self.subintervals.value() + 1) * interval + self.start_time.value()
+        
+        # generate proper number of lines for selected number of subintervals
+        while self.line_count != len(timeVals):
+            if self.line_count < len(timeVals):
+                self.add_line(self.preview_tab)
+            elif self.line_count > len(timeVals):
+                self.remove_line(self.preview_tab)
+        
+        # set lines to be evenly placed over the selected time interval
+        for i in range(self.line_count):
+            self.lines[i].setPos((int(timeVals[i]), 0))
+            
+    def add_line(self, panel: SignalPanel):
+        line = pg.InfiniteLine(movable = True)
+        line.sigPositionChangeFinished.connect(self.set_apd_range)
+        panel.plot.addItem(line)
+        
+        if self.lines is None:
+            self.lines = np.array([line])
+        else:
+            self.lines = np.append(self.lines, line)
+            
+        self.line_count += 1
+        
+    def remove_line(self, panel: SignalPanel):
+        if self.line_count > 0:
+            self.line_count -= 1
+            line = self.lines[-1]
+            panel.plot.removeItem(line)
+            self.lines = self.lines[:-1]
+            
+    def set_apd_range(self):
+        minLineX = np.min([int(line.getPos()[0]) for line in self.lines])
+        if minLineX != self.start_time.value():
+            print("change min", self.start_time.value(), 'to', minLineX)
+            self.start_time.setValue(minLineX)
+            self.update_lines()
+            
+        maxLineX = np.max([int(line.getPos()[0]) for line in self.lines])
+        if maxLineX != self.end_time.value():
+            if maxLineX > (self.parent.signal.span_T * self.parent.ms):
+                maxLineX = self.end_time.value()
+            else:
+                maxLineX = (maxLineX - minLineX) // self.subintervals.value() * self.subintervals.value() + minLineX
+            print("change max", self.end_time.value(), 'to', maxLineX)
+            self.end_time.setValue(maxLineX)
+            self.update_lines()
       
 
 class APDSubWindow(QMainWindow):
-    def __init__(self, parent, typeStr):
+    def __init__(self, parent, typeStr, intervals = 1):
         QMainWindow.__init__(self)
         self.parent = parent
+        self.ms = parent.ms
         self.settings = parent.settings
+        self.intervals = intervals
         
         self.x1 = self.y1 = self.x2 = self.y2 = 64
 
+        self.image_tabs = QTabWidget()
+        self.image_tabs.setMinimumWidth(300)
+        self.image_tabs.setMinimumHeight(300)
+
         match typeStr:
             case "APD":
-                window_title = "Spatial APDs"
+                self.window_title = "Spatial APDs"
                 y_axis_label = "Action Potential Duration (ms)"
                 x_axis_label = "Linear Space (px)"
                 
-                self.data = self.parent.data[0]
+                self.data_slices = self.parent.data[0]
                 self.view_tab = SpatialPlotView(self)
 
-                self.data_tab = SignalPanel(
-                    self,
-                    toolbar=False,
-                    signal_marker=False,
-                    ms_conversion=False,
-                    settings=self.settings,
-                )
+                self.data_tab = SignalPanel(self, settings=self.settings)
                 
             case "DI":
-                window_title = "Spatial DIs"
+                self.window_title = "Spatial DIs"
                 y_axis_label = "Diastolic Interval (ms)"
                 x_axis_label = "Linear Space (px)"
 
-                self.data = self.parent.data[1]
+                self.data_slices = self.parent.data[1]
                 self.view_tab = SpatialPlotView(self)
                 
                 
                 # Create Signal Views
-                self.data_tab = SignalPanel(
-                    self,
-                    toolbar=False,
-                    signal_marker=False,
-                    ms_conversion=False,
-                    settings=self.settings,
-                )
+                self.data_tab = SignalPanel(self, settings=self.settings)
                 
             case "APD DI":
-                window_title = "APD v.s. DI"
+                self.window_title = "APD v.s. DI"
                 y_axis_label = "Action Potential Duration (ms)"
                 x_axis_label = "Diastolic Interval (ms)"
                 
-                self.data = self.parent.data
+                self.data_slices = self.parent.data
                 self.view_tab = ScatterPlotView(self)
                 
                 # Create Signal Views
@@ -410,11 +510,9 @@ class APDSubWindow(QMainWindow):
                 
             case _:
                 self.close()
-
-        self.image_tabs = QTabWidget()
-        self.image_tabs.addTab(self.view_tab, window_title)
-        self.image_tabs.setMinimumWidth(200)
-        self.image_tabs.setMinimumHeight(200)
+                
+        self.image_tabs.addTab(self.view_tab, self.window_title)
+        self.update_tab_title(0)
 
         # set up axes
         leftAxis: pg.AxisItem = self.data_tab.plot.getPlotItem().getAxis("left")
@@ -439,7 +537,7 @@ class APDSubWindow(QMainWindow):
         self.setLayout(layout)
 
     def update_graph(self, coords, idxNum):
-        img = self.data[idxNum]
+        img = self.data_slices[0][idxNum] * self.ms
         data = []
         for coord in coords:
             #print(coord)
@@ -454,6 +552,15 @@ class APDSubWindow(QMainWindow):
 
     def update_signal_value(self, evt, idx=None):
         return
+    
+    def update_tab_title(self, interval_idx):
+        # called by subplots when the viewing interval changes
+        text = self.window_title
+        self.image_tabs.setTabText(0, text + " [" + 
+                                str(self.parent.line_idxs[interval_idx] * self.ms) + 
+                                "-" + 
+                                str((self.parent.line_idxs[interval_idx+1]-1) * self.ms) +
+                                "]:") 
 
         
 
