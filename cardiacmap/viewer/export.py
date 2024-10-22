@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QFileDialog
 )
 from skimage.measure import find_contours
 
@@ -196,12 +197,18 @@ class ExportVideoWindow(QMainWindow):
             outShape = intData[0].shape[:2]
             print("WITH COLOR")
 
-        # write video
-        out = cv2.VideoWriter(filename, fourCC, fps, outShape, isColor=color)
-        for i in range(len(data)):
-            frame = intData[i]
-            out.write(frame)
-        
-        print(filename, "exported at", fps, "fps")
-        
-        out.release()
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Video", filename, "Lossless Matroska Video File (*.mkv);;All Files (*)"
+        )
+
+        if file_path:
+
+            # write video
+            out = cv2.VideoWriter(file_path, fourCC, fps, outShape, isColor=color)
+            for i in range(len(data)):
+                frame = intData[i]
+                out.write(frame)
+            
+            print(filename, "exported at", fps, "fps")
+            
+            out.release()

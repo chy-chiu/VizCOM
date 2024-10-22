@@ -293,8 +293,8 @@ class SignalPanel(QWidget):
         start_frame = self.start_slider.value()
         end_frame = self.end_slider.value()
 
-        self.start_frame_label.setText(f"Start Frame: {start_frame}")
-        self.end_frame_label.setText(f"End Frame: {end_frame}")
+        self.start_frame_label.setText(f"Start Frame: {int(start_frame * self.parent.ms)}")
+        self.end_frame_label.setText(f"End Frame: {int(end_frame * self.parent.ms)}")
 
         # Ensure start is always less than or equal to end
         if start_frame > end_frame:
