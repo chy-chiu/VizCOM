@@ -52,6 +52,7 @@ from cardiacmap.viewer.panels import (
 )
 from cardiacmap.viewer.components import FrameInputDialog
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
+from cardiacmap.viewer.export import ExportVideoWindow
 
 TITLE_STYLE = """QDockWidget::title
 {
@@ -141,8 +142,11 @@ class CardiacMap(QMainWindow):
         self.load_saved_signal = QAction("Load Saved Signal")
         self.load_saved_signal.triggered.connect(self.load_preprocessed)
 
-        self.save_signal = QAction("Save Signal")
+        self.save_signal = QAction("Save Signal Object")
         self.save_signal.triggered.connect(self.save_preprocessed)
+        
+        self.export_vid = QAction("Export Video")
+        self.export_vid.triggered.connect(self.create_export_window)
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
@@ -153,6 +157,8 @@ class CardiacMap(QMainWindow):
         self.file_menu.addSeparator()
         # TODO - Save Signal
         self.file_menu.addAction(self.save_signal)
+        self.file_menu.addSeparator()
+        self.file_menu.addAction(self.export_vid)
 
         # Windows Menu
         self.stacking = QAction("Stacking")
@@ -591,6 +597,11 @@ class CardiacMap(QMainWindow):
     def create_isochrome_window(self):
         self.isochrome_window = IsochromeWindow(self)
         self.isochrome_window.show()
+        
+    def create_export_window(self):
+        print("Exporting Video")
+        self.export_window = ExportVideoWindow(self)
+        self.export_window.show()
 
     def create_fft_window(self):
         self.fft_window = FFTWindow(self)
