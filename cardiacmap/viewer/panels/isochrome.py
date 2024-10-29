@@ -100,8 +100,8 @@ class IsochromeWindow(QMainWindow):
         self.image_view.view.invertY(True)
 
         size_policy = QSizePolicy()
-        size_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
-        size_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
+        size_policy.setVerticalPolicy(QSizePolicy.Policy.MinimumExpanding)
+        size_policy.setHorizontalPolicy(QSizePolicy.Policy.MinimumExpanding)
         self.image_view.setSizePolicy(size_policy)
         self.image_view.setMinimumWidth(380)
         self.image_view.setMinimumHeight(500)

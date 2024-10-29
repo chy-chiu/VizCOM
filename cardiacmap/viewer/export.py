@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QFileDialog
 )
 from skimage.measure import find_contours
 
@@ -130,7 +131,7 @@ class ExportVideoWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
-        self.filename = QLineEdit("video-" + str(int(time.time())) + ".mkv")
+        
         self.use_color = QCheckBox()
         self.options_1.addWidget(QLabel("Start Time: "))
         self.options_1.addWidget(self.start_time)
@@ -151,8 +152,6 @@ class ExportVideoWindow(QMainWindow):
         # TODO: Overlay
         # self.overlay = QCheckBox()
 
-        layout.addWidget(self.filename)
-        layout.addSpacing(5)
         layout.addWidget(self.options_1)
         layout.addSpacing(5)
         layout.addWidget(self.options_2)
@@ -179,11 +178,11 @@ class ExportVideoWindow(QMainWindow):
         # set params
         fps = self.fps.value()
         color = self.use_color.isChecked()
-        filename = self.filename.text()
+        filename = self.parent.signal.signal_name
         
-        if filename[-4:] != ".mkv":
-            filename = str(filename) + ".mkv"
-        
+        if filename[-4:] != ".avi":
+            filename = str(filename) + ".avi"
+
         fourCC = cv2.VideoWriter_fourcc(*'MJPG')
         intData = data * 255
         intData = intData.astype(np.uint8)
@@ -196,12 +195,16 @@ class ExportVideoWindow(QMainWindow):
             outShape = intData[0].shape[:2]
             print("WITH COLOR")
 
-        # write video
-        out = cv2.VideoWriter(filename, fourCC, fps, outShape, isColor=color)
-        for i in range(len(data)):
-            frame = intData[i]
-            out.write(frame)
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Video", filename, "Lossless AVI (*.avi);;All Files (*)"
+        )
         
-        print(filename, "exported at", fps, "fps")
-        
-        out.release()
+        if file_path:
+            out = cv2.VideoWriter(file_path, fourCC, fps, outShape, isColor=color)
+            for i in range(len(data)):
+                frame = intData[i]
+                out.write(frame)
+            
+            print(filename, "exported at", fps, "fps")
+            
+            out.release()
