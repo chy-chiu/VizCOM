@@ -188,10 +188,13 @@ class ScatterPlotView(QWidget):
 
         self.init_image_view()
         self.init_toolbar()
+        self.swap_button = QPushButton("Swap APD/DI (current interval only)")
+        self.swap_button.clicked.connect(self.swap_apd_di)
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
         layout.addWidget(self.toolbar)
+        layout.addWidget(self.swap_button)
         self.setLayout(layout)
 
         self.set_image()
@@ -264,3 +267,10 @@ class ScatterPlotView(QWidget):
         # call update_plot in ScatterPanel
         self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y, self.show_err.isChecked())
         self.parent.parent.image_tab.update_position(self.x, self.y) # link scatter coord to APDWindow coord
+
+    def swap_apd_di(self):
+        interval =  self.intervalIdx.value()-1
+        apdArr = self.parent.parent.data[0][interval]
+        self.parent.parent.data[0][interval] = self.parent.parent.data[1][interval] # set apdArr to diArr
+        self.parent.parent.data[1][interval] = apdArr # set diArr to apdArr
+        self.update_scatter()
