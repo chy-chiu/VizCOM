@@ -458,12 +458,12 @@ class CardiacMap(QMainWindow):
 
         self.update_signal_value(None, idx=self.signal_panel.frame_idx)
 
-        start_frame_offset = self.signal_panel.start_slider.value() * self.ms
+        self.start_frame_offset = self.signal_panel.start_slider.value() * self.ms
 
         if self.signal.show_baseline:
             baseline_idx = self.x * self.signal.span_X + self.y
 
-            bX = self.signal.baselineX[baseline_idx] * self.ms + start_frame_offset
+            bX = self.signal.baselineX[baseline_idx] * self.ms + self.start_frame_offset
             bY = self.signal.baselineY[baseline_idx]
 
             self.signal_panel.baseline_data.setData(bX, bY)
@@ -551,6 +551,9 @@ class CardiacMap(QMainWindow):
             self.signal.reset_data()
             self.signal.normalize()
 
+        elif transform == "undo":
+            self.signal.undo()
+
         elif transform == "invert":
             self.signal.invert_data()
             self.signal.normalize()
@@ -579,8 +582,8 @@ class CardiacMap(QMainWindow):
             self.signal.show_baseline = True
         else:
             if action == "confirm":
-                self.signal.remove_baseline_drift(update_progress=update_progress)
-                self.signal.normalize()
+                self.signal.remove_baseline_drift(start=start_frame, end=end_frame, update_progress=update_progress)
+                self.signal.normalize(start=start_frame, end=end_frame)
 
             self.signal.reset_baseline()
             self.signal.show_baseline = False

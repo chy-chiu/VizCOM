@@ -129,6 +129,13 @@ class SignalPanel(QWidget):
         self.apd_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip, hoverable=True)
         self.apd_data.setSymbolBrush(self.pt_brush)
 
+        self.start_range_marker = pg.InfiniteLine(angle=90, movable=True)
+        self.end_range_marker = pg.InfiniteLine(angle=90, movable=True)
+        
+        self.start_range_marker.setPen(pg.mkPen("g"))
+        self.end_range_marker.setPen(pg.mkPen("g"))
+
+        
         # set up signal marker
         self.signal_marker = pg.InfiniteLine(angle=90, movable=True)
         self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
@@ -139,6 +146,9 @@ class SignalPanel(QWidget):
         self.frame_idx = 0
 
         self.plot.addItem(self.signal_marker, ignoreBounds=True)
+        self.plot.addItem(self.start_range_marker, ignoreBounds=True)
+        self.plot.addItem(self.end_range_marker, ignoreBounds=True)
+
 
         layout = QVBoxLayout()
         if self.mainSignal:
@@ -162,6 +172,9 @@ class SignalPanel(QWidget):
 
         self.reset = QAction(text="Reset", parent=self)
         self.reset.setToolTip("Reset Signal")
+
+        self.undo = QAction(text="Undo", parent=self)
+        self.undo.setToolTip("Undo Last Action")
 
         invert = QAction("Invert", self)
 
@@ -195,6 +208,10 @@ class SignalPanel(QWidget):
         self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
 
         # QActions triggers - connect
+        self.undo.triggered.connect(
+            partial(self.parent.signal_transform, transform="undo")
+        )
+
         self.reset.triggered.connect(
             partial(self.parent.signal_transform, transform="reset")
         )
@@ -220,6 +237,7 @@ class SignalPanel(QWidget):
         )
 
         self.transform_bar.addAction(self.reset)
+        self.transform_bar.addAction(self.undo)
         self.transform_bar.addAction(invert)
         self.transform_bar.addWidget(trim)
         self.transform_bar.addWidget(time_average)
@@ -252,9 +270,18 @@ class SignalPanel(QWidget):
             self.show_signal_marker.setChecked(True)
             self.show_signal_marker.stateChanged.connect(self.toggle_signal)
             self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+
+            self.show_range_marker = QCheckBox()
+            self.show_range_marker.setChecked(True)
+            self.show_range_marker.stateChanged.connect(self.toggle_range)
+            self.show_range_marker.stateChanged.connect(self.parent.update_signal_plot)
+            
             self.plotting_bar.addSeparator()
-            self.plotting_bar.addWidget(QLabel("Show Signal Marker:"))
+            self.plotting_bar.addWidget(QLabel("Signal Marker:"))
             self.plotting_bar.addWidget(self.show_signal_marker)
+            self.plotting_bar.addWidget(QLabel("Range Marker:"))
+            self.plotting_bar.addWidget(self.show_range_marker)
+
 
             # frame to ms conversion
             self.ms_per_frame = Spinbox(1, 500, 2)
@@ -290,17 +317,22 @@ class SignalPanel(QWidget):
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)    
 
     def update_slice_range(self):
-        start_frame = self.start_slider.value()
-        end_frame = self.end_slider.value()
-
-        self.start_frame_label.setText(f"Start Frame: {int(start_frame * self.parent.ms)}")
-        self.end_frame_label.setText(f"End Frame: {int(end_frame * self.parent.ms)}")
-
+        self.start_frame = self.start_slider.value()
+        self.end_frame = self.end_slider.value()
+        
         # Ensure start is always less than or equal to end
-        if start_frame > end_frame:
-            self.end_slider.setValue(start_frame)
-            start_frame = end_frame
+        if self.start_frame > self.end_frame:
+            self.end_slider.setValue(self.start_frame)
+            self.start_frame = self.end_frame
 
+        self.start_frame_label.setText(f"Start Frame: {int(self.start_frame * self.parent.ms)}")
+        self.end_frame_label.setText(f"End Frame: {int(self.end_frame * self.parent.ms)}")
+
+        self.start_range_marker.setX(int(self.start_frame * self.parent.ms))
+        self.end_range_marker.setX(int(self.end_frame * self.parent.ms))
+
+
+        
     def signal_transform(self, transform, update_progress=None, start=None, end=None):
         # ... (existing code remains the same)
 
@@ -378,6 +410,11 @@ class SignalPanel(QWidget):
         self.signal_marker.setVisible(self.show_signal_marker.isChecked())
         self.signal_marker_toggle = False
 
+    def toggle_range(self):
+        self.start_range_marker.setVisible(self.show_range_marker.isChecked())
+        self.end_range_marker.setVisible(self.show_range_marker.isChecked())
+        
+        
     def point_hover_tooltip(self, x, y, data, xLabel="x: ", yLabel="y: "):
         """Called by signal_panel when hovering over a point"""
         tooltip = xLabel + f"{x:.3f}" + "\n" + yLabel + f"{y:.3f}"
