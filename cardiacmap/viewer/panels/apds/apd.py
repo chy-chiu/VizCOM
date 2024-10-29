@@ -293,21 +293,21 @@ class APDWindow(QMainWindow):
         )
         self.threshold.valueChanged.connect(self.calculate_apds)
         
-        self.min_ms = Spinbox(
-            min= 1,
+        self.min_frames = Spinbox(
+            min= 0,
             max= 500,
-            val=10,
+            val=3,
             step=1,
             min_width=50,
             max_width=50,
         )
-        self.min_ms.valueChanged.connect(self.calculate_apds)
+        self.min_frames.valueChanged.connect(self.calculate_apds)
         
         
         self.apd_toolbar.addWidget(QLabel("Threshold: "))
         self.apd_toolbar.addWidget(self.threshold)
-        self.apd_toolbar.addWidget(QLabel("Min APD/DI Length: "))
-        self.apd_toolbar.addWidget(self.min_ms)
+        self.apd_toolbar.addWidget(QLabel("Min APD Spacing: "))
+        self.apd_toolbar.addWidget(self.min_frames)
         #========================================================================
         
         # Start and End times for intervals =====================================
@@ -373,14 +373,14 @@ class APDWindow(QMainWindow):
         
     def calculate_apds(self):
         threshold = self.threshold.value()
-        spacing = self.min_ms.value() / self.ms
+        spacing = self.min_frames.value()
         self.ts, _ = GetThresholdIntersections1D(self.parent.signal.transformed_data[:, self.x, self.y], threshold, spacing)
         self.update_signal_plot()
         
     def calculate_all_apds(self):
         s = time.time()
         threshold = self.threshold.value()
-        spacing = self.min_ms.value() / self.ms
+        spacing = self.min_frames.value()
         print("APDs/DIs:", "\nThreshold:", threshold, "\n:", spacing)
         
         self.line_idxs = [int(x.getPos()[0]//self.ms) for x in self.lines]

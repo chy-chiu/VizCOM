@@ -1,3 +1,4 @@
+from ast import Delete
 import concurrent.futures as cf
 from types import NoneType
 
@@ -24,14 +25,14 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
             start = intervals[i-1]
             end = intervals[i]-1
             slices.append(data[start:end])
+            
+    #executor = cf.ThreadPoolExecutor(4)
     
     for data_slice in slices:
-        print(data_slice.shape)
         flat_swapped_arr = np.swapaxes(data_slice.reshape(data_slice.shape[0], -1), 0, 1)
         pixels =  np.arange(flat_swapped_arr.shape[0])
         intersections = []
         apdFlags = []
-        print(flat_swapped_arr.shape)
         for p in pixels:
             ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing)
             intersections.append(ints)
@@ -42,27 +43,29 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
         
         apdArrs.append(apdArr)
         diArrs.append(diArr)
-        print(apdArr.shape, diArr.shape)
 
     return apdArrs, diArrs
 
 def GetThresholdIntersections1D(data, threshold, spacing = 0):
-    # get all indices where the data crosses the threshold
-    idx0 = np.argwhere( np.diff( np.sign( data - threshold )))[:, 0] # idx before crossing
+    #signs = np.sign( data - threshold )
+    # get indices immediately before data crosses the threshold
+    idx0 = np.argwhere(
+                np.diff( 
+                    np.sign( data - threshold )
+                )
+           )[:, 0]
+    
+    # filter out intervals that are too small
+    invalid = np.argwhere(np.diff(idx0) < spacing) + 1
+    idx0 = np.delete(idx0, invalid)
+
     idx1 = idx0 + 1 # idx after
 
     y0 = data[idx0]
     y1 = data[idx1]
     ts, apdFlags = getTimes(threshold, idx0, y0, y1)
     
-    # filter out intersections that are less than spacing
-    validIdx = np.argwhere(np.diff(ts) >= spacing).flatten()
-    
-    # np.diff wont return the final index
-    # add it back to the valid list
-    validIdx = np.append(validIdx, -1)
-    
-    return ts[validIdx], apdFlags
+    return ts, apdFlags
 
 
 def getTimes(threshold, x0s, y0s, y1s):
@@ -80,17 +83,20 @@ def getTimes(threshold, x0s, y0s, y1s):
     # no intersections found
     if len(slopes) == 0:
         return np.array([0, 1]), False
+
+    # if the slope is positive, its an apd
+    apdFlags = slopes > 0
     
-    if slopes[0] > 0:
-        apdFirst = True
-    elif slopes[0] < 0:
-        apdFirst = False
-    else:
-        return -1
+    # where two consective APDs/DIs are found
+    invalid = np.argwhere(np.diff(apdFlags) == False)
+    # remove the first (leftmost) intersection
+    slopes = np.delete(slopes, invalid)
+    x0s = np.delete(x0s, invalid)
+    y0s = np.delete(y0s, invalid)
     
     intercepts = y0s - (slopes * x0s)
     ts = (threshold - intercepts) / slopes
-    return ts, apdFirst
+    return ts, apdFlags[0]
 
 
 def CalculateIntervals(intersections, firstIntervalFlag):
