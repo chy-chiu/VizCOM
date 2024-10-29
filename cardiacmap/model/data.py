@@ -43,7 +43,7 @@ class CardiacSignal:
         signal: np.ndarray,
         metadata: Dict[str, str],
         channel: Literal["Single", "Odd", "Even"],
-        source: Literal['cascade', 'scimedia'] = 'cascade',
+        source: Literal["cascade", "scimedia"] = "cascade",
     ):
 
         self.metadata = metadata
@@ -58,13 +58,13 @@ class CardiacSignal:
         signal = signal.transpose(0, 2, 1)
 
         # This is the single source of truth that will be referred to again
-        self.base_data = deepcopy(signal)
+        self.base_data = deepcopy(signal).astype(np.float32)
 
         # Variable to hold the data signal for transformations. We use np.float32 to conserve memory
-        self.transformed_data = deepcopy(signal).astype(np.float32) 
-        
+        self.transformed_data = deepcopy(signal).astype(np.float32)
+
         # Extra copy to save the previous transform in case user wants to undo an action
-        self.previous_transform = deepcopy(signal)
+        self.previous_transform = deepcopy(signal).astype(np.float32)
 
         # This is the base image data
         self.image_data = (signal - signal.min()) / signal.max()
@@ -73,7 +73,7 @@ class CardiacSignal:
         self.span_T = len(signal)
         self.span_Y = len(signal[0])
         self.span_X = len(signal[0][0])
-        
+
         self.trimmed = [0, 0]
 
         # Inverted Flag, used when accessing base_data
@@ -104,9 +104,9 @@ class CardiacSignal:
         sig,
         rad,
         mode: Literal["Gaussian", "Uniform"] = "Gaussian",
-        update_progress=None, 
+        update_progress=None,
         start=None,
-        end=None
+        end=None,
     ):
         start = start or 0
         end = end or len(self.transformed_data) - 1
@@ -114,8 +114,8 @@ class CardiacSignal:
         if update_progress:
             update_progress(0.2)
 
-        self.previous_transform = self.transformed_data
-        
+        self.previous_transform = deepcopy(self.transformed_data)
+
         if type == "time":
             self.transformed_data[start:end] = TimeAverage(
                 self.transformed_data[start:end], sig, rad, self.mask, mode
@@ -131,14 +131,14 @@ class CardiacSignal:
 
     def trim_data(self, startTrim, endTrim):
         self.trimmed = [self.trimmed[0] + startTrim, self.trimmed[1] + endTrim]
-        self.previous_transform = self.transformed_data
+        self.previous_transform = deepcopy(self.transformed_data)
         self.transformed_data = self.transformed_data[startTrim:-endTrim, :, :]
 
     def reset_data(self):
         self.transformed_data = deepcopy(self.base_data)
 
     def undo(self):
-        self.transformed_data = self.previous_transform    
+        self.transformed_data = self.previous_transform
 
     def reset_image(self):
         self.image_data = (self.base_data - self.base_data.min()) / self.base_data.max()
@@ -150,7 +150,15 @@ class CardiacSignal:
         self.transformed_data[start:end, :, :] = n
 
     ############## Baseline drift related methods
-    def calc_baseline(self, periodLen, threshold, prominence, alternans, start=None, end=None):
+    def calc_baseline(
+        self,
+        periodLen,
+        threshold,
+        prominence,
+        alternans,
+        start=None,
+        end=None,
+    ):
         start = start or 0
         end = end or len(self.transformed_data) - 1
 
@@ -166,9 +174,18 @@ class CardiacSignal:
             t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
         )
 
-    def remove_baseline_drift(self, update_progress=None):
-        data = self.transformed_data
-        baselineXs = self.baselineX
+    def remove_baseline_drift(
+        self, start=None, end=None, update_progress=None, start_frame_offset=0
+    ):
+        start = start or 0
+        end = end or len(self.transformed_data) - 1
+
+        mask = self.mask
+        self.previous_transform = deepcopy(self.transformed_data)
+        data = self.transformed_data[start:end]
+        baselineXs = (
+            self.baselineX
+        )  # [[bX + start_frame_offset for bX in bXr] for bXr in self.baselineX]
         baselineYs = self.baselineY
         mask = self.mask
         t = np.arange(len(data))
@@ -188,7 +205,8 @@ class CardiacSignal:
         )
 
         # flip data axes back and store results
-        self.transformed_data = np.moveaxis(dataMinusBaseline, -1, 0)
+        data = np.moveaxis(dataMinusBaseline, -1, 0)
+        self.transformed_data[start:end] = data
 
     def get_baseline(self):
         return self.baselineX, self.baselineY
@@ -197,7 +215,7 @@ class CardiacSignal:
         self.baselineX = self.baselineY = []
 
     ############### APD / DI related methods
-  # def calc_apd_di_threshold(self, threshold):
+    # def calc_apd_di_threshold(self, threshold):
     #     data = np.moveaxis(self.transformed_data, 0, -1)
     #     self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
     #         data, threshold, self.mask
@@ -213,7 +231,7 @@ class CardiacSignal:
         self.apdDIThresholdIdxs = self.apdIndicators = []
         self.apds = self.apd_indices = self.dis = self.di_indices = []
         self.apdThreshold = 0
-        
+
     def get_apd_threshold(self):
         return self.apdDIThresholdIdxs, self.apdThreshold
 
@@ -256,28 +274,38 @@ class CardiacSignal:
     def apply_mask(self, mask_arr):
         self.mask = mask_arr
         print("Mask Applied")
-        #print(self.transformed_data.shape)
-        #print(self.image_data.shape)
-        #self.transformed_data = self.transformed_data * np.expand_dims(self.mask, 0)
-        #self.image_data = self.image_data * self.mask
+        # print(self.transformed_data.shape)
+        # print(self.image_data.shape)
+        # self.transformed_data = self.transformed_data * np.expand_dims(self.mask, 0)
+        # self.image_data = self.image_data * self.mask
 
     def get_curr_signal(self):
         return self.transformed_data
 
-    def perform_stacking(self, startingFrame, endingFrame, numPeriods, distance, offset, alternans = False, mask=None, update_progress=None):
+    def perform_stacking(
+        self,
+        startingFrame,
+        endingFrame,
+        numPeriods,
+        distance,
+        offset,
+        alternans=False,
+        mask=None,
+        update_progress=None,
+    ):
         # prep data
         if self.inverted:
             data = -self.base_data
         else:
             data = self.base_data
         derivative = np.gradient(self.transformed_data, axis=0)
-        
-        #plt.plot(derivative[:, 64, 64])
-        #plt.show()
+
+        # plt.plot(derivative[:, 64, 64])
+        # plt.show()
         # trim data
         if endingFrame > len(derivative) or endingFrame <= startingFrame:
             endingFrame = len(derivative)
-            
+
         data = data[
             startingFrame
             + self.trimmed[0] : startingFrame
@@ -287,7 +315,16 @@ class CardiacSignal:
         derivative = derivative[startingFrame : startingFrame + endingFrame]
 
         # perform stacking
-        results, longestRes = Stacking(data, derivative, numPeriods, distance, offset, alternans, mask, update_progress)
+        results, longestRes = Stacking(
+            data,
+            derivative,
+            numPeriods,
+            distance,
+            offset,
+            alternans,
+            mask,
+            update_progress,
+        )
 
         # reshape for display
         results = pad(results, longestRes)
