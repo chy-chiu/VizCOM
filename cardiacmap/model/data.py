@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from cardiacmap.transforms import (
     FFT,
-    GetMins,
     InvertSignal,
     NormalizeData,
     RemoveBaselineDrift,
@@ -150,32 +149,32 @@ class CardiacSignal:
         self.transformed_data[start:end, :, :] = n
 
     ############## Baseline drift related methods
-    def calc_baseline(
-        self,
-        periodLen,
-        threshold,
-        prominence,
-        alternans,
-        start=None,
-        end=None,
-    ):
-        start = start or 0
-        end = end or len(self.transformed_data) - 1
+    # def calc_baseline(
+    #     self,
+    #     periodLen,
+    #     threshold,
+    #     prominence,
+    #     alternans,
+    #     start=None,
+    #     end=None,
+    # ):
+    #     start = start or 0
+    #     end = end or len(self.transformed_data) - 1
 
-        print("Calculating baseline:", periodLen, threshold, prominence, alternans)
-        data = self.transformed_data[start:end]
-        mask = self.mask
-        t = np.arange(len(data))
-        threads = 4
+    #     print("Calculating baseline:", periodLen, threshold, prominence, alternans)
+    #     data = self.transformed_data[start:end]
+    #     mask = self.mask
+    #     t = np.arange(len(data))
+    #     threads = 4
 
-        # flip data axes so we can look at it signal-wise instead of frame-wise
-        dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
-        self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
-        )
+    #     # flip data axes so we can look at it signal-wise instead of frame-wise
+    #     dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
+    #     self.baselineX, self.baselineY = GetMins(
+    #         t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
+    #     )
 
-    def remove_baseline_drift(
-        self, start=None, end=None, update_progress=None, start_frame_offset=0
+    def remove_baseline(
+        self, params, peaks=False , start=None, end=None, update_progress=None
     ):
         start = start or 0
         end = end or len(self.transformed_data) - 1
@@ -183,29 +182,24 @@ class CardiacSignal:
         mask = self.mask
         self.previous_transform = deepcopy(self.transformed_data)
         data = self.transformed_data[start:end]
-        baselineXs = (
-            self.baselineX
-        )  # [[bX + start_frame_offset for bX in bXr] for bXr in self.baselineX]
-        baselineYs = self.baselineY
         mask = self.mask
-        t = np.arange(len(data))
         threads = 4
+
 
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
 
-        dataMinusBaseline = RemoveBaselineDrift(
-            t,
+        results = RemoveBaselineDrift(
             dataSwapped,
             mask,
-            baselineXs,
-            baselineYs,
             threads,
+            params, 
+            peaks,
             update_progress=update_progress,
         )
 
         # flip data axes back and store results
-        data = np.moveaxis(dataMinusBaseline, -1, 0)
+        data = np.moveaxis(results, -1, 0)
         self.transformed_data[start:end] = data
 
     def get_baseline(self):

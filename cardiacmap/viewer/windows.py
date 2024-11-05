@@ -461,12 +461,7 @@ class CardiacMap(QMainWindow):
         self.start_frame_offset = self.signal_panel.start_slider.value() * self.ms
 
         if self.signal.show_baseline:
-            baseline_idx = self.x * self.signal.span_X + self.y
-
-            bX = self.signal.baselineX[baseline_idx] * self.ms + self.start_frame_offset
-            bY = self.signal.baselineY[baseline_idx]
-
-            self.signal_panel.baseline_data.setData(bX, bY)
+            self.signal_panel.show_baseline()
         else:
             self.signal_panel.baseline_data.setData()
 
@@ -568,28 +563,74 @@ class CardiacMap(QMainWindow):
         start_frame = self.signal_panel.start_slider.value()
         end_frame = self.signal_panel.end_slider.value()
 
-        period = int(
+        dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
         )
         prominence = self.settings.child("Baseline Drift").child("Prominence").value()
         threshold = self.settings.child("Baseline Drift").child("Threshold").value()
         alternans = self.settings.child("Baseline Drift").child("Alternans").value()
-
+        if dst < 1:
+            dst = 1
+        if prominence == 0:
+            prominence = 0.00001
+        params = dict(
+            {
+                "alternans": alternans,
+                "threshold": threshold,
+                "distance": dst,
+                "prominence": prominence,
+            }
+        )
         if action == "calculate":
-            self.signal.calc_baseline(period, threshold, prominence, alternans, start=start_frame, end=end_frame)
-
+            self.signal_panel.show_baseline(2, params)
             self.signal_panel.baseline_drift.enable_confirm_buttons()
             self.signal.show_baseline = True
         else:
             if action == "confirm":
-                self.signal.remove_baseline_drift(start=start_frame, end=end_frame, update_progress=update_progress)
-                self.signal.normalize(start=start_frame, end=end_frame)
-
+                self.signal.remove_baseline(params, peaks=False, start=start_frame, end=end_frame)
+            self.signal_panel.show_baseline(0)
             self.signal.reset_baseline()
             self.signal.show_baseline = False
 
             self.signal_panel.baseline_drift.disable_confirm_buttons()
 
+        self.update_signal_plot()
+        
+    def normalize_peaks(
+            self, action: Literal["calculate", "confirm", "reset"], update_progress=None    
+    ):
+        start_frame = self.signal_panel.start_slider.value()
+        end_frame = self.signal_panel.end_slider.value()
+        dst = int(
+            self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
+        )
+        prominence = self.settings.child("Baseline Drift").child("Prominence").value()
+        threshold = self.settings.child("Baseline Drift").child("Threshold").value()
+        alternans = self.settings.child("Baseline Drift").child("Alternans").value()
+        
+        if dst < 1:
+            dst = 1
+        if prominence == 0:
+            prominence = 0.00001
+        params = dict(
+            {
+                "alternans": alternans,
+                "threshold": threshold,
+                "distance": dst,
+                "prominence": prominence,
+            }
+        )
+        if action == "calculate":
+           self.signal_panel.show_baseline(1, params)
+           self.signal_panel.normalize_peaks.enable_confirm_buttons()
+           self.signal.show_baseline = True
+        else:
+           if action == "confirm":
+                self.signal.remove_baseline(params, peaks=True, start=start_frame, end=end_frame)
+           self.signal_panel.show_baseline(0)
+           self.signal_panel.normalize_peaks.disable_confirm_buttons()
+           self.signal.show_baseline = False
+           
         self.update_signal_plot()
 
     def create_apd_window(self):
@@ -605,7 +646,6 @@ class CardiacMap(QMainWindow):
         self.isochrome_window.show()
         
     def create_export_window(self):
-        print("Exporting Video")
         self.export_window = ExportVideoWindow(self)
         self.export_window.show()
 
