@@ -1,7 +1,7 @@
+print('loading app..')
+
 import sys
-
 from PySide6 import QtWidgets
-
 from cardiacmap.viewer.windows import CardiacMap
 
 if __name__ == "__main__":

@@ -1,10 +1,7 @@
 from copy import deepcopy
 from typing import Dict, List, Literal, Tuple
 
-import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-from pydantic import BaseModel
 
 from cardiacmap.transforms import (
     FFT,

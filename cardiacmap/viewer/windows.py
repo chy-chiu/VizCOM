@@ -1,8 +1,10 @@
+print('hello')
 import os
 import pickle
 import sys
 from functools import partial
 from typing import List, Literal, Optional
+
 
 import numpy as np
 import pyqtgraph as pg
@@ -12,6 +14,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
+print('hello3')
+
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -36,9 +40,16 @@ from PySide6.QtWidgets import (
     QLineEdit,
 )
 
+print("import 1")
 from cardiacmap.model.cascade import load_cascade_file
+print("import 2")
+
 from cardiacmap.model.scimedia import load_scimedia_data
+print("import 3")
+
 from cardiacmap.model.data import CardiacSignal
+print("import 4")
+
 from cardiacmap.viewer.panels import (
     AnnotateView,
     APDWindow,
@@ -53,6 +64,7 @@ from cardiacmap.viewer.panels import (
 from cardiacmap.viewer.components import FrameInputDialog
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 from cardiacmap.viewer.export import ExportVideoWindow
+
 
 TITLE_STYLE = """QDockWidget::title
 {
