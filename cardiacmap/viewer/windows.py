@@ -476,6 +476,7 @@ class CardiacMap(QMainWindow):
             baseline_idx = self.x * self.signal.span_X + self.y
 
             bX = self.signal.baselineX[baseline_idx] * self.ms + self.start_frame_offset
+            print(bX)
             bY = self.signal.baselineY[baseline_idx]
 
             self.signal_panel.baseline_data.setData(bX, bY)
@@ -573,7 +574,7 @@ class CardiacMap(QMainWindow):
         self.update_signal_plot()
         self.position_tab.update_data()
 
-    @loading_popup
+    # @loading_popup
     def calculate_baseline_drift(
         self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):

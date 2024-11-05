@@ -168,8 +168,13 @@ class CardiacSignal:
         # flip data axes so we can look at it signal-wise instead of frame-wise
         dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
         self.baselineX, self.baselineY = GetMins(
-            t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
+            t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads, mode='baseline'
         )
+
+        self.peakX, self.peakY = GetMins(
+            t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads, mode='peak'
+        )
+
 
     def remove_baseline_drift(
         self, start=None, end=None, update_progress=None, start_frame_offset=0
@@ -180,9 +185,8 @@ class CardiacSignal:
         mask = self.mask
         self.previous_transform = deepcopy(self.transformed_data)
         data = self.transformed_data[start:end]
-        baselineXs = (
-            self.baselineX
-        )  # [[bX + start_frame_offset for bX in bXr] for bXr in self.baselineX]
+        baselineXs = self.baselineX
+          # [[bX + start_frame_offset for bX in bXr] for bXr in self.baselineX]
         baselineYs = self.baselineY
         mask = self.mask
         t = np.arange(len(data))
@@ -197,6 +201,8 @@ class CardiacSignal:
             mask,
             baselineXs,
             baselineYs,
+            self.peakX,
+            self.peakY,
             threads,
             update_progress=update_progress,
         )
