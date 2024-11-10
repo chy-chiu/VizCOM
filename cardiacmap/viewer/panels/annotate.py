@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
+    QFileDialog
 )
 from skimage.draw import polygon
 from skimage.transform import resize
@@ -39,9 +40,11 @@ class AnnotateView(QtWidgets.QWidget):
         self.add_mask_button.setCheckable(True)
         self.confirm_mask_button = QPushButton("Set Mask")
         self.reset_mask_button = QPushButton("Reset Mask")
-
+        self.save_mask_button = QPushButton("Save Mask")
+        self.load_mask_button = QPushButton("Load Mask")
         
-
+        row_1.addWidget(self.save_mask_button)
+        row_1.addWidget(self.load_mask_button)
         row_2.addWidget(self.add_mask_button)
         row_2.addWidget(self.confirm_mask_button)
         row_2.addWidget(self.reset_mask_button)
@@ -77,7 +80,8 @@ class AnnotateView(QtWidgets.QWidget):
         self.add_mask_button.clicked.connect(self.toggle_drawing_mode)
         self.reset_mask_button.clicked.connect(self.remove_roi)
         self.confirm_mask_button.clicked.connect(self.confirm_roi)
-
+        self.save_mask_button.clicked.connect(self.save_mask)
+        self.load_mask_button.clicked.connect(self.load_mask)
 
         self.roi = None
         self.drawing = False
@@ -131,7 +135,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.add_mask_button.setChecked(False)
         self.drawing = False
 
-        #print(self.drawing)
+        print(self.drawing)
         if self.roi is None:
             return
 
@@ -146,15 +150,32 @@ class AnnotateView(QtWidgets.QWidget):
 
 
     def get_roi_mask(self, shape):
-        points = np.array(
-            [(p.y(), p.x()) for p in np.array(self.roi.getLocalHandlePositions(), dtype="object")[:, 1]]
+        self.points = np.array(
+            [(p.x(), p.y()) for p in np.array(self.roi.getLocalHandlePositions(), dtype="object")[:, 1]]
         )  # Convert to (row, col) format
         #print(points)
-        rr, cc = polygon(points[:, 1], points[:, 0], shape)
+        rr, cc = polygon(self.points[:, 0], self.points[:, 1], shape)
         mask = np.zeros(shape, dtype=np.uint8)
         mask[rr, cc] = 1
         return mask
-
+    
+    def save_mask(self):
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Mask", "mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
+        )
+        np.save(file_path, self.points)
+    
+    def load_mask(self):
+        self.loading = True
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Mask", "mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
+        )
+        self.points = np.load(file_path)
+        if self.roi is not None:
+            self.img_view.removeItem(self.roi)
+        self.roi = pg.PolyLineROI(self.points, closed=True)
+        self.img_view.addItem(self.roi)
+        self.confirm_roi()
 
 
 if __name__ == "__main__":
