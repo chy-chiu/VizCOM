@@ -32,15 +32,21 @@ class AnnotateView(QtWidgets.QWidget):
         layout = QVBoxLayout()
 
         # Button Layout
-        self.button_layout = QHBoxLayout()
-        self.add_mask_button = QPushButton("Add Mask")
+        self.button_layout = QVBoxLayout()
+        row_1 = QHBoxLayout()
+        row_2 = QHBoxLayout()
+        self.add_mask_button = QPushButton("Edit Mask")
         self.add_mask_button.setCheckable(True)
-        self.confirm_mask_button = QPushButton("Confirm Mask")
+        self.confirm_mask_button = QPushButton("Set Mask")
         self.reset_mask_button = QPushButton("Reset Mask")
 
-        self.button_layout.addWidget(self.add_mask_button)
-        self.button_layout.addWidget(self.confirm_mask_button)
-        self.button_layout.addWidget(self.reset_mask_button)
+        
+
+        row_2.addWidget(self.add_mask_button)
+        row_2.addWidget(self.confirm_mask_button)
+        row_2.addWidget(self.reset_mask_button)
+        self.button_layout.addLayout(row_1)
+        self.button_layout.addLayout(row_2)
 
         self.img_view: pg.ImageView = pg.ImageView(view=pg.PlotItem())
 
@@ -71,6 +77,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.add_mask_button.clicked.connect(self.toggle_drawing_mode)
         self.reset_mask_button.clicked.connect(self.remove_roi)
         self.confirm_mask_button.clicked.connect(self.confirm_roi)
+
 
         self.roi = None
         self.drawing = False
@@ -121,37 +128,33 @@ class AnnotateView(QtWidgets.QWidget):
             self.parent.position_tab.update_data()
 
     def confirm_roi(self):
-
         self.add_mask_button.setChecked(False)
         self.drawing = False
 
-        print(self.drawing)
+        #print(self.drawing)
         if self.roi is None:
             return
 
-        self.roi.setPoints(self.points)
         mask = self.get_roi_mask((IMAGE_SIZE, IMAGE_SIZE))
         self.parent.signal.apply_mask(mask)
         self.parent.update_signal_plot()
         self.parent.position_tab.update_data()
 
-        # mask = resize(mask, (128, 128), order=0)
-
         self.image_data = self.parent.signal.image_data * self.parent.signal.mask
 
         self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
 
-        # self.img_view.getImageItem().setTransform(pg.QtGui.QTransform.fromScale(4, 4))
-        # self.img_view.setFixedSize(512, 512)
 
     def get_roi_mask(self, shape):
         points = np.array(
-            [p[::-1] for p in self.points]
+            [(p.y(), p.x()) for p in np.array(self.roi.getLocalHandlePositions(), dtype="object")[:, 1]]
         )  # Convert to (row, col) format
+        #print(points)
         rr, cc = polygon(points[:, 1], points[:, 0], shape)
         mask = np.zeros(shape, dtype=np.uint8)
         mask[rr, cc] = 1
         return mask
+
 
 
 if __name__ == "__main__":
