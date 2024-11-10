@@ -36,6 +36,7 @@ from cardiacmap.viewer.components import (
     ParameterConfirmButton,
     Spinbox,
 )
+from cardiacmap.transforms.baseline_drift import FindPeaks
 
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 
@@ -191,6 +192,9 @@ class SignalPanel(QWidget):
         self.baseline_drift = ParameterConfirmButton(
             "Remove Baseline Drift", self.settings.child("Baseline Drift")
         )
+        self.normalize_peaks = ParameterConfirmButton(
+            "Normalize Peaks", self.settings.child("Baseline Drift")
+        )
 
         # Display data points
         self.show_points = QCheckBox()
@@ -235,6 +239,16 @@ class SignalPanel(QWidget):
         self.baseline_drift.reset.pressed.connect(
             partial(self.parent.calculate_baseline_drift, action="reset")
         )
+        
+        self.normalize_peaks.action.pressed.connect(
+            partial(self.parent.normalize_peaks, action="calculate")
+        )
+        self.normalize_peaks.confirm.pressed.connect(
+            partial(self.parent.normalize_peaks, action="confirm")
+        )
+        self.normalize_peaks.reset.pressed.connect(
+            partial(self.parent.normalize_peaks, action="reset")
+        )
 
         self.transform_bar.addAction(self.reset)
         self.transform_bar.addAction(self.undo)
@@ -243,6 +257,7 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(time_average)
         self.transform_bar.addWidget(spatial_average)
         self.transform_bar.addWidget(self.baseline_drift)
+        self.transform_bar.addWidget(self.normalize_peaks)
 
         # colors
         self.color_button = ColorPaletteButton(self)
@@ -413,6 +428,34 @@ class SignalPanel(QWidget):
     def toggle_range(self):
         self.start_range_marker.setVisible(self.show_range_marker.isChecked())
         self.end_range_marker.setVisible(self.show_range_marker.isChecked())
+        
+    def show_baseline(self, b = -1, params = None):
+        if b == -1:
+            # refresh baseline
+            params = self.baseline_params
+            b = self.baseline_mode
+        else:
+            # new baseline
+            self.baseline_params = params
+            self.baseline_mode = b
+            
+        if b == 0:
+            # no preview
+            self.baseline_data.setData()
+        elif b == 1:
+            # preview peaks
+            d = self.signal_data.getData()[1]
+            t = np.arange(len(d))
+            baseline = FindPeaks(t, d, params)
+            self.baseline_data.setData(baseline * int(self.ms_per_frame.value()), d[baseline])
+        elif b == 2:
+            # preview baseline
+            d = self.signal_data.getData()[1]
+            t = np.arange(len(d))
+            baseline = FindPeaks(t, -d, params)
+            self.baseline_data.setData(baseline * int(self.ms_per_frame.value()), d[baseline])
+        else:
+            return 
         
         
     def point_hover_tooltip(self, x, y, data, xLabel="x: ", yLabel="y: "):
