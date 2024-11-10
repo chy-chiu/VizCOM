@@ -81,7 +81,7 @@ class ExportVideoWindow(QMainWindow):
 
         self.image_view.view
 
-        cm = pg.colormap.get("nipy_spectral", source="matplotlib")
+        cm = pg.colormap.get("nipy_spectral", source="y")
         self.image_view.setColorMap(cm)
 
         self.colorbar = self.plot_item.addColorBar(

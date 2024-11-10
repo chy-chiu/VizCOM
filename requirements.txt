@@ -1,0 +1,6 @@
+PySide6
+pyinstaller
+pyqtgraph
+numpy
+pandas
+scipy
