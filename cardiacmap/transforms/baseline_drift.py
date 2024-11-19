@@ -5,7 +5,7 @@ from scipy.signal import find_peaks
 
 # NB: The multithread here might not work well / race condition? 
 # Would be better to use .map and then combine them etc.
-def RemoveBaselineDrift(data, mask, peakXs, peakYs, threads, params, peaks=False, update_progress=None):
+def RemoveBaselineDrift(data, mask, threads, params, peaks=False, update_progress=None):
     """Function to remove baseline drift from data
     Args:
         data (array): data to process
