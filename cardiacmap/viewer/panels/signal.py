@@ -132,6 +132,8 @@ class SignalPanel(QWidget):
 
         self.start_range_marker = pg.InfiniteLine(angle=90, movable=True)
         self.end_range_marker = pg.InfiniteLine(angle=90, movable=True)
+        self.start_range_marker.sigPositionChangeFinished.connect(self.update_slider)
+        self.end_range_marker.sigPositionChangeFinished.connect(self.update_slider)
         
         self.start_range_marker.setPen(pg.mkPen("g"))
         self.end_range_marker.setPen(pg.mkPen("g"))
@@ -345,6 +347,23 @@ class SignalPanel(QWidget):
 
         self.start_range_marker.setX(int(self.start_frame * self.parent.ms))
         self.end_range_marker.setX(int(self.end_frame * self.parent.ms))
+        
+    def update_slider(self):
+        start = int(self.start_range_marker.x())
+        end = int(self.end_range_marker.x())
+        if start > end:
+            temp = start
+            start = end
+            end = temp
+            
+        self.start_slider.blockSignals(True)
+        self.end_slider.blockSignals(True)
+        self.start_slider.setValue(int(start / self.parent.ms))
+        self.end_slider.setValue(int(end / self.parent.ms))
+        self.start_slider.blockSignals(False)
+        self.end_slider.blockSignals(False)
+        self.start_frame_label.setText(f"Start Frame: {start}")
+        self.end_frame_label.setText(f"End Frame: {end}")
 
 
         
@@ -445,15 +464,35 @@ class SignalPanel(QWidget):
         elif b == 1:
             # preview peaks
             d = self.signal_data.getData()[1]
+            start = self.start_slider.value()
+            end = self.end_slider.value()
+            d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, d, params)
-            self.baseline_data.setData(baseline * int(self.ms_per_frame.value()), d[baseline])
+            baselineYs = d[baseline]
+            
+            # extend display to the edges
+            baselineXs = np.array([start] + (baseline + start).tolist() + [end])
+            baselineXs = baselineXs * int(self.ms_per_frame.value())
+            baselineYs = np.insert(baselineYs, (0, -1), [baselineYs[0], baselineYs[-1]])
+            
+            self.baseline_data.setData(baselineXs, baselineYs)
         elif b == 2:
             # preview baseline
             d = self.signal_data.getData()[1]
+            start = self.start_slider.value()
+            end = self.end_slider.value()
+            d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, -d, params)
-            self.baseline_data.setData(baseline * int(self.ms_per_frame.value()), d[baseline])
+            baselineYs = d[baseline]
+            
+            # extend display to the edges
+            baselineXs = np.array([start] + (baseline + start).tolist() + [end])
+            baselineXs = baselineXs * int(self.ms_per_frame.value())
+            baselineYs = np.insert(baselineYs, (0, -1), [baselineYs[0], baselineYs[-1]])
+            
+            self.baseline_data.setData(baselineXs, baselineYs)
         else:
             return 
         
