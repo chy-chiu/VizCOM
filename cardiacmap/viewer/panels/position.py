@@ -2,6 +2,7 @@ from genericpath import samefile
 import os
 import sys
 from functools import partial
+from turtle import update
 from typing import Literal
 
 import numpy as np
@@ -111,6 +112,7 @@ class PositionView(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
+        layout.addWidget(self.px_bar)
         layout.addWidget(self.player_bar)
         layout.addWidget(self.colormap_bar)
         self.setLayout(layout)
@@ -159,6 +161,7 @@ class PositionView(QWidget):
         return self.image_view
 
     def init_player_bar(self):
+        self.px_bar = QToolBar()
         self.player_bar = QToolBar()
         self.colormap_bar = QToolBar()
 
@@ -207,6 +210,21 @@ class PositionView(QWidget):
         self.colormap_bar.addWidget(self.colormap)
         self.colormap_bar.addWidget(QLabel("   Marker: "))
         self.colormap_bar.addWidget(self.show_marker)
+        
+        self.x_box = Spinbox(
+            min=0, max=127, val=64, min_width=50, max_width=50, step=1
+        )
+        self.y_box = Spinbox(
+            min=0, max=127, val=64, min_width=50, max_width=50, step=1
+        )
+            
+        self.x_box.valueChanged.connect(self.update_position_boxes)
+        self.y_box.valueChanged.connect(self.update_position_boxes)
+        
+        self.px_bar.addWidget(QLabel("   X: "))
+        self.px_bar.addWidget(self.x_box)
+        self.px_bar.addWidget(QLabel("   Y: "))
+        self.px_bar.addWidget(self.y_box)
 
     def update_framerate(self):
         framerate = self.framerate.value()
@@ -229,7 +247,27 @@ class PositionView(QWidget):
         self.parent.x = x
         self.parent.y = y
         self.parent.update_signal_plot()
-        
+        self.update_position_boxes(val=None)
+            
+    def update_position_boxes(self, val=None):
+        #print("Update Boxes val", val)
+        if val is not None:
+            # set position to box values
+            x = int(self.x_box.value())
+            y = int(self.y_box.value())
+            self.update_marker(x, y)
+            self.parent.x = x
+            self.parent.y = y
+            self.parent.update_signal_plot()
+        else:
+            # set box values to position
+            self.x_box.blockSignals(True) # block signals to avoid
+            self.y_box.blockSignals(True) # circular callback
+            self.x_box.setValue(self.parent.x)
+            self.y_box.setValue(self.parent.y)
+            self.x_box.blockSignals(False)
+            self.y_box.blockSignals(False)
+
     def init_colormap(self):
         cmap_name = self.colormap.currentText() or "nipy_spectral"
         self.cmap = pg.colormap.get(cmap_name, source="matplotlib")

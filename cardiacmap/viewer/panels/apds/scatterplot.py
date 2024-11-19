@@ -30,6 +30,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from cardiacmap.viewer.components import Spinbox
+
 SPINBOX_STYLE = """QSpinBox
             {
                 border: 1px solid;
@@ -193,6 +195,7 @@ class ScatterPlotView(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
+        layout.addWidget(self.px_bar)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.swap_button)
         self.setLayout(layout)
@@ -246,6 +249,22 @@ class ScatterPlotView(QWidget):
         self.toolbar.addWidget(self.intervalIdx)
         self.toolbar.addWidget(QLabel("Show Mean/Std:"))
         self.toolbar.addWidget(self.show_err)
+        
+        self.px_bar = QToolBar()
+        self.x_box = Spinbox(
+            min=0, max=127, val=64, min_width=50, max_width=50, step=1
+        )
+        self.y_box = Spinbox(
+            min=0, max=127, val=64, min_width=50, max_width=50, step=1
+        )
+            
+        self.x_box.valueChanged.connect(self.update_position_boxes)
+        self.y_box.valueChanged.connect(self.update_position_boxes)
+        
+        self.px_bar.addWidget(QLabel("   X: "))
+        self.px_bar.addWidget(self.x_box)
+        self.px_bar.addWidget(QLabel("   Y: "))
+        self.px_bar.addWidget(self.y_box)
 
     def set_image(self):
         self.image_view.setImage(
@@ -262,6 +281,24 @@ class ScatterPlotView(QWidget):
 
         self.marker.setData(pos=[[x, y]])
         self.update_scatter()
+        self.update_position_boxes(val=None)
+            
+    def update_position_boxes(self, val=None):
+        #print("Update Boxes val", val)
+        if val is not None:
+            # set position to box values
+            x = int(self.x_box.value())
+            y = int(self.y_box.value())
+            self.marker.setData(pos=[[x, y]])
+            self.update_scatter()
+        else:
+            # set box values to position
+            self.x_box.blockSignals(True) # block signals to avoid
+            self.y_box.blockSignals(True) # circular callback
+            self.x_box.setValue(self.x)
+            self.y_box.setValue(self.y)
+            self.x_box.blockSignals(False)
+            self.y_box.blockSignals(False)
     
     def update_scatter(self):
         # call update_plot in ScatterPanel
