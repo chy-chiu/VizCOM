@@ -445,12 +445,15 @@ class SignalPanel(QWidget):
         elif b == 1:
             # preview peaks
             d = self.signal_data.getData()[1]
+            start = self.start_slider.value()
+            end = self.end_slider.value()
+            d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, d, params)
             baselineYs = d[baseline]
             
             # extend display to the edges
-            baselineXs = np.array([0] + baseline.tolist() + [len(d)-1])
+            baselineXs = np.array([start] + (baseline + start).tolist() + [end])
             baselineXs = baselineXs * int(self.ms_per_frame.value())
             baselineYs = np.insert(baselineYs, (0, -1), [baselineYs[0], baselineYs[-1]])
             
@@ -458,12 +461,15 @@ class SignalPanel(QWidget):
         elif b == 2:
             # preview baseline
             d = self.signal_data.getData()[1]
+            start = self.start_slider.value()
+            end = self.end_slider.value()
+            d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, -d, params)
             baselineYs = d[baseline]
             
             # extend display to the edges
-            baselineXs = np.array([0] + baseline.tolist() + [len(d)-1])
+            baselineXs = np.array([start] + (baseline + start).tolist() + [end])
             baselineXs = baselineXs * int(self.ms_per_frame.value())
             baselineYs = np.insert(baselineYs, (0, -1), [baselineYs[0], baselineYs[-1]])
             
