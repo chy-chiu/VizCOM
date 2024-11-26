@@ -117,8 +117,8 @@ def CalculateIntervals(intersections, firstIntervalFlag):
         apdFirst = firstIntervalFlag[sig]
         
         if apdFirst:
-            apds = intervals[::2]
-            dis = intervals[1::2] 
+            dis = intervals[1::2]
+            apds = intervals[2::2]
         else:
             dis = intervals[::2]
             apds = intervals[1::2]
