@@ -8,25 +8,25 @@ import time
 
 DEFAULT_SETTINGS_PATH = "./settings.json"
 DEFAULT_VALUES = {
-    "Stacking Parameters": [
-        {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
-        {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
-        {
-            "name": "Alternans",
-            "type": "bool",
-            "value": False,
-        },
-        {
-            "name": "End Time",
-            "type": "int",
-            "value": -1,
-            "limits": (-1, 100000),
-        },
-    ],
-    "FFT Parameters": [
-        {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
-        {"name": "End Time", "type": "int", "value": -1, "limits": (-1, 100000),},
-    ],
+    # "Stacking Parameters": [
+    #     {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
+    #     {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
+    #     {
+    #         "name": "Alternans",
+    #         "type": "bool",
+    #         "value": False,
+    #     },
+    #     {
+    #         "name": "End Time",
+    #         "type": "int",
+    #         "value": -1,
+    #         "limits": (-1, 100000),
+    #     },
+    # ],
+    # "FFT Parameters": [
+    #     {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
+    #     {"name": "End Time", "type": "int", "value": -1, "limits": (-1, 100000),},
+    # ],
     "Spatial Average": [
         {"name": "Sigma", "type": "int", "value": 8, "limits": (0, 100)},
         {"name": "Radius", "type": "int", "value": 6, "limits": (0, 100)},
@@ -47,10 +47,10 @@ DEFAULT_VALUES = {
             "limits": ["Gaussian", "Uniform"],
         },
     ],
-    "Trim Parameters": [
-        {"name": "Left", "type": "int", "value": 100, "limits": (0, 100000)},
-        {"name": "Right", "type": "int", "value": 100, "limits": (0, 100000)},
-    ],
+    # "Trim Parameters": [
+    #     {"name": "Left", "type": "int", "value": 100, "limits": (0, 100000)},
+    #     {"name": "Right", "type": "int", "value": 100, "limits": (0, 100000)},
+    # ],
     "Baseline Drift": [
         {
             "name": "Alternans",
@@ -64,13 +64,13 @@ DEFAULT_VALUES = {
     "APD Parameters": [
         {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
     ],
-    "Signal Plot Colors": [
-        {"name": "signal", "value": [255, 255, 255]}, 
-        {"name": "apd", "value": [255, 0, 0]},
-        {"name": "baseline", "value": [0, 255, 0]},
-        {"name": "points", "value": [0, 0, 255]},
-        {"name": "background", "value": [0, 0, 0]},
-    ],
+    # "Signal Plot Colors": [
+    #     {"name": "signal", "value": [255, 255, 255]}, 
+    #     {"name": "apd", "value": [255, 0, 0]},
+    #     {"name": "baseline", "value": [0, 255, 0]},
+    #     {"name": "points", "value": [0, 0, 255]},
+    #     {"name": "background", "value": [0, 0, 0]},
+    # ],
 }
 
 

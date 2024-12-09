@@ -5,6 +5,7 @@ import numpy as np
 import psutil
 
 from cardiacmap.model.data import CardiacSignal
+from typing import Dict
 
 
 def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
@@ -104,7 +105,7 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     return metadata, sigarray
 
 
-def load_cascade_file(filepath, largeFilePopup, dual_mode=False):
+def load_cascade_file(filepath, largeFilePopup, dual_mode=False) -> Dict[int, CardiacSignal]:
     """Wrapper to load a raw .dat file to return a single or dual channel signal.
 
     Args:

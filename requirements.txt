@@ -4,3 +4,4 @@ pyqtgraph
 numpy
 pandas
 scipy
+matplotlib

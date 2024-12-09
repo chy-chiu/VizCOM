@@ -112,9 +112,9 @@ class PositionView(QWidget):
 
         layout = QVBoxLayout()
         layout.addWidget(self.image_view)
-        layout.addWidget(self.px_bar)
+        # layout.addWidget(self.px_bar)
         layout.addWidget(self.player_bar)
-        layout.addWidget(self.colormap_bar)
+        layout.addWidget(self.data_bar)
         self.setLayout(layout)
         
         self.init_colormap()
@@ -163,7 +163,7 @@ class PositionView(QWidget):
     def init_player_bar(self):
         self.px_bar = QToolBar()
         self.player_bar = QToolBar()
-        self.colormap_bar = QToolBar()
+        self.data_bar = QToolBar()
 
         play_button = QAction("⏯", self)
         forward_button = QAction("⏭", self)
@@ -204,13 +204,6 @@ class PositionView(QWidget):
         self.show_marker.setChecked(True)
         self.show_marker.stateChanged.connect(self.toggle_marker)
 
-        self.colormap_bar.addWidget(QLabel("Data: "))
-        self.colormap_bar.addWidget(self.normalize)
-        self.colormap_bar.addWidget(QLabel("   Colormap: "))
-        self.colormap_bar.addWidget(self.colormap)
-        self.colormap_bar.addWidget(QLabel("   Marker: "))
-        self.colormap_bar.addWidget(self.show_marker)
-        
         self.x_box = Spinbox(
             min=0, max=127, val=64, min_width=50, max_width=50, step=1
         )
@@ -220,11 +213,22 @@ class PositionView(QWidget):
             
         self.x_box.valueChanged.connect(self.update_position_boxes)
         self.y_box.valueChanged.connect(self.update_position_boxes)
+
+        self.data_bar.addWidget(QLabel("Data: "))
+        self.data_bar.addWidget(self.normalize)
+        # self.colormap_bar.addWidget(QLabel("   Colormap: "))
+        # self.colormap_bar.addWidget(self.colormap)
+        self.data_bar.addWidget(QLabel("   X: "))
+        self.data_bar.addWidget(self.x_box)
+        self.data_bar.addWidget(QLabel("   Y: "))
+        self.data_bar.addWidget(self.y_box)
+        self.data_bar.addWidget(QLabel("   Marker: "))
+        self.data_bar.addWidget(self.show_marker)
         
-        self.px_bar.addWidget(QLabel("   X: "))
-        self.px_bar.addWidget(self.x_box)
-        self.px_bar.addWidget(QLabel("   Y: "))
-        self.px_bar.addWidget(self.y_box)
+        # self.px_bar.addWidget(QLabel("   X: "))
+        # self.px_bar.addWidget(self.x_box)
+        # self.px_bar.addWidget(QLabel("   Y: "))
+        # self.px_bar.addWidget(self.y_box)
 
     def update_framerate(self):
         framerate = self.framerate.value()

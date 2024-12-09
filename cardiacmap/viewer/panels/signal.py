@@ -55,9 +55,26 @@ class SignalPlot(pg.PlotWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def mouseDoubleClickEvent(self, e):
-        self.getPlotItem().enableAutoRange()
+        self.plot_item = self.getPlotItem()
+                
+        # TODO: To make this settable later
+        font=QtGui.QFont()
+        font.setPixelSize(16)
+        # set up axes
+        leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
+        bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
+        leftAxis.setLabel(text="Normalized Voltage")
+        bottomAxis.setLabel(text="Time (ms)")
+        leftAxis.setTickFont(font)
+        bottomAxis.setTickFont(font)
+        leftAxis.label.setFont(font)
+        bottomAxis.label.setFont(font)
 
+
+    def mouseDoubleClickEvent(self, e):
+        self.plot_item.enableAutoRange()
+
+# TODO: Make this BaseSignalPanel then MainSignalPanel etc. 
 class SignalPanel(QWidget):
 
     def __init__(self, parent, main_signal = False, settings = None):
@@ -98,20 +115,8 @@ class SignalPanel(QWidget):
         self.plot.setBackground(self.colors['background'])
         
         if self.mainSignal: 
-             self.init_toolbars()
-        self.init_plotting_bar()
-        # TODO: To make this settable later
-        font=QtGui.QFont()
-        font.setPixelSize(16)
-        # set up axes
-        leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
-        bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
-        leftAxis.setLabel(text="Normalized Voltage")
-        bottomAxis.setLabel(text="Time (ms)")
-        leftAxis.setTickFont(font)
-        bottomAxis.setTickFont(font)
-        leftAxis.label.setFont(font)
-        bottomAxis.label.setFont(font)
+            self.init_toolbars()
+            self.init_plotting_bar()
 
         # set up data items
         self.signal_data: pg.PlotDataItem = self.plot.plot(
@@ -132,8 +137,8 @@ class SignalPanel(QWidget):
 
         self.start_range_marker = pg.InfiniteLine(angle=90, movable=True)
         self.end_range_marker = pg.InfiniteLine(angle=90, movable=True)
-        self.start_range_marker.sigPositionChangeFinished.connect(self.update_slider)
-        self.end_range_marker.sigPositionChangeFinished.connect(self.update_slider)
+        self.start_range_marker.sigPositionChanged.connect(self.update_range_marker)
+        self.end_range_marker.sigPositionChanged.connect(self.update_range_marker)
         
         self.start_range_marker.setPen(pg.mkPen("g"))
         self.end_range_marker.setPen(pg.mkPen("g"))
@@ -144,19 +149,23 @@ class SignalPanel(QWidget):
         self.signal_marker.sigClicked.connect(self.toggle_signal_follow)
         self.signal_marker_toggle = False
         self.signal_marker.setVisible(main_signal)
-        self.signal_marker.sigPositionChanged.connect(self.parent.update_signal_value)
+
+        if self.mainSignal:
+            self.signal_marker.sigPositionChanged.connect(self.parent.update_signal_value)
+            self.signal_marker.sigPositionChangeFinished.connect(self.parent.update_signal_index)
 
         self.frame_idx = 0
 
         self.plot.addItem(self.signal_marker, ignoreBounds=True)
-        self.plot.addItem(self.start_range_marker, ignoreBounds=True)
-        self.plot.addItem(self.end_range_marker, ignoreBounds=True)
+        if main_signal:
+            self.plot.addItem(self.start_range_marker, ignoreBounds=True)
+            self.plot.addItem(self.end_range_marker, ignoreBounds=True)
 
 
         layout = QVBoxLayout()
         if self.mainSignal:
             layout.addWidget(self.transform_bar)
-        layout.addWidget(self.plotting_bar)
+            layout.addWidget(self.plotting_bar)
         layout.addWidget(self.plot)
 
         self.setLayout(layout)
@@ -188,7 +197,7 @@ class SignalPanel(QWidget):
         spatial_average = ParameterButton(
             "Spatial Average", self.settings.child("Spatial Average")
         )
-        trim = ParameterButton("Trim", self.settings.child("Trim Parameters"))
+        trim = QAction("Trim")
 
         # Baseline drift button
         self.baseline_drift = ParameterConfirmButton(
@@ -230,7 +239,7 @@ class SignalPanel(QWidget):
         time_average.pressed.connect(
             partial(self.parent.signal_transform, transform="time_average")
         )
-        trim.pressed.connect(partial(self.parent.signal_transform, transform="trim"))
+        trim.triggered.connect(partial(self.parent.signal_transform, transform="trim"))
 
         self.baseline_drift.action.pressed.connect(
             partial(self.parent.calculate_baseline_drift, action="calculate")
@@ -255,7 +264,7 @@ class SignalPanel(QWidget):
         self.transform_bar.addAction(self.reset)
         self.transform_bar.addAction(self.undo)
         self.transform_bar.addAction(invert)
-        self.transform_bar.addWidget(trim)
+        self.transform_bar.addAction(trim)
         self.transform_bar.addWidget(time_average)
         self.transform_bar.addWidget(spatial_average)
         self.transform_bar.addWidget(self.baseline_drift)
@@ -268,7 +277,7 @@ class SignalPanel(QWidget):
 
     def init_plotting_bar(self):
         self.plotting_bar = QToolBar()
-
+        
         # Display data points
         self.show_points = QCheckBox()
         self.show_points.setChecked(False)
@@ -276,55 +285,46 @@ class SignalPanel(QWidget):
         self.show_points.stateChanged.connect(self.parent.update_signal_plot)
         self.plotting_bar.addWidget(QLabel("Show Data Points: "))
         self.plotting_bar.addWidget(self.show_points)
+    
+        # signal marker
+        self.show_signal_marker = QCheckBox()
+        self.show_signal_marker.setChecked(True)
+        self.show_signal_marker.stateChanged.connect(self.toggle_signal)
+        self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+
+        self.show_range_marker = QCheckBox()
+        self.show_range_marker.setChecked(True)
+        self.show_range_marker.stateChanged.connect(self.toggle_range)
+        self.show_range_marker.stateChanged.connect(self.parent.update_signal_plot)
         
-        # Add sliders for start and end
-        self.start_slider = QSlider(Qt.Orientation.Horizontal)
-        self.end_slider = QSlider(Qt.Orientation.Horizontal)
+        self.plotting_bar.addSeparator()
+        self.plotting_bar.addWidget(QLabel("Signal Marker:"))
+        self.plotting_bar.addWidget(self.show_signal_marker)
+        self.plotting_bar.addWidget(QLabel("Range Marker:"))
+        self.plotting_bar.addWidget(self.show_range_marker)
 
-        if self.mainSignal:
-            # signal marker
-            self.show_signal_marker = QCheckBox()
-            self.show_signal_marker.setChecked(True)
-            self.show_signal_marker.stateChanged.connect(self.toggle_signal)
-            self.show_signal_marker.stateChanged.connect(self.parent.update_signal_plot)
+        # Add spinbox for start and end ranges
+        dl = len(self.parent.signal.transformed_data) * 2
+        self.start_spinbox = Spinbox(1, dl, 0, min_width=40, max_width=80)
+        self.end_spinbox = Spinbox(1, dl, dl, min_width=40, max_width=80)
 
-            self.show_range_marker = QCheckBox()
-            self.show_range_marker.setChecked(True)
-            self.show_range_marker.stateChanged.connect(self.toggle_range)
-            self.show_range_marker.stateChanged.connect(self.parent.update_signal_plot)
-            
-            self.plotting_bar.addSeparator()
-            self.plotting_bar.addWidget(QLabel("Signal Marker:"))
-            self.plotting_bar.addWidget(self.show_signal_marker)
-            self.plotting_bar.addWidget(QLabel("Range Marker:"))
-            self.plotting_bar.addWidget(self.show_range_marker)
+        self.start_spinbox.valueChanged.connect(self.update_range_spinbox)
+        self.end_spinbox.valueChanged.connect(self.update_range_spinbox)
 
-
-            # frame to ms conversion
-            self.ms_per_frame = Spinbox(1, 500, 2)
-            self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
-            self.plotting_bar.addSeparator()
-            self.plotting_bar.addWidget(self.ms_per_frame)
-            self.plotting_bar.addWidget(QLabel("ms per frame"))
-            
-            self.start_slider.setRange(0, len(self.parent.signal.transformed_data))
-            self.end_slider.setRange(0, len(self.parent.signal.transformed_data))
-
-            # Set initial values
-            self.start_slider.setValue(0)
-            self.end_slider.setValue(len(self.parent.signal.transformed_data))
-
-            # Add labels for start and end sliders
-            self.start_frame_label = QLabel("Start Frame: 0")
-            self.plotting_bar.addWidget(self.start_frame_label)
-            self.plotting_bar.addWidget(self.start_slider)
-            self.end_frame_label = QLabel(f"End Frame: {self.end_slider.value()}")
-            self.plotting_bar.addWidget(self.end_frame_label)
-            self.plotting_bar.addWidget(self.end_slider)
+        # frame to ms conversion
+        self.ms_per_frame = Spinbox(1, 500, 2)
+        self.ms_per_frame.valueChanged.connect(self.parent.ms_changed)
+        self.plotting_bar.addSeparator()
+        self.plotting_bar.addWidget(self.ms_per_frame)
+        self.plotting_bar.addWidget(QLabel("ms per frame"))
         
-            # Connect sliders to update function
-            self.start_slider.valueChanged.connect(self.update_slice_range)
-            self.end_slider.valueChanged.connect(self.update_slice_range)
+        # Add labels for start and end sliders
+        self.start_frame_label = QLabel("Start Frame: ")
+        self.plotting_bar.addWidget(self.start_frame_label)
+        self.plotting_bar.addWidget(self.start_spinbox)
+        self.end_frame_label = QLabel(f"End Frame: ")
+        self.plotting_bar.addWidget(self.end_frame_label)
+        self.plotting_bar.addWidget(self.end_spinbox)
 
         # colors
         self.color_button = ColorPaletteButton(self)
@@ -333,37 +333,31 @@ class SignalPanel(QWidget):
 
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)    
 
-    def update_slice_range(self):
-        self.start_frame = self.start_slider.value()
-        self.end_frame = self.end_slider.value()
+    def update_range_spinbox(self):
+        start = int(self.start_spinbox.value())
+        end = int(self.end_spinbox.value())
         
         # Ensure start is always less than or equal to end
-        if self.start_frame > self.end_frame:
-            self.end_slider.setValue(self.start_frame)
-            self.start_frame = self.end_frame
+        if start > end:
+            self.end_spinbox.setValue(start)
+            start = end
 
-        self.start_frame_label.setText(f"Start Frame: {int(self.start_frame * self.parent.ms)}")
-        self.end_frame_label.setText(f"End Frame: {int(self.end_frame * self.parent.ms)}")
+        self.start_range_marker.setX(start)
+        self.end_range_marker.setX(end)
 
-        self.start_range_marker.setX(int(self.start_frame * self.parent.ms))
-        self.end_range_marker.setX(int(self.end_frame * self.parent.ms))
+        self.start_frame = int(self.start_spinbox.value() / self.parent.ms)
+        self.end_frame = int(self.end_spinbox.value() / self.parent.ms)
         
-    def update_slider(self):
+        
+    def update_range_marker(self):
         start = int(self.start_range_marker.x())
         end = int(self.end_range_marker.x())
-        if start > end:
-            temp = start
-            start = end
-            end = temp
             
-        self.start_slider.blockSignals(True)
-        self.end_slider.blockSignals(True)
-        self.start_slider.setValue(int(start / self.parent.ms))
-        self.end_slider.setValue(int(end / self.parent.ms))
-        self.start_slider.blockSignals(False)
-        self.end_slider.blockSignals(False)
-        self.start_frame_label.setText(f"Start Frame: {start}")
-        self.end_frame_label.setText(f"End Frame: {end}")
+        self.start_spinbox.setValue(start)
+        self.end_spinbox.setValue(end)
+
+        self.start_range_marker.setValue(self.start_spinbox.value())
+        self.end_range_marker.setValue(self.end_spinbox.value())
 
 
         
@@ -464,8 +458,8 @@ class SignalPanel(QWidget):
         elif b == 1:
             # preview peaks
             d = self.signal_data.getData()[1]
-            start = self.start_slider.value()
-            end = self.end_slider.value()
+            start = self.start_spinbox.value()
+            end = self.end_spinbox.value()
             d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, d, params)
@@ -480,8 +474,8 @@ class SignalPanel(QWidget):
         elif b == 2:
             # preview baseline
             d = self.signal_data.getData()[1]
-            start = self.start_slider.value()
-            end = self.end_slider.value()
+            start = self.start_spinbox.value()
+            end = self.end_spinbox.value()
             d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, -d, params)

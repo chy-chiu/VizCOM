@@ -10,11 +10,15 @@ This software is mostly built upon Qt (PySide6) and pyqtgraph, a Python framewor
 1. Git clone this repo
 2. Set up virtual environment
 
-`conda create --name cardiacmap --file requirements.txt`
+`python -m virtualenv .venv`
 
 3. Activate virtual environment
 
-`conda activate cardiacmap`
+`. .venv/bin/activate`
+
+3. Install requirements
+
+`pip install -r requirements.txt`
 
 4. Install cardiacmap as a module
 

@@ -1,11 +1,8 @@
-print('hello')
 import os
 import pickle
 import sys
 from functools import partial
 from typing import List, Literal, Optional
-
-
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.console import ConsoleWidget
@@ -14,7 +11,6 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
-print('hello3')
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -40,15 +36,9 @@ from PySide6.QtWidgets import (
     QLineEdit,
 )
 
-print("import 1")
 from cardiacmap.model.cascade import load_cascade_file
-print("import 2")
-
 from cardiacmap.model.scimedia import load_scimedia_data
-print("import 3")
-
 from cardiacmap.model.data import CardiacSignal
-print("import 4")
 
 from cardiacmap.viewer.panels import (
     AnnotateView,
@@ -156,7 +146,7 @@ class CardiacMap(QMainWindow):
 
         self.save_signal = QAction("Save Signal Object")
         self.save_signal.triggered.connect(self.save_preprocessed)
-        
+
         self.export_vid = QAction("Export Video")
         self.export_vid.triggered.connect(self.create_export_window)
 
@@ -218,7 +208,9 @@ class CardiacMap(QMainWindow):
             self.metadata_panel = MetadataPanel(self.signal, self)
 
             # Create Signal view
-            self.signal_panel = SignalPanel(self, main_signal=True, settings=self.settings)
+            self.signal_panel = SignalPanel(
+                self, main_signal=True, settings=self.settings
+            )
 
             # Create Image tabs
             self.position_tab = PositionView(self)
@@ -460,6 +452,13 @@ class CardiacMap(QMainWindow):
                     f"{self.signal_panel.signal_data.getData()[1][idx]:.3f}"
                 )
 
+    def update_signal_index(self, evt, idx=None):
+        if not idx:
+            idx = self.signal_panel.signal_marker.getXPos()
+        idx = int(idx / self.ms)
+
+        self.position_tab.image_view.setCurrentIndex(idx)
+
     def update_signal_plot(self):
         signal_data = self.signal.transformed_data[:, self.x, self.y]
 
@@ -470,7 +469,7 @@ class CardiacMap(QMainWindow):
 
         self.update_signal_value(None, idx=self.signal_panel.frame_idx)
 
-        self.start_frame_offset = self.signal_panel.start_slider.value() * self.ms
+        self.start_frame_offset = self.signal_panel.start_spinbox.value() * self.ms
 
         if self.signal.show_baseline:
             self.signal_panel.show_baseline()
@@ -494,7 +493,7 @@ class CardiacMap(QMainWindow):
         self.xVals = np.arange(0, self.ms * self.signal.span_T, self.ms)
         print("updated ms:", self.ms)
         self.update_signal_plot()
-        self.signal_panel.update_slice_range()
+        self.signal_panel.update_range_spinbox()
 
     @loading_popup
     def signal_transform(
@@ -504,8 +503,8 @@ class CardiacMap(QMainWindow):
         ],
         update_progress=None,
     ):
-        start_frame = self.signal_panel.start_slider.value() 
-        end_frame = self.signal_panel.end_slider.value() 
+        start_frame = self.signal_panel.start_frame
+        end_frame = self.signal_panel.end_frame
 
         if update_progress:
             # print(update_progress)
@@ -572,8 +571,8 @@ class CardiacMap(QMainWindow):
     def calculate_baseline_drift(
         self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
-        start_frame = self.signal_panel.start_slider.value()
-        end_frame = self.signal_panel.end_slider.value()
+        start_frame = self.signal_panel.start_spinbox.value()
+        end_frame = self.signal_panel.end_spinbox.value()
 
         dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
@@ -599,7 +598,9 @@ class CardiacMap(QMainWindow):
             self.signal.show_baseline = True
         else:
             if action == "confirm":
-                self.signal.remove_baseline(params, peaks=False, start=start_frame, end=end_frame)
+                self.signal.remove_baseline(
+                    params, peaks=False, start=start_frame, end=end_frame
+                )
             self.signal_panel.show_baseline(0)
             self.signal.reset_baseline()
             self.signal.show_baseline = False
@@ -607,19 +608,19 @@ class CardiacMap(QMainWindow):
             self.signal_panel.baseline_drift.disable_confirm_buttons()
 
         self.update_signal_plot()
-        
+
     def normalize_peaks(
-            self, action: Literal["calculate", "confirm", "reset"], update_progress=None    
+        self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
-        start_frame = self.signal_panel.start_slider.value()
-        end_frame = self.signal_panel.end_slider.value()
+        start_frame = self.signal_panel.start_spinbox.start_frame()
+        end_frame = self.signal_panel.end_spinbox.value()
         dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
         )
         prominence = self.settings.child("Baseline Drift").child("Prominence").value()
         threshold = self.settings.child("Baseline Drift").child("Threshold").value()
         alternans = self.settings.child("Baseline Drift").child("Alternans").value()
-        
+
         if dst < 1:
             dst = 1
         if prominence == 0:
@@ -633,16 +634,18 @@ class CardiacMap(QMainWindow):
             }
         )
         if action == "calculate":
-           self.signal_panel.show_baseline(1, params)
-           self.signal_panel.normalize_peaks.enable_confirm_buttons()
-           self.signal.show_baseline = True
+            self.signal_panel.show_baseline(1, params)
+            self.signal_panel.normalize_peaks.enable_confirm_buttons()
+            self.signal.show_baseline = True
         else:
-           if action == "confirm":
-                self.signal.remove_baseline(params, peaks=True, start=start_frame, end=end_frame)
-           self.signal_panel.show_baseline(0)
-           self.signal_panel.normalize_peaks.disable_confirm_buttons()
-           self.signal.show_baseline = False
-           
+            if action == "confirm":
+                self.signal.remove_baseline(
+                    params, peaks=True, start=start_frame, end=end_frame
+                )
+            self.signal_panel.show_baseline(0)
+            self.signal_panel.normalize_peaks.disable_confirm_buttons()
+            self.signal.show_baseline = False
+
         self.update_signal_plot()
 
     def create_apd_window(self):
@@ -656,7 +659,7 @@ class CardiacMap(QMainWindow):
     def create_isochrome_window(self):
         self.isochrome_window = IsochromeWindow(self)
         self.isochrome_window.show()
-        
+
     def create_export_window(self):
         self.export_window = ExportVideoWindow(self)
         self.export_window.show()
