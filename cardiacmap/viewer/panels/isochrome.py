@@ -250,14 +250,20 @@ class IsochromeWindow(QMainWindow):
 
         self.start_frame.valueChanged.connect(self.update_keyframe)
 
-        self.confirm = QPushButton("Calculate")
+        self.cal_iso = QPushButton("Calculate")
+        self.cal_iso_filled = QPushButton("Calculate Filled")
+        self.cal_iso_video = QPushButton("Calculate Video")
+
         self.reset = QPushButton("Reset")
-        # self.confirm.clicked.connect(self.calculate_isochrome)
-        self.confirm.clicked.connect(self.calculate_contour_video)        
+        self.cal_iso.clicked.connect(self.calculate_isochrome)
+        self.cal_iso_filled.clicked.connect(self.calculate_isochrome_filled)
+        self.cal_iso_video.clicked.connect(self.calculate_contour_video)        
         self.reset.clicked.connect(
             partial(self.update_keyframe)
         )
-        self.actions_bar.addWidget(self.confirm)
+        self.actions_bar.addWidget(self.cal_iso)
+        self.actions_bar.addWidget(self.cal_iso_filled)
+        self.actions_bar.addWidget(self.cal_iso_video)
         self.actions_bar.addWidget(self.reset)
         # TODO: Overlay
         # self.overlay = QCheckBox()
@@ -299,7 +305,7 @@ class IsochromeWindow(QMainWindow):
         skip_frames = int(self.skip.value())
 
         isochrome = (
-            _calculate_isochrome_filled(
+            _calculate_isochrome(
                 self.parent.signal.transformed_data,
                 t=self.threshold.value(),
                 start_frame=int(self.start_frame.value()),
@@ -313,7 +319,25 @@ class IsochromeWindow(QMainWindow):
         self.colorbar.setLevels((0, cycles * self.parent.ms * skip_frames))
         self.colorbar.setLabel("right", "ms")
 
-        return
+    def calculate_isochrome_filled(self):
+
+        cycles = int(self.cycles.value())
+        skip_frames = int(self.skip.value())
+
+        isochrome = (
+            _calculate_isochrome_filled(
+                self.parent.signal.transformed_data,
+                t=self.threshold.value(),
+                start_frame=int(self.start_frame.value()),
+                cycles=cycles,
+                skip_frame=skip_frames,
+            )
+            * self.parent.ms
+        )
+
+        self.image_item.setImage(isochrome)
+        self.colorbar.setLevels((0, cycles * self.parent.ms * skip_frames))
+        self.colorbar.setLabel("right", "ms")
     
     def calculate_contour_video(self):
 
