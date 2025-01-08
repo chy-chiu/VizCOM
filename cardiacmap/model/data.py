@@ -52,6 +52,9 @@ class CardiacSignal:
 
         # This is transposed to account go y-x instead of x-y
         signal = signal.transpose(0, 2, 1)
+        
+        # trim 5 frames from start and end (per Flavio's Request)
+        signal = signal[5: -5]
 
         # This is the single source of truth that will be referred to again
         self.base_data = deepcopy(signal).astype(np.float32)
