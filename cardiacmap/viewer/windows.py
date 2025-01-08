@@ -222,8 +222,8 @@ class CardiacMap(QMainWindow):
 
             self.image_tabs = QTabWidget()
 
-            self.image_tabs.addTab(self.position_tab, "Position")
-            self.image_tabs.addTab(self.annotate_tab, "Annotate")
+            self.image_tabs.addTab(self.position_tab, "Video")
+            self.image_tabs.addTab(self.annotate_tab, "Mask")
 
             # Create docking windows for viewer and signa view.
             self.metadata_panel.setMaximumHeight(self.init_height * 0.2)
@@ -541,12 +541,9 @@ class CardiacMap(QMainWindow):
             self.signal.normalize(start=start_frame, end=end_frame)
 
         elif transform == "trim":
-            left = int(
-                self.settings.child("Trim Parameters").child("Left").value() / self.ms
-            )
-            right = int(
-                self.settings.child("Trim Parameters").child("Right").value() / self.ms
-            )
+            left = start_frame
+            right = max(len(self.signal.transformed_data) - end_frame, 1)
+            print("Trim Left", left, "Trim Right", right)
             self.signal.trim_data(startTrim=left, endTrim=right)
             self.signal.normalize()
 

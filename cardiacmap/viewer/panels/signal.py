@@ -190,14 +190,14 @@ class SignalPanel(QWidget):
 
         invert = QAction("Invert", self)
 
-        # self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters"))
+        #self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters"))
         time_average = ParameterButton(
             "Time Average", self.settings.child("Time Average")
         )
         spatial_average = ParameterButton(
             "Spatial Average", self.settings.child("Spatial Average")
         )
-        trim = QAction("Trim")
+        trim = QAction("Trim", self)
 
         # Baseline drift button
         self.baseline_drift = ParameterConfirmButton(
@@ -239,7 +239,10 @@ class SignalPanel(QWidget):
         time_average.pressed.connect(
             partial(self.parent.signal_transform, transform="time_average")
         )
-        trim.triggered.connect(partial(self.parent.signal_transform, transform="trim"))
+        trim.triggered.connect(
+            partial(self.parent.signal_transform, transform="trim")
+        )
+        trim.triggered.connect(self.reset_range)
 
         self.baseline_drift.action.pressed.connect(
             partial(self.parent.calculate_baseline_drift, action="calculate")
@@ -441,6 +444,10 @@ class SignalPanel(QWidget):
     def toggle_range(self):
         self.start_range_marker.setVisible(self.show_range_marker.isChecked())
         self.end_range_marker.setVisible(self.show_range_marker.isChecked())
+        
+    def reset_range(self):
+        self.start_range_marker.setValue(1)
+        self.end_range_marker.setValue(int(len(self.signal_data.getData()[0]) * self.ms_per_frame.value()))
         
     def show_baseline(self, b = -1, params = None):
         if b == -1:
