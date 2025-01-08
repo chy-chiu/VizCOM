@@ -93,6 +93,7 @@ class SignalPanel(QWidget):
         self.plot_item = self.plot.getPlotItem()
 
         sig_c = self.settings.child("Signal Plot Colors").child("signal").value()
+        sig2_c = self.settings.child("Signal Plot Colors").child("signal 2").value()
         apd_c = self.settings.child("Signal Plot Colors").child("apd").value()
         base_c = self.settings.child("Signal Plot Colors").child("baseline").value()
         pts_c = self.settings.child("Signal Plot Colors").child("points").value()
@@ -101,6 +102,7 @@ class SignalPanel(QWidget):
         self.colors = dict(
             {
                 "signal": QColor(sig_c[0], sig_c[1], sig_c[2], a=255),
+                "signal 2": QColor(sig2_c[0], sig2_c[1], sig2_c[2], a=255),
                 "apd": QColor(apd_c[0], apd_c[1], apd_c[2], a=255),
                 "baseline": QColor(base_c[0], base_c[1], base_c[2], a=255),
                 "points": QColor(pts_c[0], pts_c[1], pts_c[2], a=255),
@@ -109,6 +111,7 @@ class SignalPanel(QWidget):
         )
         # set up colors
         self.sig_pen = pg.mkPen(self.colors['signal'])
+        self.sig2_pen = pg.mkPen(self.colors['signal 2'])
         self.apd_pen = pg.mkPen(self.colors['apd'])
         self.base_pen = pg.mkPen(self.colors['baseline'])
         self.pt_brush = pg.mkBrush(self.colors['points'])
@@ -124,6 +127,12 @@ class SignalPanel(QWidget):
         )
         self.signal_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip)
         self.signal_data.setSymbolBrush(self.pt_brush)
+        
+        self.signal2_data: pg.PlotDataItem = self.plot.plot(
+            pen=self.sig2_pen, symbol="o", symbolSize=0
+        )
+        self.signal2_data.scatter.setData(brush=self.pt_brush, tip=self.point_hover_tooltip)
+        self.signal2_data.setSymbolBrush(self.pt_brush)
 
         self.baseline_data: pg.PlotDataItem = self.plot.plot(
             pen=self.base_pen, symbol="o"

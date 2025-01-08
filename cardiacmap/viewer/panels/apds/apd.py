@@ -581,6 +581,17 @@ class APDSubWindow(QMainWindow):
             data.append(img[coord[0]][coord[1]])
         self.data_tab.signal_data.setData(data)
         
+        # if alternans
+        if self.view_tab.alternans.isChecked():
+            img = self.data_slices[0][idxNum+1] * self.ms
+            data = []
+            for coord in coords:
+                #print(coord)
+                data.append(img[coord[0]][coord[1]])
+            self.data_tab.signal2_data.setData(data)
+        else:
+            self.data_tab.signal2_data.setData(np.array([]))
+        
     def update_plot(self, x, y):
         pass
 

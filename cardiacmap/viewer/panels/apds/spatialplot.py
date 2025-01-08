@@ -204,11 +204,16 @@ class SpatialPlotView(QWidget):
         self.frameIdx.valueChanged.connect(self.update_graph)
 
         self.beatNumber = self.frameIdx.value()
+        
+        self.alternans = QtWidgets.QCheckBox()
+        self.alternans.checkStateChanged.connect(self.update_graph)
 
         self.player_bar.addWidget(QLabel("   Interval #: "))
         self.player_bar.addWidget(self.intervalIdx)
         self.player_bar.addWidget(QLabel("   Beat #: "))
         self.player_bar.addWidget(self.frameIdx)
+        self.player_bar.addWidget(QLabel("   Alternans: "))
+        self.player_bar.addWidget(self.alternans)
 
 
         self.show_raw = QRadioButton("Raw")

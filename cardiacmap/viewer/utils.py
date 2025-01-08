@@ -65,7 +65,8 @@ DEFAULT_VALUES = {
         {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
     ],
     "Signal Plot Colors": [
-        {"name": "signal", "value": [255, 255, 255]}, 
+        {"name": "signal", "value": [255, 255, 255]},
+        {"name": "signal 2", "value": [215, 63, 9]},
         {"name": "apd", "value": [255, 0, 0]},
         {"name": "baseline", "value": [0, 255, 0]},
         {"name": "points", "value": [0, 0, 255]},
