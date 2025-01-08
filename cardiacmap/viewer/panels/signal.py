@@ -465,8 +465,8 @@ class SignalPanel(QWidget):
         elif b == 1:
             # preview peaks
             d = self.signal_data.getData()[1]
-            start = self.start_spinbox.value()
-            end = self.end_spinbox.value()
+            start = int(self.start_spinbox.value())
+            end = int(self.end_spinbox.value())
             d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, d, params)
@@ -481,8 +481,8 @@ class SignalPanel(QWidget):
         elif b == 2:
             # preview baseline
             d = self.signal_data.getData()[1]
-            start = self.start_spinbox.value()
-            end = self.end_spinbox.value()
+            start = int(self.start_spinbox.value())
+            end = int(self.end_spinbox.value())
             d = d[start:end]
             t = np.arange(len(d))
             baseline = FindPeaks(t, -d, params)

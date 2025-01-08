@@ -568,8 +568,8 @@ class CardiacMap(QMainWindow):
     def calculate_baseline_drift(
         self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
-        start_frame = self.signal_panel.start_spinbox.value()
-        end_frame = self.signal_panel.end_spinbox.value()
+        start_frame = int(self.signal_panel.start_spinbox.value())
+        end_frame = int(self.signal_panel.end_spinbox.value())
 
         dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
@@ -609,8 +609,8 @@ class CardiacMap(QMainWindow):
     def normalize_peaks(
         self, action: Literal["calculate", "confirm", "reset"], update_progress=None
     ):
-        start_frame = self.signal_panel.start_spinbox.start_frame()
-        end_frame = self.signal_panel.end_spinbox.value()
+        start_frame = int(self.signal_panel.start_spinbox.value())
+        end_frame = int(self.signal_panel.end_spinbox.value())
         dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
         )
