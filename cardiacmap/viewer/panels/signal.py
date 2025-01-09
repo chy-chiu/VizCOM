@@ -1,4 +1,5 @@
 import os
+from pyexpat import model
 import sys
 from functools import partial
 
@@ -56,6 +57,10 @@ class SignalPlot(pg.PlotWidget):
         super().__init__(parent)
 
         self.plot_item = self.getPlotItem()
+        if parent.settings.child("Plot Mouse Mode").child("1 Button Mode").value() == True:
+            self.plotItem.getViewBox().setMouseMode(pg.ViewBox.RectMode)
+        else:
+            self.plotItem.getViewBox().setMouseMode(pg.ViewBox.PanMode)
                 
         # TODO: To make this settable later
         font=QtGui.QFont()

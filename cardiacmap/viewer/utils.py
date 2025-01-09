@@ -8,6 +8,9 @@ import time
 
 DEFAULT_SETTINGS_PATH = "./settings.json"
 DEFAULT_VALUES = {
+    "Plot Mouse Mode": [
+        {"name": "1 Button Mode", "type": "bool", "value": True},
+    ],
     "Stacking Parameters": [
         {"name": "Start Time", "type": "int", "value": 0, "limits": (0, 100000)},
         {"name": "# of Beats", "type": "int", "value": 10, "limits": (0, 30)},
