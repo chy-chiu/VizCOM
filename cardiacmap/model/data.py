@@ -116,10 +116,12 @@ class CardiacSignal:
         self.previous_transform = deepcopy(self.transformed_data)
 
         if type == "time":
+            print("Time Averaging")
             self.transformed_data[start:end] = TimeAverage(
                 self.transformed_data[start:end], sig, rad, self.mask, mode
             )
         elif type == "spatial":
+            print("Spatial Averaging")
             self.transformed_data[start:end] = SpatialAverage(
                 self.transformed_data[start:end], sig, rad, self.mask, mode
             )
@@ -146,32 +148,8 @@ class CardiacSignal:
         start = start or 0
         end = end or len(self.transformed_data)
         n = NormalizeData(self.transformed_data[start:end, :, :])
+        print("Normalized Max:", np.unique(n.max(axis=0)), "Min:", np.unique(n.min(axis=0)))
         self.transformed_data[start:end, :, :] = n
-
-    ############## Baseline drift related methods
-    # def calc_baseline(
-    #     self,
-    #     periodLen,
-    #     threshold,
-    #     prominence,
-    #     alternans,
-    #     start=None,
-    #     end=None,
-    # ):
-    #     start = start or 0
-    #     end = end or len(self.transformed_data) - 1
-
-    #     print("Calculating baseline:", periodLen, threshold, prominence, alternans)
-    #     data = self.transformed_data[start:end]
-    #     mask = self.mask
-    #     t = np.arange(len(data))
-    #     threads = 4
-
-    #     # flip data axes so we can look at it signal-wise instead of frame-wise
-    #     dataSwapped = np.moveaxis(data, 0, -1)  # y, x, t
-    #     self.baselineX, self.baselineY = GetMins(
-    #         t, dataSwapped, mask, prominence, periodLen, threshold, alternans, threads
-    #     )
 
     def remove_baseline(
         self, params, peaks=False , start=None, end=None, update_progress=None
@@ -207,19 +185,6 @@ class CardiacSignal:
 
     def reset_baseline(self):
         self.baselineX = self.baselineY = []
-
-    ############### APD / DI related methods
-    # def calc_apd_di_threshold(self, threshold):
-    #     data = np.moveaxis(self.transformed_data, 0, -1)
-    #     self.apdDIThresholdIdxs, self.apdIndicators = GetIntersectionsAPD_DI(
-    #         data, threshold, self.mask
-    #     )
-    #     self.apdThreshold = threshold
-
-    # def calc_apd_di(self):
-    #     self.apds, self.apd_indices, self.dis, self.di_indices = CalculateAPD_DI(
-    #         self.apdDIThresholdIdxs, self.apdIndicators
-    #     )
 
     def reset_apd_di(self):
         self.apdDIThresholdIdxs = self.apdIndicators = []

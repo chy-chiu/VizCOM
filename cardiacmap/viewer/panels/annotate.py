@@ -135,7 +135,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.add_mask_button.setChecked(False)
         self.drawing = False
 
-        print(self.drawing)
+        #print(self.drawing)
         if self.roi is None:
             return
 

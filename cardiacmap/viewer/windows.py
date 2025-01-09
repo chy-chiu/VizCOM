@@ -598,6 +598,7 @@ class CardiacMap(QMainWindow):
                 self.signal.remove_baseline(
                     params, peaks=False, start=start_frame, end=end_frame
                 )
+                self.signal.normalize(start=start_frame, end=end_frame)
             self.signal_panel.show_baseline(0)
             self.signal.reset_baseline()
             self.signal.show_baseline = False
@@ -639,6 +640,7 @@ class CardiacMap(QMainWindow):
                 self.signal.remove_baseline(
                     params, peaks=True, start=start_frame, end=end_frame
                 )
+                self.signal.normalize(start=start_frame, end=end_frame)
             self.signal_panel.show_baseline(0)
             self.signal_panel.normalize_peaks.disable_confirm_buttons()
             self.signal.show_baseline = False
