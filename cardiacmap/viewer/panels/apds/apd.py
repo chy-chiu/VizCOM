@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.viewer.panels import SignalPanel
-from cardiacmap.viewer.panels.apds import ScatterPanel, ScatterPlotView, SpatialPlotView
+from cardiacmap.viewer.panels.apds import ScatterPanel, ScatterPlotView, SpatialPlotView, SaveAPDView
 from cardiacmap.viewer.components import Spinbox
 from cardiacmap.viewer.utils import loading_popup
 from cardiacmap.transforms.apd import GetThresholdIntersections, GetThresholdIntersections1D
@@ -222,19 +222,23 @@ class APDWindow(QMainWindow):
         self.ts = None
         
         self.setWindowTitle("APDs")
-        # Create Menus
-        self.init_options()
-        self.init_plot_bar()
-
+        
         # Create viewer tabs
         self.image_tab = APDPositionView(
             self, self.img_data
-        )  # ----------------------------
-
+        )  
+        self.save_apds = SaveAPDView(self)
+        # ----------------------------
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.image_tab, "Preview")
+        self.image_tabs.addTab(self.save_apds, "Save APD Data")
+        self.image_tabs.setTabEnabled(1, False)
         self.image_tabs.setMinimumWidth(300)
         self.image_tabs.setMinimumHeight(350)
+        
+        # Create Menus
+        self.init_options()
+        self.init_plot_bar()
         
         self.image_layout = QVBoxLayout()
         self.image_layout.addWidget(self.plotting_bar)
@@ -442,6 +446,8 @@ class APDWindow(QMainWindow):
     def setPlottingButtons(self, b: bool = False):
         for button in self.plot_buttons:
             button.setEnabled(b)
+            
+        self.image_tabs.setTabEnabled(1, b)
         self.plotting_bar.repaint() # update gui before proceeding
         
     def update_lines(self):
