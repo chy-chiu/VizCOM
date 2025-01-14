@@ -7,7 +7,7 @@ from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -91,6 +91,7 @@ class ScatterPanel(QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
+        self.settings = parent.settings
         self.ms = parent.ms
         self.apd_data = parent.data_slices[0]
         self.di_data = parent.data_slices[1]
@@ -103,6 +104,11 @@ class ScatterPanel(QWidget):
         self.setLayout(layout)
 
     def init_plot(self):
+        pts_c1 = self.settings.child("Signal Plot Colors").child("points").value()
+        pts_c2 = self.settings.child("Signal Plot Colors").child("apd").value()
+        pts_brush1 = pg.mkBrush(QColor(pts_c1[0], pts_c1[1], pts_c1[2], a=255))
+        pts_brush2 = pg.mkBrush(QColor(pts_c2[0], pts_c2[1], pts_c2[2], a=255))
+        
         # Set up Image View
         self.plot = pg.PlotWidget()
         self.plot.setRange(xRange=(-2,np.max(self.di_data[0])), yRange=(-2,np.max(self.apd_data[0])))
@@ -110,6 +116,13 @@ class ScatterPanel(QWidget):
             pen=None, symbol="o", symbolSize=6,
         )
         self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.plot_item.setSymbolBrush(pts_brush1)
+        
+        self.plot_item2: pg.PlotDataItem = self.plot.plot(
+            pen=None, symbol="o", symbolSize=6,
+        )
+        self.plot_item2.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.plot_item2.setSymbolBrush(pts_brush2)
         
         self.mean_item: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="x", symbolSize=10,
@@ -117,7 +130,14 @@ class ScatterPanel(QWidget):
         self.mean_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
         self.mean_item.setSymbolBrush(pg.mkBrush('g'))
         
+        self.mean_item2: pg.PlotDataItem = self.plot.plot(
+            pen=None, symbol="x", symbolSize=10,
+        )
+        self.mean_item2.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.mean_item2.setSymbolBrush(pg.mkBrush('g'))
+        
         self.error_bar = None
+        self.error_bar2 = None
 
         # set up axes
         leftAxis: pg.AxisItem = self.plot.getPlotItem().getAxis("left")
@@ -125,9 +145,9 @@ class ScatterPanel(QWidget):
         leftAxis.setLabel(text="Action Potential Duration (ms)")
         bottomAxis.setLabel(text="Diastolic Interval (ms)")
 
-        self.update_plot(0, 0, 0, False)
+        self.update_plot(0, 0, 0, False, False)
 
-    def update_plot(self, interval, x, y, show_err):
+    def update_plot(self, interval, x, y, show_err, alternans):
         #print(interval, x, y)
         interval = int(interval)
         x = int(x)
@@ -135,6 +155,24 @@ class ScatterPanel(QWidget):
         apdData = self.apd_data[interval][..., y, x] * self.ms
         diData = self.di_data[interval][..., y, x] * self.ms
         
+        if alternans:
+            apdData2 = apdData[1::2]
+            diData2 = diData[1::2]
+            apdData = apdData[0::2]
+            diData = diData[0::2]
+            
+            mApd2 = ma.masked_array(apdData2, mask = apdData2 == 0)
+            mDi2 = ma.masked_array(diData2, mask = diData2 == 0)
+            
+            avgAPD2 = np.mean(mApd2)
+            avgDI2 = np.mean(mDi2)
+            
+            stdAPD2 = np.std(mApd2)
+            stdDI2 = np.std(mDi2)
+            
+            avg_pt2 = [(avgDI2, avgAPD2)]
+            self.mean_item2.setData(np.array(avg_pt2))
+            
         mApd = ma.masked_array(apdData, mask = apdData == 0)
         mDi = ma.masked_array(diData, mask = diData == 0)
         
@@ -144,34 +182,42 @@ class ScatterPanel(QWidget):
         stdAPD = np.std(mApd)
         stdDI = np.std(mDi)
         
-        #print("X", avgDI, "Y", avgAPD)
-        
         avg_pt = [(avgDI, avgAPD)]
-        #print(avg_pt)
         self.mean_item.setData(np.array(avg_pt))
         
         # if there is already an error bar, remove it before adding another one
         if self.error_bar is not None:
             self.plot.removeItem(self.error_bar)
             self.error_bar = None
+        if self.error_bar2 is not None:
+            self.plot.removeItem(self.error_bar2)
+            self.error_bar2 = None
         if show_err:
             self.mean_item.show()
-            self.error_bar = ErrorBarItem(x=avgDI, y=avgAPD, height=stdAPD, width=stdDI, beam = 2, pen = pg.mkPen('r'))
+            self.error_bar = ErrorBarItem(x=avgDI, y=avgAPD, height=stdAPD, width=stdDI, beam = 2, pen = pg.mkPen('b'))
             self.plot.addItem(self.error_bar)
+            if alternans:
+                self.mean_item2.show()
+                self.error_bar2 = ErrorBarItem(x=avgDI2, y=avgAPD2, height=stdAPD2, width=stdDI2, beam = 2, pen = pg.mkPen('y'))
+                self.plot.addItem(self.error_bar2)
+            else:
+                self.mean_item2.hide()
         else:
             self.mean_item.hide()
-        #self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
-
-        # # only use apds with a preceding DI
-        # if self.flags[y * IMAGE_SIZE + x]:
-        #     apdData = apdData[1:]
+            self.mean_item2.hide()
 
         xyData = tuple(zip(diData, apdData))
-
         # remove zero values
         xyData = [pt for pt in xyData if pt != (0.0, 0.0)]
-
         self.plot_item.setData(np.array(xyData))
+        
+        if alternans:
+            xyData2 = tuple(zip(diData2, apdData2))
+            # remove zero values
+            xyData2 = [pt for pt in xyData2 if pt != (0.0, 0.0)]
+            self.plot_item2.setData(np.array(xyData2))
+        else:
+            self.plot_item2.setData(np.array([]))
 
     def point_hover_tooltip(self, x, y, data):
         """Called by plot_item.scatter when hovering over a point"""
@@ -245,10 +291,15 @@ class ScatterPlotView(QWidget):
         self.show_err = QCheckBox()
         self.show_err.checkStateChanged.connect(self.update_scatter)
         
+        self.alternans = QCheckBox()
+        self.alternans.checkStateChanged.connect(self.update_scatter)
+        
         self.toolbar.addWidget(QLabel("Interval #:"))
         self.toolbar.addWidget(self.intervalIdx)
-        self.toolbar.addWidget(QLabel("Show Mean/Std:"))
+        self.toolbar.addWidget(QLabel(" Show Mean/Std:"))
         self.toolbar.addWidget(self.show_err)
+        self.toolbar.addWidget(QLabel(" Alternans:"))
+        self.toolbar.addWidget(self.alternans)
         
         self.px_bar = QToolBar()
         self.x_box = Spinbox(
@@ -302,7 +353,7 @@ class ScatterPlotView(QWidget):
     
     def update_scatter(self):
         # call update_plot in ScatterPanel
-        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y, self.show_err.isChecked())
+        self.parent.data_tab.update_plot(self.intervalIdx.value()-1, self.x, self.y, self.show_err.isChecked(), self.alternans.isChecked())
         self.parent.parent.image_tab.update_position(self.x, self.y) # link scatter coord to APDWindow coord
 
     def swap_apd_di(self):

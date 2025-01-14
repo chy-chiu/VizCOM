@@ -574,22 +574,33 @@ class APDSubWindow(QMainWindow):
         self.setLayout(layout)
 
     def update_graph(self, coords, idxNum):
-        img = self.data_slices[0][idxNum] * self.ms
-        data = []
-        for coord in coords:
-            #print(coord)
-            data.append(img[coord[0]][coord[1]])
-        self.data_tab.signal_data.setData(data)
         
         # if alternans
         if self.view_tab.alternans.isChecked():
-            img = self.data_slices[0][idxNum+1] * self.ms
+            img = self.data_slices[0][idxNum] * self.ms
+            img2 = self.data_slices[0][idxNum+1] * self.ms
+            data = []
+            data2 = []
+            for coord in coords:
+                #print(coord)
+                data.append(img[coord[0]][coord[1]])
+                data2.append(img2[coord[0]][coord[1]])
+                
+            if idxNum % 2 == 1:
+                # odd beat
+                self.data_tab.signal_data.setData(data)
+                self.data_tab.signal2_data.setData(data2)
+            else:
+                # even beat
+                self.data_tab.signal_data.setData(data2)
+                self.data_tab.signal2_data.setData(data)
+        else:
+            img = self.data_slices[0][idxNum] * self.ms
             data = []
             for coord in coords:
                 #print(coord)
                 data.append(img[coord[0]][coord[1]])
-            self.data_tab.signal2_data.setData(data)
-        else:
+            self.data_tab.signal_data.setData(data)
             self.data_tab.signal2_data.setData(np.array([]))
         
     def update_plot(self, x, y):
