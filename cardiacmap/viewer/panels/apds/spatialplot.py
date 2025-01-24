@@ -1,43 +1,19 @@
 from math import floor
-from typing import Literal
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pyqtgraph as pg
 import numpy.ma as ma
 
-from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from pyqtgraph.parametertree import Parameter, ParameterTree
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QComboBox,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
-    QPushButton,
     QRadioButton,
-    QSplitter,
-    QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
-
-from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.data import CardiacSignal
-from cardiacmap.viewer.panels.settings import ParameterWidget
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -128,8 +104,9 @@ class SpatialPlotView(QWidget):
         self.init_toolbars()
 
         layout = QVBoxLayout()
+        layout.addWidget(self.interval_bar)
         layout.addWidget(self.image_view)
-        layout.addWidget(self.player_bar)
+        layout.addWidget(self.beat_bar)
         layout.addWidget(self.display_bar)
         layout.addWidget(self.settings_bar)
         self.setLayout(layout)
@@ -179,7 +156,8 @@ class SpatialPlotView(QWidget):
         return self.image_view
 
     def init_toolbars(self):
-        self.player_bar = QToolBar()
+        self.interval_bar = QToolBar()
+        self.beat_bar = QToolBar()
         self.display_bar = QToolBar()
         self.settings_bar = QToolBar()
 
@@ -208,12 +186,15 @@ class SpatialPlotView(QWidget):
         self.alternans = QtWidgets.QCheckBox()
         self.alternans.checkStateChanged.connect(self.update_graph)
 
-        self.player_bar.addWidget(QLabel("   Interval #: "))
-        self.player_bar.addWidget(self.intervalIdx)
-        self.player_bar.addWidget(QLabel("   Beat #: "))
-        self.player_bar.addWidget(self.frameIdx)
-        self.player_bar.addWidget(QLabel("   Alternans: "))
-        self.player_bar.addWidget(self.alternans)
+        self.interval_bar.addWidget(QLabel("   Interval #: "))
+        self.interval_bar.addWidget(self.intervalIdx)
+        self.interval_bar.addWidget(QLabel(" of " + str(len(self.parent.data_slices))))
+        self.beat_bar.addWidget(QLabel("   Beat #: "))
+        self.beat_bar.addWidget(self.frameIdx)
+        self.numBeatDisplay = QLabel(" of " + str(len(self.parent.data_slices[0])))
+        self.beat_bar.addWidget(self.numBeatDisplay)
+        self.beat_bar.addWidget(QLabel("   Alternans: "))
+        self.beat_bar.addWidget(self.alternans)
 
 
         self.show_raw = QRadioButton("Raw")
@@ -341,6 +322,7 @@ class SpatialPlotView(QWidget):
         interval_idx = self.intervalIdx.value()-1
         color_range = (self.zero_val.value(), self.max_val.value())
         self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]))
+        self.numBeatDisplay.setText(" of " + str(len(self.parent.data_slices[interval_idx])))
         
         if self.show_diff.isChecked():
             color_range = (self.diff_min.value(), self.max_val.value())
