@@ -247,8 +247,8 @@ class ExportAPDsWindow(QMainWindow):
         row2.addWidget(self.Mean_box)
         row2.addWidget(self.Std_label)
         row2.addWidget(self.Std_box)
-        #row2.addWidget(self.Raw_label)
-        #row2.addWidget(self.Raw_box)
+        row2.addWidget(self.Raw_label)
+        row2.addWidget(self.Raw_box)
         
         row3 = QHBoxLayout()
         row3.addWidget(self.filename)
@@ -281,7 +281,8 @@ class ExportAPDsWindow(QMainWindow):
             output, outputLabels = self.getSelectedData(self.apds, self.dis)
          
         output = output[:, 1:] # trim index column
-        np.savetxt(textStr, output, header=outputLabels, delimiter=",")
+        #print(output.shape)
+        np.savetxt(textStr, output, header=outputLabels, delimiter=",", fmt="%1.5f")
         print("Saved to", textStr)
         self.close()
                 
@@ -303,16 +304,21 @@ class ExportAPDsWindow(QMainWindow):
             if self.DI_box.isChecked():
                 output = np.vstack((output, dis.std(axis=1)))
                 outputLabels += "DI Std, "
-                
-        # if self.Raw_box.isChecked():
-        #     if self.APD_box.isChecked():
-        #         print("APD Raw")
-        #         output = np.vstack((output, apds))
-        #     if self.DI_box.isChecked():
-        #         print("DI Raw:")
-        #         output = np.vstack((output, dis))
 
-        return output.swapaxes(0, 1), outputLabels
+        if output.ndim > 1:
+            output = output.swapaxes(0, 1)
+        else:
+            output = output[:, None]
+            
+        if self.Raw_box.isChecked():
+            if self.APD_box.isChecked():
+                output = np.hstack((output, apds))
+                outputLabels += str(len(apds[0])) + " APD Values, "
+            if self.DI_box.isChecked():
+                output = np.hstack((output, dis))
+                outputLabels += str(len(dis[0])) + " DI Values, "
+                
+        return output, outputLabels
         
 
         
