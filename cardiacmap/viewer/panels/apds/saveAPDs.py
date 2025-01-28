@@ -1,6 +1,7 @@
 import numpy as np
 import pyqtgraph as pg
 
+from scipy.io import savemat
 from PySide6 import QtWidgets
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -186,17 +188,13 @@ class SaveAPDView(QtWidgets.QWidget):
 
     def export_data(self, apds, dis, mask):
         # mask out invalid pixels
-        validCoords = np.argwhere(mask==1)
-        apds = apds[:, validCoords[:, 0], validCoords[:, 1]]
-        dis = dis[:, validCoords[:, 0], validCoords[:, 1]]
+        apds = apds * mask
+        dis = dis * mask
         # swap axes
         apds = np.moveaxis(apds, 0, -1)
         dis = np.moveaxis(dis, 0, -1)
-        # mask out zero values
-        mAPD = np.ma.masked_equal(apds, 0)
-        mDI = np.ma.masked_equal(dis, 0)
         # open export menu
-        self.exportWindow = ExportAPDsWindow(self, mAPD, mDI)
+        self.exportWindow = ExportAPDsWindow(self, apds, dis)
         self.exportWindow.show()
         
 class ExportAPDsWindow(QMainWindow):
@@ -205,9 +203,9 @@ class ExportAPDsWindow(QMainWindow):
         self.setWindowTitle("Export APD Data")
 
         self.parent = parent
-        self.apds = apdData
-        self.dis = diData
-        
+        self.apds = apdData.reshape((-1, apdData.shape[2]))
+        self.dis = diData.reshape((-1, diData.shape[2]))
+        print(self.apds.shape, self.dis.shape)
         self.Alternans_label = QLabel("Alternans: ")
         self.Mean_label = QLabel("Mean: ")
         self.Std_label = QLabel("Standard Dev: ")
@@ -227,8 +225,15 @@ class ExportAPDsWindow(QMainWindow):
         self.Std_box.setChecked(True)
         self.Raw_box = QCheckBox()
         
+        self.npy_button = QRadioButton("NumPy (.npy)")
+        self.npy_button.setChecked(True)
+        self.npy_button.toggled.connect(self.set_file_ext)
+        self.mat_button = QRadioButton("MATLAB (.mat)")
+        self.mat_button.toggled.connect(self.set_file_ext)
+        self.file_ext = ".npy"
+        
         self.filename = QLineEdit()
-        self.filename.setPlaceholderText("filename (*.txt)")
+        self.filename.setPlaceholderText("filename (*.npy)")
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save)
         
@@ -251,12 +256,18 @@ class ExportAPDsWindow(QMainWindow):
         row2.addWidget(self.Raw_box)
         
         row3 = QHBoxLayout()
-        row3.addWidget(self.filename)
-        row3.addWidget(self.save_button)
+        row3.addWidget(self.npy_button)
+        row3.addWidget(self.mat_button)
+        
+        
+        row4 = QHBoxLayout()
+        row4.addWidget(self.filename)
+        row4.addWidget(self.save_button)
         
         layout.addLayout(row1)
         layout.addLayout(row2)
         layout.addLayout(row3)
+        layout.addLayout(row4)
         
         mainWidget = QWidget()
         mainWidget.setLayout(layout)
@@ -265,9 +276,9 @@ class ExportAPDsWindow(QMainWindow):
     def save(self):
         textStr = self.filename.text()
         if len(textStr) == 0:
-            textStr = "output.txt"
-        if len(textStr) <= 4 or textStr[-4:] != ".txt":
-            textStr += ".txt"
+            textStr = "output" + self.file_ext
+        if len(textStr) <= 4 or textStr[-4:] != self.file_ext:
+            textStr += self.file_ext
             
         if self.Alternans_box.isChecked():
             out1, eLabels = self.getSelectedData(self.apds[:, ::2], self.dis[:, ::2])
@@ -281,8 +292,13 @@ class ExportAPDsWindow(QMainWindow):
             output, outputLabels = self.getSelectedData(self.apds, self.dis)
          
         output = output[:, 1:] # trim index column
-        #print(output.shape)
-        np.savetxt(textStr, output, header=outputLabels, delimiter=",", fmt="%1.5f")
+        #print(output.reshape((128,128, output.shape[1])).shape, self.apds.shape, self.dis.shape)
+        output = output.reshape((128,128, output.shape[1]))
+        if self.file_ext == ".npy":
+            np.save(textStr, output)
+        else:
+            output = {"data": output}
+            savemat(textStr, output)
         print("Saved to", textStr)
         self.close()
                 
@@ -319,6 +335,15 @@ class ExportAPDsWindow(QMainWindow):
                 outputLabels += str(len(dis[0])) + " DI Values, "
                 
         return output, outputLabels
+    
+    def set_file_ext(self, button):
+        if self.mat_button.isChecked():
+            self.file_ext = ".mat"
+            self.filename.setPlaceholderText("filename (*.mat)")
+        else:
+            self.file_ext = ".npy"
+            self.filename.setPlaceholderText("filename (*.npy)")
+         
         
 
         
