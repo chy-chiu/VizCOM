@@ -68,7 +68,6 @@ class AnnotateView(QtWidgets.QWidget):
         layout.addWidget(self.img_view)
 
         # Initialize Image View
-
         self.image_data = self.parent.signal.image_data[0, :, :]
         self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
         self.img_view.view.invertY(True)
@@ -122,8 +121,8 @@ class AnnotateView(QtWidgets.QWidget):
             self.points = []
 
             self.parent.signal.reset_image()
+            self.image_data = self.parent.signal.image_data[0, :, :]
 
-            self.image_data = self.parent.signal.image_data
             self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
 
             mask = np.ones((IMAGE_SIZE, IMAGE_SIZE))
@@ -143,10 +142,9 @@ class AnnotateView(QtWidgets.QWidget):
         self.parent.signal.apply_mask(mask)
         self.parent.update_signal_plot()
         self.parent.position_tab.update_data()
+        self.masked_image_data = self.image_data * self.parent.signal.mask
 
-        self.image_data = self.parent.signal.image_data * self.parent.signal.mask
-
-        self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
+        self.img_view.setImage(self.masked_image_data, autoLevels=False, autoRange=False)
 
 
     def get_roi_mask(self, shape):

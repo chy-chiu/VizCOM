@@ -1,44 +1,19 @@
-from genericpath import samefile
-import os
-import sys
 from functools import partial
-from turtle import update
-from typing import Literal
 
 import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from pyqtgraph.parametertree import Parameter, ParameterTree
-from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QGradient
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
-    QPushButton,
-    QSplitter,
-    QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
-
-from cardiacmap.model.cascade import load_cascade_file
-from cardiacmap.model.data import CardiacSignal
 from cardiacmap.viewer.components import Spinbox
-from cardiacmap.viewer.panels.settings import ParameterWidget
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -295,11 +270,6 @@ class PositionView(QWidget):
             )
             
         self.image_view.setColorMap(self.cmap)
-
-        if hasattr(self.parent, "annotate_tab"):
-
-            self.parent.annotate_tab.img_view.setImage(self.image_view.image)
-            self.parent.annotate_tab.img_view.setColorMap(self.cmap)
 
     def update_marker(self, x, y):
         self.position_marker.setData(pos=[[x, y]])
