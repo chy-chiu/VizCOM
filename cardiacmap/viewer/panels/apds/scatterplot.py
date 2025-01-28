@@ -1,31 +1,17 @@
-
 import numpy as np
 import numpy.ma as ma
 import pyqtgraph as pg
 from pyqtgraph import ErrorBarItem
-from pyqtgraph.graphicsItems.PlotDataItem import PlotDataItem
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QComboBox,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
+    QMessageBox,
     QPushButton,
-    QSplitter,
-    QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -95,7 +81,10 @@ class ScatterPanel(QWidget):
         self.ms = parent.ms
         self.apd_data = parent.data_slices[0]
         self.di_data = parent.data_slices[1]
-        #self.flags = parent.flags
+        
+        self.interval = 0
+        self.x = 0
+        self.y = 0
 
         self.init_plot()
 
@@ -112,16 +101,19 @@ class ScatterPanel(QWidget):
         # Set up Image View
         self.plot = pg.PlotWidget()
         self.plot.setRange(xRange=(-2,np.max(self.di_data[0])), yRange=(-2,np.max(self.apd_data[0])))
+        
         self.plot_item: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="o", symbolSize=6,
         )
-        self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.plot_item.scatter.setData(hoverable=True, tip=self.point_hover_tooltip, picker=True)
+        self.plot_item.scatter.sigClicked.connect(self.on_click)
         self.plot_item.setSymbolBrush(pts_brush1)
         
         self.plot_item2: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="o", symbolSize=6,
         )
-        self.plot_item2.scatter.setData(hoverable=True, tip=self.point_hover_tooltip)
+        self.plot_item2.scatter.setData(hoverable=True, tip=self.point_hover_tooltip, picker=True)
+        self.plot_item2.scatter.sigClicked.connect(self.on_click)
         self.plot_item2.setSymbolBrush(pts_brush2)
         
         self.mean_item: pg.PlotDataItem = self.plot.plot(
@@ -145,15 +137,24 @@ class ScatterPanel(QWidget):
         leftAxis.setLabel(text="Action Potential Duration (ms)")
         bottomAxis.setLabel(text="Diastolic Interval (ms)")
 
-        self.update_plot(0, 0, 0, False, False)
+        self.update_plot(0, 64, 64, False, False)
 
-    def update_plot(self, interval, x, y, show_err, alternans):
+    def update_plot(self, interval, x, y, show_err = None, alternans = None):
         #print(interval, x, y)
-        interval = int(interval)
-        x = int(x)
-        y = int(y)
-        apdData = self.apd_data[interval][..., y, x] * self.ms
-        diData = self.di_data[interval][..., y, x] * self.ms
+        self.interval = int(interval)
+        self.x = int(x)
+        self.y = int(y)
+        if show_err is None:
+            show_err = self.show_err
+        else:
+            self.show_err = show_err
+        if alternans is None:
+            alternans = self.alternans
+        else:
+            self.alternans = alternans
+        
+        apdData = self.apd_data[interval][..., self.y, self.x] * self.ms
+        diData = self.di_data[interval][..., self.y, self.x] * self.ms
         
         if alternans:
             apdData2 = apdData[1::2]
@@ -210,7 +211,7 @@ class ScatterPanel(QWidget):
         # remove zero values
         xyData = [pt for pt in xyData if pt != (0.0, 0.0)]
         self.plot_item.setData(np.array(xyData))
-        
+        self.plot_item.scatter.getData()
         if alternans:
             xyData2 = tuple(zip(diData2, apdData2))
             # remove zero values
@@ -225,6 +226,23 @@ class ScatterPanel(QWidget):
             "APD: " + f"{y:.3f}" + "\nDI: " + f"{x:.3f}"
         )  # + "\nBeat #: " + str(b)
         return tooltip
+    
+    def on_click(self, event, pts):
+        result = QMessageBox.question(self, "Are you sure you want to remove this point?", "You will need to recalculate APDs to restore this point.", QMessageBox.Yes,  QMessageBox.No)
+        if result == QMessageBox.Yes:
+            di = pts[0].pos().x() / self.ms
+            apd = pts[0].pos().y() / self.ms
+            apdData = self.apd_data[self.interval][..., self.y, self.x]
+            diData = self.di_data[self.interval][..., self.y, self.x]
+
+            apdData = apdData[np.where(apdData != apd)]
+            diData = diData[np.where(diData != di)]
+        
+            self.apd_data[self.interval][..., self.y, self.x] = np.append(apdData, 0)
+            self.di_data[self.interval][..., self.y, self.x] = np.append(diData, 0)
+        
+        self.update_plot(self.interval, self.x, self.y, self.show_err, self.alternans)
+        
 
 
 class ScatterPlotView(QWidget):
@@ -330,7 +348,7 @@ class ScatterPlotView(QWidget):
         self.y = np.clip(y, 0, IMAGE_SIZE - 1)
         self.x = np.clip(x, 0, IMAGE_SIZE - 1)
 
-        self.marker.setData(pos=[[x, y]])
+        self.marker.setData(pos=[[self.x, self.y]])
         self.update_scatter()
         self.update_position_boxes(val=None)
             
