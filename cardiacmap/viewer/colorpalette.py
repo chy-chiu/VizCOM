@@ -3,16 +3,14 @@
 import pyqtgraph as pg
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
-    QColorDialog,
-    QDockWidget,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
+from cardiacmap.viewer.components import Spinbox
 from cardiacmap.viewer.utils import load_settings, save_settings
 
 TITLE_STYLE = """QDockWidget::title
@@ -42,6 +40,10 @@ class ColorPaletteButton(QAction):
     def new_colors(self, key, newColor):
         self.parent.colors[key] = newColor
         self.parent.update_pens()
+        
+    def new_thickness(self, spinbox):
+        self.parent.thickness = spinbox.value()
+        self.parent.update_pens()
 
 
 class ColorPalette(QMainWindow):
@@ -50,6 +52,7 @@ class ColorPalette(QMainWindow):
     def __init__(self, parent, colors):
         super().__init__()
         self.parent = parent
+        self.settings = parent.settings
         self.resize(200, 0)
         self.setStyleSheet(TITLE_STYLE)
         self.color_buttons = []
@@ -71,8 +74,24 @@ class ColorPalette(QMainWindow):
                 row = QHBoxLayout()
                 row.addWidget(QLabel(c + " "))
                 row.addWidget(self.color_buttons[-1])
+                if c == "points":
+                    row.addWidget(QLabel("Size: "))
+                    initVal = self.settings.child("Signal Plot Colors").child("ptSize").value()
+                    self.sizeSpinbox = Spinbox(1, 100, initVal, 45, 45, 1)
+                    self.sizeSpinbox.sigValueChanged.connect(
+                        partial(self.save_spinbox, itemKey="ptSize")    
+                    )
+                    row.addWidget(self.sizeSpinbox)
 
                 layout.addLayout(row)
+                
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Line Thickness: "))
+            initVal = self.settings.child("Signal Plot Colors").child("thickness").value()
+            self.thickSpinbox = Spinbox(1, 100, initVal, 45, 45, 1)
+            self.thickSpinbox.sigValueChanged.connect(self.update_thickness)
+            row.addWidget(self.thickSpinbox)
+            layout.addLayout(row)
             layout.addStretch()
 
         self.default_widget.setLayout(layout)
@@ -87,3 +106,12 @@ class ColorPalette(QMainWindow):
         print("Signal Plot Colors", itemKey, color)
         self.parent.settings.child("Signal Plot Colors").child(itemKey).setValue(color.getRgb())
         save_settings(self.parent.settings)
+        
+    def update_thickness(self, thickness):
+        self.save_spinbox(self.thickSpinbox, "thickness")
+        self.parent.new_thickness(thickness)
+        
+    def save_spinbox(self, spinbox, itemKey="none"):
+        self.parent.settings.child("Signal Plot Colors").child(itemKey).setValue(spinbox.value())
+        save_settings(self.parent.settings)
+        self.parent.parent.toggle_points()

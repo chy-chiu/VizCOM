@@ -73,7 +73,9 @@ DEFAULT_VALUES = {
         {"name": "apd", "value": [255, 0, 0]},
         {"name": "baseline", "value": [0, 255, 0]},
         {"name": "points", "value": [0, 0, 255]},
+        {"name": "ptSize", "value": 10},
         {"name": "background", "value": [0, 0, 0]},
+        {"name": "thickness", "value": 1},
     ],
 }
 

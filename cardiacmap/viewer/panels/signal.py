@@ -104,6 +104,8 @@ class SignalPanel(QWidget):
         pts_c = self.settings.child("Signal Plot Colors").child("points").value()
         bg_c = self.settings.child("Signal Plot Colors").child("background").value()
         
+        thickness = self.settings.child("Signal Plot Colors").child("thickness").value()
+        
         self.colors = dict(
             {
                 "signal": QColor(sig_c[0], sig_c[1], sig_c[2], a=255),
@@ -115,10 +117,10 @@ class SignalPanel(QWidget):
             }
         )
         # set up colors
-        self.sig_pen = pg.mkPen(self.colors['signal'])
-        self.sig2_pen = pg.mkPen(self.colors['signal 2'])
-        self.apd_pen = pg.mkPen(self.colors['apd'])
-        self.base_pen = pg.mkPen(self.colors['baseline'])
+        self.sig_pen = pg.mkPen(self.colors['signal'], width=thickness)
+        self.sig2_pen = pg.mkPen(self.colors['signal 2'], width=thickness)
+        self.apd_pen = pg.mkPen(self.colors['apd'], width=thickness)
+        self.base_pen = pg.mkPen(self.colors['baseline'], width=thickness)
         self.pt_brush = pg.mkBrush(self.colors['points'])
         self.plot.setBackground(self.colors['background'])
         
@@ -420,10 +422,13 @@ class SignalPanel(QWidget):
         for c in self.colors:
             if c == "signal":
                 self.sig_pen.setColor(self.colors[c])
+                self.sig_pen.setWidth(self.thickness)
             elif c == "baseline":
                 self.base_pen.setColor(self.colors[c])
+                self.base_pen.setWidth(self.thickness)
             elif c == "apd":
                 self.apd_pen.setColor(self.colors[c])
+                self.apd_pen.setWidth(self.thickness)
             elif c == "points":
                 self.pt_brush.setColor(self.colors[c])
                 self.signal_data.setSymbolBrush(self.pt_brush)
@@ -438,7 +443,7 @@ class SignalPanel(QWidget):
         """Toggles size of signal_data.scatter points"""
         if self.show_points.isChecked():
             # show
-            self.signal_data.setSymbolSize(10)
+            self.signal_data.setSymbolSize(self.settings.child("Signal Plot Colors").child("ptSize").value())
             # make signal hoverable
             self.signal_data.scatter.setData(hoverable=True)
             
@@ -447,6 +452,8 @@ class SignalPanel(QWidget):
             self.signal_data.setSymbolSize(0)
             # make signal unhoverable
             self.signal_data.scatter.setData(hoverable=False)
+            
+        self.parent.update_signal_plot()
 
     def toggle_signal_follow(self):
         self.signal_marker_toggle = not self.signal_marker_toggle
