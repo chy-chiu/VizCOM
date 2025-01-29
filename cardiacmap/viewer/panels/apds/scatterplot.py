@@ -153,8 +153,8 @@ class ScatterPanel(QWidget):
         else:
             self.alternans = alternans
         
-        apdData = self.apd_data[interval][..., self.y, self.x] * self.ms
-        diData = self.di_data[interval][..., self.y, self.x] * self.ms
+        apdData = self.apd_data[interval][..., self.x, self.y] * self.ms
+        diData = self.di_data[interval][..., self.x, self.y] * self.ms
         
         if alternans:
             apdData2 = apdData[1::2]
@@ -232,14 +232,14 @@ class ScatterPanel(QWidget):
         if result == QMessageBox.Yes:
             di = pts[0].pos().x() / self.ms
             apd = pts[0].pos().y() / self.ms
-            apdData = self.apd_data[self.interval][..., self.y, self.x]
-            diData = self.di_data[self.interval][..., self.y, self.x]
+            apdData = self.apd_data[self.interval][..., self.x, self.y]
+            diData = self.di_data[self.interval][..., self.x, self.y]
 
             apdData = apdData[np.where(apdData != apd)]
             diData = diData[np.where(diData != di)]
         
-            self.apd_data[self.interval][..., self.y, self.x] = np.append(apdData, 0)
-            self.di_data[self.interval][..., self.y, self.x] = np.append(diData, 0)
+            self.apd_data[self.interval][..., self.x, self.y] = np.append(apdData, 0)
+            self.di_data[self.interval][..., self.x, self.y] = np.append(diData, 0)
         
         self.update_plot(self.interval, self.x, self.y, self.show_err, self.alternans)
         
