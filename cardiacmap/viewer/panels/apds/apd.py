@@ -414,7 +414,7 @@ class APDWindow(QMainWindow):
         
     def calculate_apds(self):
         threshold = self.threshold.value()
-        spacing = self.min_frames.value()
+        spacing = self.min_frames.value() / self.ms
         self.ts, _ = GetThresholdIntersections1D(self.parent.signal.transformed_data[:, self.x, self.y], threshold, spacing)
         self.update_signal_plot()
         

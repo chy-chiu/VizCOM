@@ -1,7 +1,3 @@
-from ast import Delete
-import concurrent.futures as cf
-from types import NoneType
-
 import numpy as np
 
 
@@ -13,7 +9,7 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
         spacing (float): minimum x-distance between two intersections
         intervals (array): array of index values to slice 'data'
     """
-    print("Minimum Spacing is:", spacing)
+    #print("Minimum Spacing is:", spacing)
     apdArrs = []
     diArrs = []
     
@@ -47,36 +43,40 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
     return apdArrs, diArrs
 
 def GetThresholdIntersections1D(data, threshold, spacing = 0):
-    #signs = np.sign( data - threshold )
+    #print(spacing)
+    # remove points that lie directly on the line
+    threshData = data - threshold
+    mask = np.argwhere(threshData == 0)
+    threshData[mask] = threshData[mask-1]
+
+    
     # get indices immediately before data crosses the threshold
     idx0 = np.argwhere(
                 np.diff( 
-                    np.sign( data - threshold )
+                    np.sign(threshData)
                 )
            )[:, 0]
-    
-    # filter out intervals that are too small
-    invalid = np.argwhere(np.diff(idx0) < spacing) + 1
-    idx0 = np.delete(idx0, invalid)
+
 
     idx1 = idx0 + 1 # idx after
 
     y0 = data[idx0]
     y1 = data[idx1]
-    ts, apdFlags = getTimes(threshold, idx0, y0, y1)
+
+    ts, apdFlags = getTimes(idx0, y0, y1, threshold, spacing)
     
     return ts, apdFlags
 
 
-def getTimes(threshold, x0s, y0s, y1s):
+def getTimes(x0s, y0s, y1s, threshold, spacing):
     """Helper function to calculate the exact t values of intersection for a signal
     Args:
         threshold (int): threshold value
         x0s (array): t values BEFORE crossing threshold
         y0s (array): data values BEFORE crossing threshold
         y1s (array): data values AFTER crossing threshold
-        resArr (array): indices of crossings
-        apdArr (array): apd/di indicator
+        threshold (float): apd threshold for calculation
+        spacing (int): minimum x-distance between points
     """
     slopes = np.subtract(y1s, y0s)
     
@@ -96,7 +96,16 @@ def getTimes(threshold, x0s, y0s, y1s):
     
     intercepts = y0s - (slopes * x0s)
     ts = (threshold - intercepts) / slopes
-    return ts, apdFlags[0]
+    
+    # delete intersections that are too short
+    tooShort = np.argwhere(np.diff(ts) < spacing).reshape(-1) + 1
+    newApdFlags = np.delete(apdFlags, tooShort)
+    # combine unmatched APD/DIs
+    unmatched = np.argwhere(np.diff(newApdFlags) == False)
+    
+    # return only valid Ts
+    ts = np.delete(np.delete(ts, tooShort), unmatched)
+    return ts, apdFlags[0]#, tooShort
 
 
 def CalculateIntervals(intersections, firstIntervalFlag):
