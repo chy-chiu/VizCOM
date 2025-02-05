@@ -3,7 +3,7 @@ import numpy as np
 import pyqtgraph as pg
 import numpy.ma as ma
 
-from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
+from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent, MouseClickEvent
 from PySide6 import QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -47,42 +47,37 @@ class SpatialDragPlot(pg.PlotItem):
     # Position Plot used by APD/DI v.s. Space Plots
     def __init__(self, parent, sCallback, eCallback):
         super().__init__()
+        self.setMenuEnabled(False)
+        
         self.sCallback = sCallback
         self.eCallback = eCallback
         self.parent = parent
 
     def mouseDragEvent(self, event: MouseDragEvent):
-        if self.parent.hide_line.isChecked():
-            return event.pos()
-
-        if event.isStart():
-            pos = self.vb.mapSceneToView(event.scenePos())
-            self.sCallback(int(pos.x()), int(pos.y()))
-
-        elif event.isFinish():
-            pos = self.vb.mapSceneToView(event.scenePos())
-            self.eCallback(int(pos.x()), int(pos.y()))
-
-            # get coordinates that intersect the line
-            xDiff = self.parent.x2 - self.parent.x1
-            yDiff = self.parent.y2 - self.parent.y1
-            maxDiff = max(abs(xDiff), abs(yDiff))
-            coords = []
-            for i in range(maxDiff):
-                x = self.parent.x1 + i * xDiff / maxDiff
-                y = self.parent.y1 + i * yDiff / maxDiff
-                coords.append((floor(x), floor(y)))
-            coords, idxs = np.unique(coords, axis=0, return_index=True)
-            coords = coords[np.argsort(idxs)]
-            self.parent.spatial_coords = coords
-            self.parent.update_graph()
-        else:
-            pos = self.vb.mapSceneToView(event.scenePos())
-            self.eCallback(int(pos.x()), int(pos.y()))
-        return event.pos()
-
-    def mouseClickEvent(self, event: MouseDragEvent):
         pass
+
+    def mouseClickEvent(self, event: MouseClickEvent):
+        pos = self.vb.mapSceneToView(event.scenePos())
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.sCallback(int(pos.x()), int(pos.y()))
+        elif event.button() == Qt.MouseButton.RightButton:
+            self.eCallback(int(pos.x()), int(pos.y()))
+            
+        # get coordinates that intersect the line
+        xDiff = self.parent.x2 - self.parent.x1
+        yDiff = self.parent.y2 - self.parent.y1
+        maxDiff = max(abs(xDiff), abs(yDiff))
+        coords = []
+        for i in range(maxDiff):
+            x = self.parent.x1 + i * xDiff / maxDiff
+            y = self.parent.y1 + i * yDiff / maxDiff
+            coords.append((floor(x), floor(y)))
+        coords, idxs = np.unique(coords, axis=0, return_index=True)
+        coords = coords[np.argsort(idxs)]
+        self.parent.spatial_coords = coords
+        self.parent.update_graph()
+        
+        return event.pos()
 
     def hoverEvent(self, event: HoverEvent):
         if not event.isExit():
@@ -112,6 +107,8 @@ class SpatialPlotView(QWidget):
         self.setLayout(layout)
 
         self.spatial_coords = None
+        self.x1 = self.y1 = 32
+        self.x2 = self.y2 = 64
 
         self.update_data()
         # self.position_callback = position_callback
@@ -143,7 +140,7 @@ class SpatialPlotView(QWidget):
             pos=[[32, 32]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
         )
         self.endPoint = pg.ScatterPlotItem(
-            pos=[[64, 64]], size=5, pen=pg.mkPen("r"), brush=pg.mkBrush("r")
+            pos=[[64, 64]], size=5, pen=pg.mkPen("b"), brush=pg.mkBrush("b")
         )
 
         self.line = pg.PlotCurveItem(x=[32, 64], y=[32, 64])
@@ -307,6 +304,7 @@ class SpatialPlotView(QWidget):
         self.x1 = x
         self.y1 = y
         self.startPoint.setData(pos=[[x, y]])
+        self.line.setData(x=[self.x1, self.x2], y=[self.y1, self.y2])
         # print("Start", self.x1, self.y1)
 
     def line_end(self, x, y):
