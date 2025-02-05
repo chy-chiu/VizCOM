@@ -49,7 +49,6 @@ def GetThresholdIntersections1D(data, threshold, spacing = 0):
     mask = np.argwhere(threshData == 0)
     threshData[mask] = threshData[mask-1]
 
-    
     # get indices immediately before data crosses the threshold
     idx0 = np.argwhere(
                 np.diff( 
@@ -79,7 +78,6 @@ def getTimes(x0s, y0s, y1s, threshold, spacing):
         spacing (int): minimum x-distance between points
     """
     slopes = np.subtract(y1s, y0s)
-    
     # no intersections found
     if len(slopes) == 0:
         return np.array([0, 1]), False
@@ -87,25 +85,34 @@ def getTimes(x0s, y0s, y1s, threshold, spacing):
     # if the slope is positive, its an apd
     apdFlags = slopes > 0
     
-    # where two consective APDs/DIs are found
+    # remove the first (leftmost) intersection where two consective APDs/DIs are found
     invalid = np.argwhere(np.diff(apdFlags) == False)
-    # remove the first (leftmost) intersection
+    apdFlags = np.delete(apdFlags, invalid)
     slopes = np.delete(slopes, invalid)
     x0s = np.delete(x0s, invalid)
     y0s = np.delete(y0s, invalid)
     
+    # remove where slope is 0
+    invalid = np.argwhere(slopes == 0)
+    apdFlags = np.delete(apdFlags, invalid)
+    slopes = np.delete(slopes, invalid)
+    x0s = np.delete(x0s, invalid)
+    y0s = np.delete(y0s, invalid)
+    
+    # calculation intersection times
     intercepts = y0s - (slopes * x0s)
     ts = (threshold - intercepts) / slopes
     
     # delete intersections that are too short
     tooShort = np.argwhere(np.diff(ts) < spacing).reshape(-1) + 1
+    ts = np.delete(ts, tooShort)
     newApdFlags = np.delete(apdFlags, tooShort)
+
     # combine unmatched APD/DIs
     unmatched = np.argwhere(np.diff(newApdFlags) == False)
+    ts = np.delete(ts, unmatched)
     
-    # return only valid Ts
-    ts = np.delete(np.delete(ts, tooShort), unmatched)
-    return ts, apdFlags[0]#, tooShort
+    return ts, apdFlags[0] # tooShort
 
 
 def CalculateIntervals(intersections, firstIntervalFlag):
