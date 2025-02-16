@@ -3,8 +3,8 @@ from functools import partial
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -79,17 +79,17 @@ class PositionView(QWidget):
     def __init__(self, parent):
 
         super().__init__(parent=parent)
-
         self.parent = parent
 
         self.init_image_view()
         self.init_player_bar()
 
         layout = QVBoxLayout()
-        layout.addWidget(self.image_view)
-        # layout.addWidget(self.px_bar)
-        layout.addWidget(self.player_bar)
         layout.addWidget(self.data_bar)
+        layout.addWidget(self.image_view)
+        layout.addWidget(self.player_bar)
+        layout.addWidget(self.settings_bar)
+        layout.addWidget(self.px_bar)
         self.setLayout(layout)
         
         self.init_colormap()
@@ -103,6 +103,7 @@ class PositionView(QWidget):
         # Set up Image View
         view = DraggablePlot(self.update_position)
         self.image_view = pg.ImageView(view=view)
+        self.image_view.setMinimumSize(QSize(256, 256))
         self.image_view.view.enableAutoRange(enable=True)
         self.image_view.view.setMouseEnabled(False, False)
 
@@ -138,11 +139,17 @@ class PositionView(QWidget):
     def init_player_bar(self):
         self.px_bar = QToolBar()
         self.player_bar = QToolBar()
+        self.settings_bar = QToolBar()
         self.data_bar = QToolBar()
 
         play_button = QAction("⏯", self)
         forward_button = QAction("⏭", self)
         back_button = QAction("⏮", self)
+
+        font = QFont("Arial", 15)
+        play_button.setFont(font)
+        forward_button.setFont(font)
+        back_button.setFont(font)
 
         self.skiprate = Spinbox(
             min=1, max=10000, val=10, min_width=60, max_width=60, step=10
@@ -159,21 +166,17 @@ class PositionView(QWidget):
         self.update_framerate()
         self.framerate.valueChanged.connect(self.update_framerate)
 
-        self.player_bar.addAction(play_button)
         self.player_bar.addAction(back_button)
+        self.player_bar.addAction(play_button)
         self.player_bar.addAction(forward_button)
-        self.player_bar.addWidget(QLabel("   FPS: "))
-        self.player_bar.addWidget(self.framerate)
-        self.player_bar.addWidget(QLabel("   Skip Frames: "))
-        self.player_bar.addWidget(self.skiprate)
+        self.settings_bar.addWidget(QLabel("   FPS: "))
+        self.settings_bar.addWidget(self.framerate)
+        self.settings_bar.addWidget(QLabel("   Skip Frames: "))
+        self.settings_bar.addWidget(self.skiprate)
 
-        self.normalize = QComboBox()
-        self.normalize.addItems(["Base", "Transformed"])
-        self.normalize.currentTextChanged.connect(self.update_data)
-
-        self.colormap = QComboBox()
-        self.colormap.addItems(["nipy_spectral", "gray", "hsv", "viridis", "plasma"])
-        self.colormap.currentTextChanged.connect(self.update_data)
+        self.data_select = QComboBox()
+        self.data_select.addItems(["Base", "Transformed"])
+        self.data_select.currentTextChanged.connect(self.update_data)
 
         self.show_marker = QCheckBox()
         self.show_marker.setChecked(True)
@@ -190,20 +193,14 @@ class PositionView(QWidget):
         self.y_box.valueChanged.connect(self.update_position_boxes)
 
         self.data_bar.addWidget(QLabel("Data: "))
-        self.data_bar.addWidget(self.normalize)
-        # self.colormap_bar.addWidget(QLabel("   Colormap: "))
-        # self.colormap_bar.addWidget(self.colormap)
-        self.data_bar.addWidget(QLabel("   X: "))
-        self.data_bar.addWidget(self.x_box)
-        self.data_bar.addWidget(QLabel("   Y: "))
-        self.data_bar.addWidget(self.y_box)
-        self.data_bar.addWidget(QLabel("   Marker: "))
-        self.data_bar.addWidget(self.show_marker)
+        self.data_bar.addWidget(self.data_select)
         
-        # self.px_bar.addWidget(QLabel("   X: "))
-        # self.px_bar.addWidget(self.x_box)
-        # self.px_bar.addWidget(QLabel("   Y: "))
-        # self.px_bar.addWidget(self.y_box)
+        self.px_bar.addWidget(QLabel("   X: "))
+        self.px_bar.addWidget(self.x_box)
+        self.px_bar.addWidget(QLabel("   Y: "))
+        self.px_bar.addWidget(self.y_box)
+        self.px_bar.addWidget(QLabel("   Marker: "))
+        self.px_bar.addWidget(self.show_marker)
 
     def update_framerate(self):
         framerate = self.framerate.value()
@@ -248,14 +245,14 @@ class PositionView(QWidget):
             self.y_box.blockSignals(False)
 
     def init_colormap(self):
-        cmap_name = self.colormap.currentText() or "nipy_spectral"
+        cmap_name = "nipy_spectral"
         self.cmap = pg.colormap.get(cmap_name, source="matplotlib")
         
     def update_colormap(self):
         print("colormap update")
 
     def update_data(self):
-        mode = self.normalize.currentText() or "Base"
+        mode = self.data_select.currentText() or "Base"
         mask = np.ones((self.parent.signal.span_X, self.parent.signal.span_X))
         if self.parent.signal.mask is not None:
             mask = self.parent.signal.mask

@@ -235,7 +235,7 @@ class CardiacMap(QMainWindow):
             self.signal_dock.setWidget(self.signal_panel)
             self.image_dock.setWidget(self.image_tabs)
 
-            self.signal_dock.setMinimumWidth(self.init_width * 0.7)
+            self.signal_dock.setMinimumWidth(self.init_width * 0.4)
 
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.image_dock)
             self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.signal_dock)
