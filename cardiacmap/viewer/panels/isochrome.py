@@ -387,11 +387,11 @@ class IsochromeWindow(QMainWindow):
 
         self.options_1.addWidget(QLabel("Threshold: "))
         self.options_1.addWidget(self.threshold)
-        self.options_1.addWidget(QLabel("Start Frame: "))
+        self.options_1.addWidget(QLabel("Start Time: "))
         self.options_1.addWidget(self.start_frame)
-        self.options_2.addWidget(QLabel("Cycles: "))
+        self.options_2.addWidget(QLabel("# of Steps: "))
         self.options_2.addWidget(self.cycles)
-        self.options_2.addWidget(QLabel("Skip Frames: "))
+        self.options_2.addWidget(QLabel("Step Interval: "))
         self.options_2.addWidget(self.skip)
 
         self.options_1.setStyleSheet(QTOOLBAR_STYLE)
