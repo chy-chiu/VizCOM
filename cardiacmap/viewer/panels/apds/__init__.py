@@ -1,3 +1,4 @@
+from .apdIsochrone import *
 from .scatterplot import *
 from .spatialplot import *
 from .saveAPDs import *

@@ -7,6 +7,7 @@ from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent, Mous
 from PySide6 import QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QPushButton,
     QCheckBox,
     QLabel,
     QRadioButton,
@@ -14,6 +15,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from cardiacmap.viewer.panels.apds.apdIsochrone import APDIsochroneWindow
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -94,12 +97,18 @@ class SpatialPlotView(QWidget):
 
         self.parent = parent
         self.ms = parent.ms
+        self.mask = parent.mask
 
         self.init_image_view()
         self.init_toolbars()
 
+        self.isochrone_button = QPushButton(self)
+        self.isochrone_button.setText("Isochrone")
+        self.isochrone_button.clicked.connect(self.open_isochrone_window)
+        
         layout = QVBoxLayout()
         layout.addWidget(self.interval_bar)
+        layout.addWidget(self.isochrone_button)
         layout.addWidget(self.image_view)
         layout.addWidget(self.beat_bar)
         layout.addWidget(self.display_bar)
@@ -114,9 +123,9 @@ class SpatialPlotView(QWidget):
         # self.position_callback = position_callback
 
     def init_image_view(self):
-
         # Set up Image View
         self.plot = SpatialDragPlot(self, self.line_start, self.line_end)
+
         self.image_view = pg.ImageView(view=self.plot)
         self.image_view.view.enableAutoRange(enable=True)
         self.image_view.view.setMouseEnabled(False, False)
@@ -370,3 +379,8 @@ class SpatialPlotView(QWidget):
                 imgVw.addItem(self.startPoint)
                 imgVw.addItem(self.endPoint)
                 self.line_visable = True
+
+    def open_isochrone_window(self):
+        interval_idx = self.intervalIdx.value()-1
+        self.isochrone_window = APDIsochroneWindow(self, self.image_view.image, self.parent.data_slices[interval_idx])
+        self.isochrone_window.show()
