@@ -425,7 +425,7 @@ class APDWindow(QMainWindow):
         print("APDs/DIs:", "\nThreshold:", threshold, "\n:", spacing)
         
         self.line_idxs = [int(x.getPos()[0]//self.ms) for x in self.lines]
-        self.apds, self.dis = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs)
+        self.apds, self.dis, self.tOffsets = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs)
         e = time.time()
         print("Runtime:", e-s)
         self.data = [self.apds, self.dis]

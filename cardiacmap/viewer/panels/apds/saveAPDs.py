@@ -147,16 +147,7 @@ class SaveAPDView(QtWidgets.QWidget):
         APDdata = np.array(APDdata, dtype=np.float16) * mask
         DIdata = np.array(DIdata, dtype=np.float16) * mask
             
-        self.export_data(APDdata, DIdata, mask)
-        # flatten x & ys, swap axes so each line is a pixel over time
-        # APDdata = APDdata.reshape((APDdata.shape[0], -1)).swapaxes(0, 1)
-        # DIdata = DIdata.reshape((DIdata.shape[0], -1)).swapaxes(0, 1)
-        # print(APDdata.shape, DIdata.shape)
-        # print("Saving APDs")
-        # np.savetxt("APDs.txt", APDdata, delimiter=',')
-        # print("Saving DIs")
-        # np.savetxt("DIs.txt", DIdata, delimiter=',')
-        # print("Saved as APDs.txt & DIs.txt")
+        self.export_data(APDdata, DIdata, self.parent.tOffsets)
 
 
     def get_roi_mask(self, shape):
@@ -186,44 +177,32 @@ class SaveAPDView(QtWidgets.QWidget):
         self.image_data = self.image_data * mask
         self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
 
-    def export_data(self, apds, dis, mask):
-        # mask out invalid pixels
-        apds = apds * mask
-        dis = dis * mask
+    def export_data(self, apds, dis, tOffsets):
         # swap axes
         apds = np.moveaxis(apds, 0, -1)
         dis = np.moveaxis(dis, 0, -1)
         # open export menu
-        self.exportWindow = ExportAPDsWindow(self, apds, dis)
+        self.exportWindow = ExportAPDsWindow(self, apds, dis, tOffsets)
         self.exportWindow.show()
         
 class ExportAPDsWindow(QMainWindow):
-    def __init__(self, parent, apdData, diData):
+    def __init__(self, parent, apdData, diData, tOffsets):
         QMainWindow.__init__(self)
         self.setWindowTitle("Export APD Data")
 
         self.parent = parent
         self.apds = apdData.reshape((-1, apdData.shape[2]))
         self.dis = diData.reshape((-1, diData.shape[2]))
-        print(self.apds.shape, self.dis.shape)
-        self.Alternans_label = QLabel("Alternans: ")
-        self.Mean_label = QLabel("Mean: ")
-        self.Std_label = QLabel("Standard Dev: ")
-        self.APD_label = QLabel("APDs: ")
-        self.DI_label = QLabel("DIs: ")
-        self.Raw_label = QLabel("Raw Data:")
+        self.tOffsets = tOffsets.reshape((-1))
+       
+        self.Mean_label = QLabel("Mean/STD: ")
+        self.APD_label = QLabel("APD/DI: ")
 
         self.APD_box = QCheckBox()
         self.APD_box.setChecked(True)
-        self.DI_box = QCheckBox()
-        self.DI_box.setChecked(True)
         
-        self.Alternans_box = QCheckBox()
         self.Mean_box = QCheckBox()
         self.Mean_box.setChecked(True)
-        self.Std_box = QCheckBox()
-        self.Std_box.setChecked(True)
-        self.Raw_box = QCheckBox()
         
         self.npy_button = QRadioButton("NumPy (.npy)")
         self.npy_button.setChecked(True)
@@ -242,32 +221,21 @@ class ExportAPDsWindow(QMainWindow):
         row1 = QHBoxLayout()
         row1.addWidget(self.APD_label)
         row1.addWidget(self.APD_box)
-        row1.addWidget(self.DI_label)
-        row1.addWidget(self.DI_box)
+        row1.addWidget(self.Mean_label)
+        row1.addWidget(self.Mean_box)
         
         row2 = QHBoxLayout()
-        row2.addWidget(self.Alternans_label)
-        row2.addWidget(self.Alternans_box)
-        row2.addWidget(self.Mean_label)
-        row2.addWidget(self.Mean_box)
-        row2.addWidget(self.Std_label)
-        row2.addWidget(self.Std_box)
-        row2.addWidget(self.Raw_label)
-        row2.addWidget(self.Raw_box)
+        row2.addWidget(self.npy_button)
+        row2.addWidget(self.mat_button)
+        
         
         row3 = QHBoxLayout()
-        row3.addWidget(self.npy_button)
-        row3.addWidget(self.mat_button)
-        
-        
-        row4 = QHBoxLayout()
-        row4.addWidget(self.filename)
-        row4.addWidget(self.save_button)
+        row3.addWidget(self.filename)
+        row3.addWidget(self.save_button)
         
         layout.addLayout(row1)
         layout.addLayout(row2)
         layout.addLayout(row3)
-        layout.addLayout(row4)
         
         mainWidget = QWidget()
         mainWidget.setLayout(layout)
@@ -280,61 +248,47 @@ class ExportAPDsWindow(QMainWindow):
         if len(textStr) <= 4 or textStr[-4:] != self.file_ext:
             textStr += self.file_ext
             
-        if self.Alternans_box.isChecked():
-            out1, eLabels = self.getSelectedData(self.apds[:, ::2], self.dis[:, ::2])
-            out2, oLabels = self.getSelectedData(self.apds[:, 1::2], self.dis[:, 1::2])
-            out2 = out2[:, 1:] # trim index column
-            output = np.hstack((out1, out2)) # concatenate evens and odds
-            eLabels = eLabels.replace(",", " (even),")
-            oLabels = oLabels.replace(",", " (odd),")
-            outputLabels = eLabels + oLabels
-        else:
-            output, outputLabels = self.getSelectedData(self.apds, self.dis)
-         
-        output = output[:, 1:] # trim index column
-        #print(output.reshape((128,128, output.shape[1])).shape, self.apds.shape, self.dis.shape)
+        output = self.getSelectedData()
+        if output is None:
+            return
+
         output = output.reshape((128,128, output.shape[1]))
+
         if self.file_ext == ".npy":
             np.save(textStr, output)
         else:
             output = {"data": output}
             savemat(textStr, output)
+
         print("Saved to", textStr)
         self.close()
                 
-    def getSelectedData(self, apds, dis):
-        outputLabels = " "
-        output = np.arange(apds.shape[0])
-        if self.Mean_box.isChecked():
-            if self.APD_box.isChecked():
-                output = np.vstack((output, apds.mean(axis=1)))
-                outputLabels += "APD Mean, "
-            if self.DI_box.isChecked():
-                output = np.vstack((output, dis.mean(axis=1)))
-                outputLabels += "DI Mean, "
-                
-        if self.Std_box.isChecked():
-            if self.APD_box.isChecked():
-                output = np.vstack((output, apds.std(axis=1)))
-                outputLabels += "APD Std, "
-            if self.DI_box.isChecked():
-                output = np.vstack((output, dis.std(axis=1)))
-                outputLabels += "DI Std, "
+    def getSelectedData(self):
+        if self.APD_box.isChecked():
+            output = np.zeros((16384, self.apds.shape[1] + self.dis.shape[1] + 1))
+            output[:, 1::2] = self.dis
+            output[:, 2::2] = self.apds
+            output[:, 0] = self.tOffsets
+            if self.Mean_box.isChecked():
+                output2 = np.zeros((16384, 5))
+                output2[:, 0] = np.mean(self.dis, axis=1)
+                output2[:, 1] = np.mean(self.apds, axis=1)
+                output2[:, 2] = np.std(self.dis, axis=1)
+                output2[:, 3] = np.std(self.apds, axis=1)
+                output2[:, 4] = -1
+                output = np.hstack((output2, output))
 
-        if output.ndim > 1:
-            output = output.swapaxes(0, 1)
+        elif self.Mean_box.isChecked():
+            output = np.zeros((16384, 4))
+            output[:, 0] = np.mean(self.dis, axis=1)
+            output[:, 1] = np.mean(self.apds, axis=1)
+            output[:, 2] = np.std(self.dis, axis=1)
+            output[:, 3] = np.std(self.apds, axis=1)
         else:
-            output = output[:, None]
-            
-        if self.Raw_box.isChecked():
-            if self.APD_box.isChecked():
-                output = np.hstack((output, apds))
-                outputLabels += str(len(apds[0])) + " APD Values, "
-            if self.DI_box.isChecked():
-                output = np.hstack((output, dis))
-                outputLabels += str(len(dis[0])) + " DI Values, "
-                
-        return output, outputLabels
+            print("No data selected for saving")
+            return None
+
+        return output
     
     def set_file_ext(self, button):
         if self.mat_button.isChecked():

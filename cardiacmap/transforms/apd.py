@@ -23,24 +23,30 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
             slices.append(data[start:end])
             
     #executor = cf.ThreadPoolExecutor(4)
-    
+    first_slice = True
     for data_slice in slices:
         flat_swapped_arr = np.swapaxes(data_slice.reshape(data_slice.shape[0], -1), 0, 1)
         pixels =  np.arange(flat_swapped_arr.shape[0])
         intersections = []
+        tOffsets = []
         apdFlags = []
         for p in pixels:
             ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing)
+            if first_slice:
+                tOffsets.append(ints[0])
             intersections.append(ints)
             apdFlags.append(apd)
+        if first_slice:
+            tOffsets = np.array(tOffsets).reshape(128, 128)
+            first_slice = False
         apdArr, diArr = CalculateIntervals(intersections, apdFlags)
-        apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], data_slice.shape[1], data_slice.shape[2])
-        diArr = np.swapaxes(diArr, 1, 0).reshape((diArr.shape[1], data_slice.shape[1], data_slice.shape[2]))
-        
+        apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], 128, 128)
+        diArr = np.swapaxes(diArr, 1, 0).reshape(diArr.shape[1], 128, 128)
+
         apdArrs.append(apdArr)
         diArrs.append(diArr)
 
-    return apdArrs, diArrs
+    return apdArrs, diArrs, tOffsets
 
 def GetThresholdIntersections1D(data, threshold, spacing = 0):
     #print(spacing)
@@ -133,8 +139,8 @@ def CalculateIntervals(intersections, firstIntervalFlag):
         apdFirst = firstIntervalFlag[sig]
         
         if apdFirst:
-            dis = intervals[1::2]
-            apds = intervals[2::2]
+            dis =  np.insert(intervals[1::2], 0, 0) # add a zero as the first DI
+            apds = intervals[::2]
         else:
             dis = intervals[::2]
             apds = intervals[1::2]
