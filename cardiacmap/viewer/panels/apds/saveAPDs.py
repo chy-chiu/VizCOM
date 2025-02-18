@@ -279,11 +279,12 @@ class ExportAPDsWindow(QMainWindow):
                 output = np.hstack((output2, output))
 
         elif self.Mean_box.isChecked():
-            output = np.zeros((16384, 4))
+            output = np.zeros((16384, 5))
             output[:, 0] = np.mean(self.dis, axis=1)
             output[:, 1] = np.mean(self.apds, axis=1)
             output[:, 2] = np.std(self.dis, axis=1)
             output[:, 3] = np.std(self.apds, axis=1)
+            output[:, 4] = -1
         else:
             print("No data selected for saving")
             return None
