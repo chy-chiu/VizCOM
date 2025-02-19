@@ -105,6 +105,7 @@ class SignalPanel(QWidget):
         bg_c = self.settings.child("Signal Plot Colors").child("background").value()
         
         thickness = self.settings.child("Signal Plot Colors").child("thickness").value()
+        self.thickness = thickness
         
         self.colors = dict(
             {

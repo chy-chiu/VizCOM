@@ -288,6 +288,7 @@ class StackingWindow(QMainWindow):
         self.options1 = QToolBar()
         self.options2 = QToolBar()
         self.options3 = QToolBar()
+        self.options4 = QToolBar()
         self.actions_bar = QToolBar()
 
         self.beats = Spinbox(
@@ -342,15 +343,15 @@ class StackingWindow(QMainWindow):
         
         self.offset.sigValueChanged.connect(self.update_signal_plot)
         
-        self.sensitivity = Spinbox(
+        self.prominence = Spinbox(
             min=.01,
             max=1,
-            val=.7,
+            val=.3,
             step=.05,
             min_width=50,
             max_width=50,
         )
-        self.sensitivity.sigValueChanged.connect(self.update_signal_plot)
+        self.prominence.sigValueChanged.connect(self.update_signal_plot)
 
         self.alternans = QCheckBox()
         self.alternans.setChecked(
@@ -358,26 +359,34 @@ class StackingWindow(QMainWindow):
         )
         self.alternans.checkStateChanged.connect(self.update_signal_plot)
 
+        self.showRaw = QCheckBox()
+        self.showRaw.setChecked(True)
+        self.showRaw.checkStateChanged.connect(self.update_signal_plot)
+
         self.options1.addWidget(QLabel(" Start Time:"))
         self.options1.addWidget(self.start_time)
         self.options1.addWidget(QLabel(" End Time:"))
         self.options1.addWidget(self.end_time)
 
-        self.options2.addWidget(QLabel(" # of Beats:"))
+        self.options2.addWidget(QLabel(" Beats:"))
         self.options2.addWidget(self.beats)
         self.options2.addWidget(QLabel(" Alternans:"))
         self.options2.addWidget(self.alternans)
+        self.options2.addWidget(QLabel(" Offset:"))
+        self.options2.addWidget(self.offset)
         
         self.options3.addWidget(QLabel(" Min Slice Width:"))
         self.options3.addWidget(self.min_width)
-        self.options3.addWidget(QLabel(" Offset:"))
-        self.options3.addWidget(self.offset)
-        self.options3.addWidget(QLabel(" Sensitivity:"))
-        self.options3.addWidget(self.sensitivity)
+        self.options3.addWidget(QLabel(" Prominence:"))
+        self.options3.addWidget(self.prominence)
+
+        self.options4.addWidget(QLabel(" Show Raw Data:"))
+        self.options4.addWidget(self.showRaw)
 
         self.options1.setStyleSheet(QTOOLBAR_STYLE)
         self.options2.setStyleSheet(QTOOLBAR_STYLE)
         self.options3.setStyleSheet(QTOOLBAR_STYLE)
+        self.options4.setStyleSheet(QTOOLBAR_STYLE)
         self.actions_bar.setStyleSheet(QTOOLBAR_STYLE)
 
 
@@ -392,6 +401,8 @@ class StackingWindow(QMainWindow):
         layout.addWidget(self.options2)
         layout.addSpacing(5)
         layout.addWidget(self.options3)
+        layout.addSpacing(5)
+        layout.addWidget(self.options4)
         layout.addSpacing(5)
         layout.addWidget(self.actions_bar)
 
@@ -420,8 +431,21 @@ class StackingWindow(QMainWindow):
         start = int(self.start_time.value()//self.ms)
         end = int(self.end_time.value()//self.ms)
 
+        # transformed data preview
         self.preview = self.parent.signal.transformed_data[start:end, self.y, self.x]
         self.preview_tab.signal_data.setData(x=np.arange(len(self.preview))* int(self.ms), y=self.preview)
+
+        # raw data preview
+        #print(self.showRaw.isChecked())
+        if self.showRaw.isChecked():
+            f = 1
+            if self.parent.signal.inverted:
+                f = -1
+            self.preview_base = NormalizeData(f * self.parent.signal.base_data[start:end, self.y, self.x])
+            self.preview_tab.signal2_data.setData(x=np.arange(len(self.preview_base))* int(self.ms), y=self.preview_base)
+        else:
+            self.preview_tab.signal2_data.setData()
+
         self.update_lines()
 
     def update_signal_value(self, evt, idx=None):
@@ -436,7 +460,7 @@ class StackingWindow(QMainWindow):
                 self.remove_line(self.preview_tab)
 
         derivative = NormalizeData(np.gradient(self.preview))
-        prominence = 1 - self.sensitivity.value()
+        prominence = self.prominence.value()
         
         if int(self.min_width.value()) != 0:
             peaks = find_peaks(derivative, distance=(self.min_width.value() + 1)//int(self.ms), prominence=prominence)[0]

@@ -39,7 +39,7 @@ def stack(data, derivative, n, distance, offset, alternans):
     peaks = find_peaks(NormalizeData(derivative), distance=distance, prominence=0.3)[0]
     
     if len(peaks) <= 1:
-        print("No Peaks Found @ index")
+        #print("No Peaks Found @ index")
         return [0]
     
     if alternans:
@@ -59,7 +59,7 @@ def stack(data, derivative, n, distance, offset, alternans):
     slices = np.split(data, peaks)
 
     if len(slices) < 3:
-        return [0], [0]
+        return [0]
 
     # get rid of outer slices
     slices.pop(0)
