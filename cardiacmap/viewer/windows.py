@@ -5,6 +5,7 @@ from functools import partial
 from typing import List, Literal, Optional
 import numpy as np
 import pyqtgraph as pg
+import scipy.io
 from pyqtgraph.console import ConsoleWidget
 from pyqtgraph.parametertree import Parameter
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -149,6 +150,12 @@ class CardiacMap(QMainWindow):
 
         self.export_vid = QAction("Export Video")
         self.export_vid.triggered.connect(self.create_export_window)
+        
+        self.export_npy = QAction("Export Signal to NumPy")
+        self.export_npy.triggered.connect(self.export_numpy)
+
+        self.export_mat = QAction("Export Signal to MATLAB")
+        self.export_mat.triggered.connect(self.export_matlab)
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
@@ -157,11 +164,12 @@ class CardiacMap(QMainWindow):
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
         self.file_menu.addSeparator()
-        # TODO - Save Signal
         self.file_menu.addAction(self.save_signal)
         self.file_menu.addSeparator()
+        self.file_menu.addAction(self.export_npy)
+        self.file_menu.addAction(self.export_mat)
         self.file_menu.addAction(self.export_vid)
-
+        
         # Windows Menu
         self.stacking = QAction("Stacking")
         self.stacking.triggered.connect(self.create_stacking_window)
@@ -376,6 +384,27 @@ class CardiacMap(QMainWindow):
         with open(filepath, "wb") as f:
             print(self.signal.transformed_data)
             pickle.dump(self.signal, f)
+            
+    def export_numpy(self):
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporting Transformed Signal to NumPy binary",
+            f"{self.signal.signal_name}.npy",
+            "NumPy binary (*.npy);;All Files (*)",
+        )
+        np.save(filepath, self.signal.transformed_data)
+        
+    def export_matlab(self):
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exporting Transformed Signal to MATLAB binary",
+            f"{self.signal.signal_name}.mat",
+            "MAT binary (*.mat);;All Files (*)",
+        )
+        scipy.io.savemat(filepath, {'data': self.signal.transformed_data})
+    
 
     # TODO: Fix scroll / header issue here
     def load_help(self):
