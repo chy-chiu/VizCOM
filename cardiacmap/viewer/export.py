@@ -1,37 +1,20 @@
 import numpy as np
 import cv2
-import time
 import pyqtgraph as pg
 from functools import partial
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QComboBox,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QLineEdit,
     QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
-    QSplitter,
-    QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
     QFileDialog
 )
-from skimage.measure import find_contours
 
 from cardiacmap.viewer.components import Spinbox
-from cardiacmap.viewer.panels.position import PositionView
-from cardiacmap.viewer.utils import loading_popup
 
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 
@@ -208,3 +191,15 @@ class ExportVideoWindow(QMainWindow):
             print(filename, "exported at", fps, "fps")
             
             out.release()
+
+def export_histogram(data, binSize = 1, signal_name = ""):
+    bins = np.arange(np.floor(data.min()), np.ceil(data.max()), binSize)
+    counts, ranges = np.histogram(data,bins)
+    output = np.zeros((2, counts.shape[0]))
+    output[0, :] = ranges[:-1]
+    output[1, :] = counts
+    file_path, _ = QFileDialog.getSaveFileName(None, "Save Histogram", signal_name+"_histogram.csv", "Comma Seperated Value (*.csv);")
+
+    if file_path:
+        np.savetxt(file_path, output, delimiter=",", fmt="%.2f")
+        print("Saved histogram data to: ", file_path)

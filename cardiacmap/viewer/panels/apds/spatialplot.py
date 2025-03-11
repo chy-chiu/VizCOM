@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QPushButton,
     QCheckBox,
+    QHBoxLayout,
     QLabel,
     QRadioButton,
     QToolBar,
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.viewer.panels.apds.apdIsochrone import APDIsochroneWindow
+from cardiacmap.viewer.export import export_histogram
+from cardiacmap.viewer.components import Spinbox
 
 SPINBOX_STYLE = """QSpinBox
             {
@@ -103,12 +106,25 @@ class SpatialPlotView(QWidget):
         self.init_toolbars()
 
         self.isochrone_button = QPushButton(self)
-        self.isochrone_button.setText("Isochrone")
+        self.isochrone_button.setText("Contours")
         self.isochrone_button.clicked.connect(self.open_isochrone_window)
+
+        self.histogram_button = QPushButton(self)
+        self.histogram_button.setText("Save Histogram")
+        self.histogram_button.clicked.connect(self.save_histogram)
+
+        self.bin_size_label = QLabel("Histogram Bin Size: ")
+        self.bin_size = Spinbox(0, 5, .5, 30, 60, .25)
+        self.histogram_export = QHBoxLayout()
+        self.histogram_export.addWidget(self.histogram_button)
+        self.histogram_export.addWidget(self.bin_size_label)
+        self.histogram_export.addWidget(self.bin_size)
+
         
         layout = QVBoxLayout()
         layout.addWidget(self.interval_bar)
         layout.addWidget(self.isochrone_button)
+        layout.addLayout(self.histogram_export)
         layout.addWidget(self.image_view)
         layout.addWidget(self.beat_bar)
         layout.addWidget(self.display_bar)
@@ -384,3 +400,7 @@ class SpatialPlotView(QWidget):
         interval_idx = self.intervalIdx.value()-1
         self.isochrone_window = APDIsochroneWindow(self, self.image_view.image, self.parent.data_slices[interval_idx])
         self.isochrone_window.show()
+
+    def save_histogram(self):
+        # parent.parent.parent.signal gotta be the worst code in this whole project
+        export_histogram(self.image_view.image, self.bin_size.value(), self.parent.parent.parent.signal.signal_name)
