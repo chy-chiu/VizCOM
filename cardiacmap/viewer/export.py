@@ -4,9 +4,12 @@ import pyqtgraph as pg
 from functools import partial
 from PySide6.QtWidgets import (
     QCheckBox,
+    QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QPushButton,
+    QRadioButton,
     QSizePolicy,
     QToolBar,
     QVBoxLayout,
@@ -15,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.viewer.components import Spinbox
+from scipy.io import savemat
 
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 
@@ -22,6 +26,120 @@ QTOOLBAR_STYLE = """
 
 VIEWPORT_MARGIN = 2
 IMAGE_SIZE = 128
+        
+class ExportAPDsWindow(QMainWindow):
+    def __init__(self, parent, apdData, diData, tOffsets):
+        QMainWindow.__init__(self)
+        self.setWindowTitle("Export APD Data")
+
+        self.parent = parent
+        self.apds = apdData.reshape((-1, apdData.shape[2]))
+        self.dis = diData.reshape((-1, diData.shape[2]))
+        self.tOffsets = tOffsets.reshape((-1))
+       
+        self.Mean_label = QLabel("Mean/STD: ")
+        self.APD_label = QLabel("APD/DI: ")
+
+        self.APD_box = QCheckBox()
+        self.APD_box.setChecked(True)
+        
+        self.Mean_box = QCheckBox()
+        self.Mean_box.setChecked(True)
+        
+        self.npy_button = QRadioButton("NumPy (.npy)")
+        self.npy_button.setChecked(True)
+        self.npy_button.toggled.connect(self.set_file_ext)
+        self.mat_button = QRadioButton("MATLAB (.mat)")
+        self.mat_button.toggled.connect(self.set_file_ext)
+        self.file_ext = ".npy"
+        
+        self.filename = QLineEdit()
+        self.filename.setPlaceholderText("filename (*.npy)")
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save)
+        
+        layout = QVBoxLayout()
+        
+        row1 = QHBoxLayout()
+        row1.addWidget(self.APD_label)
+        row1.addWidget(self.APD_box)
+        row1.addWidget(self.Mean_label)
+        row1.addWidget(self.Mean_box)
+        
+        row2 = QHBoxLayout()
+        row2.addWidget(self.npy_button)
+        row2.addWidget(self.mat_button)
+        
+        
+        row3 = QHBoxLayout()
+        row3.addWidget(self.filename)
+        row3.addWidget(self.save_button)
+        
+        layout.addLayout(row1)
+        layout.addLayout(row2)
+        layout.addLayout(row3)
+        
+        mainWidget = QWidget()
+        mainWidget.setLayout(layout)
+        self.setCentralWidget(mainWidget)
+        
+    def save(self):
+        textStr = self.filename.text()
+        if len(textStr) == 0:
+            textStr = "output" + self.file_ext
+        if len(textStr) <= 4 or textStr[-4:] != self.file_ext:
+            textStr += self.file_ext
+            
+        output = self.getSelectedData()
+        if output is None:
+            return
+
+        output = output.reshape((128,128, output.shape[1]))
+
+        if self.file_ext == ".npy":
+            np.save(textStr, output)
+        else:
+            output = {"data": output}
+            savemat(textStr, output)
+
+        print("Saved to", textStr)
+        self.close()
+                
+    def getSelectedData(self):
+        if self.APD_box.isChecked():
+            output = np.zeros((16384, self.apds.shape[1] + self.dis.shape[1] + 1))
+            output[:, 1::2] = self.dis
+            output[:, 2::2] = self.apds
+            output[:, 0] = self.tOffsets
+            if self.Mean_box.isChecked():
+                output2 = np.zeros((16384, 5))
+                output2[:, 0] = np.mean(self.dis, axis=1)
+                output2[:, 1] = np.mean(self.apds, axis=1)
+                output2[:, 2] = np.std(self.dis, axis=1)
+                output2[:, 3] = np.std(self.apds, axis=1)
+                output2[:, 4] = -1
+                output = np.hstack((output2, output))
+
+        elif self.Mean_box.isChecked():
+            output = np.zeros((16384, 5))
+            output[:, 0] = np.mean(self.dis, axis=1)
+            output[:, 1] = np.mean(self.apds, axis=1)
+            output[:, 2] = np.std(self.dis, axis=1)
+            output[:, 3] = np.std(self.apds, axis=1)
+            output[:, 4] = -1
+        else:
+            print("No data selected for saving")
+            return None
+
+        return output
+    
+    def set_file_ext(self, button):
+        if self.mat_button.isChecked():
+            self.file_ext = ".mat"
+            self.filename.setPlaceholderText("filename (*.mat)")
+        else:
+            self.file_ext = ".npy"
+            self.filename.setPlaceholderText("filename (*.npy)")
     
 class ExportVideoWindow(QMainWindow):
 
