@@ -28,7 +28,7 @@ VIEWPORT_MARGIN = 2
 IMAGE_SIZE = 128
         
 class ExportAPDsWindow(QMainWindow):
-    def __init__(self, parent, apdData, diData, tOffsets):
+    def __init__(self, parent, apdData, diData, tOffsets, filename=""):
         QMainWindow.__init__(self)
         self.setWindowTitle("Export APD Data")
 
@@ -36,6 +36,7 @@ class ExportAPDsWindow(QMainWindow):
         self.apds = apdData.reshape((-1, apdData.shape[2]))
         self.dis = diData.reshape((-1, diData.shape[2]))
         self.tOffsets = tOffsets.reshape((-1))
+        self.filename = filename
        
         self.Mean_label = QLabel("Mean/STD: ")
         self.APD_label = QLabel("APD/DI: ")
@@ -53,8 +54,8 @@ class ExportAPDsWindow(QMainWindow):
         self.mat_button.toggled.connect(self.set_file_ext)
         self.file_ext = ".npy"
         
-        self.filename = QLineEdit()
-        self.filename.setPlaceholderText("filename (*.npy)")
+        self.filename_edit = QLineEdit()
+        self.filename_edit.setPlaceholderText(filename+"-APD-DI.npy")
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save)
         
@@ -72,7 +73,7 @@ class ExportAPDsWindow(QMainWindow):
         
         
         row3 = QHBoxLayout()
-        row3.addWidget(self.filename)
+        row3.addWidget(self.filename_edit)
         row3.addWidget(self.save_button)
         
         layout.addLayout(row1)
@@ -84,9 +85,9 @@ class ExportAPDsWindow(QMainWindow):
         self.setCentralWidget(mainWidget)
         
     def save(self):
-        textStr = self.filename.text()
+        textStr = self.filename_edit.text()
         if len(textStr) == 0:
-            textStr = "output" + self.file_ext
+            textStr = self.filename + "-APD-DI" + self.file_ext
         if len(textStr) <= 4 or textStr[-4:] != self.file_ext:
             textStr += self.file_ext
             
@@ -136,14 +137,14 @@ class ExportAPDsWindow(QMainWindow):
     def set_file_ext(self, button):
         if self.mat_button.isChecked():
             self.file_ext = ".mat"
-            self.filename.setPlaceholderText("filename (*.mat)")
+            self.filename_edit.setPlaceholderText(self.filename+"-APD-DI.mat")
         else:
             self.file_ext = ".npy"
-            self.filename.setPlaceholderText("filename (*.npy)")
+            self.filename_edit.setPlaceholderText(self.filename+"-APD-DI.npy")
     
 class ExportVideoWindow(QMainWindow):
 
-    def __init__(self, parent):
+    def __init__(self, parent, filename=""):
 
         super().__init__()
         self.parent = parent
@@ -297,7 +298,7 @@ class ExportVideoWindow(QMainWindow):
             print("WITH COLOR")
 
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Video", filename, "Lossless AVI (*.avi);;All Files (*)"
+            self, "Save Video", filename, "AVI (*.avi);;All Files (*)"
         )
         
         if file_path:
@@ -310,13 +311,13 @@ class ExportVideoWindow(QMainWindow):
             
             out.release()
 
-def export_histogram(data, binSize = 1, signal_name = ""):
+def export_histogram(data, binSize = 1, filename=""):
     bins = np.arange(np.floor(data.min()), np.ceil(data.max()), binSize)
     counts, ranges = np.histogram(data,bins)
     output = np.zeros((2, counts.shape[0]))
     output[0, :] = ranges[:-1]
     output[1, :] = counts
-    file_path, _ = QFileDialog.getSaveFileName(None, "Save Histogram", signal_name+"_histogram.csv", "Comma Seperated Value (*.csv);")
+    file_path, _ = QFileDialog.getSaveFileName(None, "Save Histogram", filename+"-histogram.csv", "Comma Seperated Value (*.csv);")
 
     if file_path:
         np.savetxt(file_path, output, delimiter=",", fmt="%.2f")

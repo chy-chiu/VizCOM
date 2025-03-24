@@ -222,6 +222,7 @@ class APDWindow(QMainWindow):
         self.ms = parent.ms
         self.mask = parent.signal.mask
         self.settings = parent.settings
+        self.filename = parent.signal.signal_name
         
         self.img_data = parent.signal.transformed_data[0] * self.mask
         self.ts = None
@@ -232,7 +233,7 @@ class APDWindow(QMainWindow):
         self.image_tab = APDPositionView(
             self, self.img_data
         )  
-        self.save_apds = SaveAPDView(self)
+        self.save_apds = SaveAPDView(self, self.filename)
         # ----------------------------
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.image_tab, "Preview")
@@ -634,11 +635,12 @@ class APDSubWindow(QMainWindow):
 
 class SaveAPDView(QWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, filename):
 
         super().__init__(parent=parent)
 
         self.parent = parent
+        self.filename = filename
 
         # Create Image View
         layout = QVBoxLayout()
@@ -794,7 +796,7 @@ class SaveAPDView(QWidget):
         apds = np.moveaxis(apds, 0, -1)
         dis = np.moveaxis(dis, 0, -1)
         # open export menu
-        self.exportWindow = ExportAPDsWindow(self, apds, dis, tOffsets)
+        self.exportWindow = ExportAPDsWindow(self, apds, dis, tOffsets, self.filename)
         self.exportWindow.show()
 
         
