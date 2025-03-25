@@ -1,22 +1,19 @@
 import numpy as np
 import cv2
+import os
 import pyqtgraph as pg
-from functools import partial
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QPushButton,
     QRadioButton,
-    QSizePolicy,
     QToolBar,
     QVBoxLayout,
     QWidget,
     QFileDialog
 )
-
 from cardiacmap.viewer.components import Spinbox
 from scipy.io import savemat
 
@@ -26,6 +23,30 @@ QTOOLBAR_STYLE = """
 
 VIEWPORT_MARGIN = 2
 IMAGE_SIZE = 128
+
+class ImportExportDirectories(object):
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            # new instance
+            cls.instance = super(ImportExportDirectories, cls).__new__(cls)
+            try:
+               # check for previously saved files
+               file = open("directories.txt", "r")
+               cls.importDir = file.readline()
+               cls.exportDir = file.readline()
+               file.close()
+            except:
+                # no previous files
+                cwd = os.getcwd().replace("\\", "/") + "/"
+                cls.importDir = cwd
+                cls.exportDir = cwd
+        return cls.instance
+
+    def SaveDirectories(self):
+        file = open("directories.txt", "w")
+        file.write(self.importDir + "\n" + self.exportDir)
+        file.close()
+    
         
 class ExportAPDsWindow(QMainWindow):
     def __init__(self, parent, apdData, diData, tOffsets, filename=""):
@@ -53,9 +74,6 @@ class ExportAPDsWindow(QMainWindow):
         self.mat_button = QRadioButton("MATLAB (.mat)")
         self.mat_button.toggled.connect(self.set_file_ext)
         self.file_ext = ".npy"
-        
-        self.filename_edit = QLineEdit()
-        self.filename_edit.setPlaceholderText(filename+"-APD-DI.npy")
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save)
         
@@ -73,7 +91,6 @@ class ExportAPDsWindow(QMainWindow):
         
         
         row3 = QHBoxLayout()
-        row3.addWidget(self.filename_edit)
         row3.addWidget(self.save_button)
         
         layout.addLayout(row1)
@@ -85,25 +102,27 @@ class ExportAPDsWindow(QMainWindow):
         self.setCentralWidget(mainWidget)
         
     def save(self):
-        textStr = self.filename_edit.text()
-        if len(textStr) == 0:
-            textStr = self.filename + "-APD-DI" + self.file_ext
-        if len(textStr) <= 4 or textStr[-4:] != self.file_ext:
-            textStr += self.file_ext
-            
         output = self.getSelectedData()
         if output is None:
             return
 
         output = output.reshape((128,128, output.shape[1]))
 
-        if self.file_ext == ".npy":
-            np.save(textStr, output)
-        else:
-            output = {"data": output}
-            savemat(textStr, output)
+        dirs = ImportExportDirectories() # get export directory
+        file_path, _ = QFileDialog.getSaveFileName(
+            None, "Save APD/DI Data", dirs.exportDir+self.filename+ "-APD-DI" + self.file_ext,
+        )
+        if file_path:
+            dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+            dirs.SaveDirectories()
+            print(dirs.exportDir)
+            if self.file_ext == ".npy":
+                np.save(file_path, output)
+            else:
+                output = {"data": output}
+                savemat(file_path, output)
+            print("Saved APD/DI data to: ", file_path)
 
-        print("Saved to", textStr)
         self.close()
                 
     def getSelectedData(self):
@@ -137,10 +156,8 @@ class ExportAPDsWindow(QMainWindow):
     def set_file_ext(self, button):
         if self.mat_button.isChecked():
             self.file_ext = ".mat"
-            self.filename_edit.setPlaceholderText(self.filename+"-APD-DI.mat")
         else:
             self.file_ext = ".npy"
-            self.filename_edit.setPlaceholderText(self.filename+"-APD-DI.npy")
     
 class ExportVideoWindow(QMainWindow):
 
@@ -155,7 +172,7 @@ class ExportVideoWindow(QMainWindow):
         central_widget = QWidget()
         layout = QVBoxLayout()
 
-        self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0])
+        self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0] * self.mask)
         self.plot_item = pg.PlotItem()
         self.image_view = pg.ImageView(view=self.plot_item, imageItem=self.image_item)
         self.image_view.view.enableAutoRange(enable=True)
@@ -173,11 +190,6 @@ class ExportVideoWindow(QMainWindow):
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
-
-        size_policy = QSizePolicy()
-        size_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
-        size_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
-        self.image_view.setSizePolicy(size_policy)
         self.image_view.setMinimumWidth(380)
         self.image_view.setMinimumHeight(500)
 
@@ -270,12 +282,12 @@ class ExportVideoWindow(QMainWindow):
         )
         
     def export_video(self):
-        # slice data
+        # slice data and apply mask
         s_frame = int(self.start_time.value() // self.ms)
         e_frame = int(self.end_time.value() // self.ms)
         if e_frame <= s_frame:
             e_frame = len(self.parent.signal.transformed_data)
-        data = self.parent.signal.transformed_data[s_frame: e_frame]
+        data = self.parent.signal.transformed_data[s_frame: e_frame] * self.mask
         
         # set params
         fps = self.fps.value()
@@ -296,12 +308,15 @@ class ExportVideoWindow(QMainWindow):
             intData = np.take(lut, intData, axis=0)
             outShape = intData[0].shape[:2]
             print("WITH COLOR")
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Video", filename, "AVI (*.avi);;All Files (*)"
-        )
         
+        dirs = ImportExportDirectories() # get export directory
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Video", dirs.exportDir+filename, "AVI (*.avi);;All Files (*)"
+        )
         if file_path:
+            dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+            dirs.SaveDirectories()
+            print(dirs.exportDir)
             out = cv2.VideoWriter(file_path, fourCC, fps, outShape, isColor=color)
             for i in range(len(data)):
                 frame = intData[i]
@@ -317,8 +332,13 @@ def export_histogram(data, binSize = 1, filename=""):
     output = np.zeros((2, counts.shape[0]))
     output[0, :] = ranges[:-1]
     output[1, :] = counts
-    file_path, _ = QFileDialog.getSaveFileName(None, "Save Histogram", filename+"-histogram.csv", "Comma Seperated Value (*.csv);")
-
+    dirs = ImportExportDirectories() # get export directory
+    file_path, _ = QFileDialog.getSaveFileName(
+        None, "Save Histogram", dirs.exportDir+filename+"-histogram.csv", "Comma Seperated Value (*.csv);"
+    )
     if file_path:
+        dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+        dirs.SaveDirectories()
+        print(dirs.exportDir)
         np.savetxt(file_path, output, delimiter=",", fmt="%.2f")
         print("Saved histogram data to: ", file_path)

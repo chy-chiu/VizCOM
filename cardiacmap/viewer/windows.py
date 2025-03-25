@@ -54,7 +54,7 @@ from cardiacmap.viewer.panels import (
 )
 from cardiacmap.viewer.components import FrameInputDialog
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
-from cardiacmap.viewer.export import ExportVideoWindow
+from cardiacmap.viewer.export import ExportVideoWindow, ImportExportDirectories
 
 
 TITLE_STYLE = """QDockWidget::title
@@ -292,30 +292,34 @@ class CardiacMap(QMainWindow):
             self._disable_menus(True)
 
     def load_cascade(self, calcium_mode: bool):
-
+        dirs = ImportExportDirectories() # get import directory
         filepath = QFileDialog.getOpenFileName(
             self,
             "Load Cascade File",
-            "",
+            dirs.importDir,
             "Cascade File (*.dat);;All Files (*)",
         )[0]
 
         if filepath and ".dat" in filepath:
-
+            # update import directory
+            dirs.importDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
             self._load_signal(filepath, calcium_mode=calcium_mode)
 
     @loading_popup
     def load_scimedia(self, update_progress=None):
-
+        dirs = ImportExportDirectories() # get import directory
         filepath = QFileDialog.getOpenFileName(
             self,
             "Load SciMedia File",
-            "",
+            dirs.importDir,
             "SciMedia CMOS File(*.gsd);;All Files (*)",
         )[0]
 
         if filepath and ".gsd" in filepath:
-
+            # update import directory
+            dirs.importDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
             self._load_signal(
                 filepath,
                 calcium_mode=False,
@@ -360,50 +364,65 @@ class CardiacMap(QMainWindow):
                 self.create_viewer(signal, filename)
 
     def load_preprocessed(self):
-
+        dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getOpenFileName(
             self,
             "Load Preprocessed Signal",
-            "",
+            dirs.importDir,
             "CardiacMap Signal (*.signal);;All Files (*)",
         )
         if filepath:
+            # update import directory
+            dirs.importDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
             with open(filepath, "rb") as f:
                 signal = pickle.load(f)
                 print(signal.transformed_data)
                 self.create_viewer(signal, os.path.split(filepath)[-1])
 
     def save_preprocessed(self):
-
+        dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getSaveFileName(
             self,
             "Save Processed Signal",
-            f"{self.signal.signal_name}.signal",
+            dirs.exportDir + f"{self.signal.signal_name}.signal",
             "CardiacMap Signal (*.signal);;All Files (*)",
         )
-        with open(filepath, "wb") as f:
-            print(self.signal.transformed_data)
-            pickle.dump(self.signal, f)
+        if filepath:
+            # update import directory
+            dirs.exportDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
+            with open(filepath, "wb") as f:
+                print(self.signal.transformed_data)
+                pickle.dump(self.signal, f)
             
     def export_numpy(self):
-        
+        dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getSaveFileName(
             self,
             "Exporting Transformed Signal to NumPy binary",
-            f"{self.signal.signal_name}.npy",
+            dirs.exportDir + f"{self.signal.signal_name}.npy",
             "NumPy binary (*.npy);;All Files (*)",
         )
-        np.save(filepath, self.signal.transformed_data)
+        if filepath:
+            # update import directory
+            dirs.exportDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
+            np.save(filepath, self.signal.transformed_data)
         
     def export_matlab(self):
-        
+        dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getSaveFileName(
             self,
             "Exporting Transformed Signal to MATLAB binary",
-            f"{self.signal.signal_name}.mat",
+            dirs.exportDir + f"{self.signal.signal_name}.mat",
             "MAT binary (*.mat);;All Files (*)",
         )
-        scipy.io.savemat(filepath, {'data': self.signal.transformed_data})
+        if filepath:
+            # update import directory
+            dirs.exportDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
+            scipy.io.savemat(filepath, {'data': self.signal.transformed_data})
     
 
     # TODO: Fix scroll / header issue here
