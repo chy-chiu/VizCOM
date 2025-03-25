@@ -1,20 +1,21 @@
 import numpy as np
 import cv2
+import os
 import pyqtgraph as pg
-from functools import partial
 from PySide6.QtWidgets import (
     QCheckBox,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QPushButton,
-    QSizePolicy,
+    QRadioButton,
     QToolBar,
     QVBoxLayout,
     QWidget,
     QFileDialog
 )
-
 from cardiacmap.viewer.components import Spinbox
+from scipy.io import savemat
 
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 
@@ -22,10 +23,145 @@ QTOOLBAR_STYLE = """
 
 VIEWPORT_MARGIN = 2
 IMAGE_SIZE = 128
+
+class ImportExportDirectories(object):
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            # new instance
+            cls.instance = super(ImportExportDirectories, cls).__new__(cls)
+            try:
+               # check for previously saved files
+               file = open("directories.txt", "r")
+               cls.importDir = file.readline()
+               cls.exportDir = file.readline()
+               file.close()
+            except:
+                # no previous files
+                cwd = os.getcwd().replace("\\", "/") + "/"
+                cls.importDir = cwd
+                cls.exportDir = cwd
+        return cls.instance
+
+    def SaveDirectories(self):
+        file = open("directories.txt", "w")
+        file.write(self.importDir + "\n" + self.exportDir)
+        file.close()
+    
+        
+class ExportAPDsWindow(QMainWindow):
+    def __init__(self, parent, apdData, diData, tOffsets, filename=""):
+        QMainWindow.__init__(self)
+        self.setWindowTitle("Export APD Data")
+
+        self.parent = parent
+        self.apds = apdData.reshape((-1, apdData.shape[2]))
+        self.dis = diData.reshape((-1, diData.shape[2]))
+        self.tOffsets = tOffsets.reshape((-1))
+        self.filename = filename
+       
+        self.Mean_label = QLabel("Mean/STD: ")
+        self.APD_label = QLabel("APD/DI: ")
+
+        self.APD_box = QCheckBox()
+        self.APD_box.setChecked(True)
+        
+        self.Mean_box = QCheckBox()
+        self.Mean_box.setChecked(True)
+        
+        self.npy_button = QRadioButton("NumPy (.npy)")
+        self.npy_button.setChecked(True)
+        self.npy_button.toggled.connect(self.set_file_ext)
+        self.mat_button = QRadioButton("MATLAB (.mat)")
+        self.mat_button.toggled.connect(self.set_file_ext)
+        self.file_ext = ".npy"
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save)
+        
+        layout = QVBoxLayout()
+        
+        row1 = QHBoxLayout()
+        row1.addWidget(self.APD_label)
+        row1.addWidget(self.APD_box)
+        row1.addWidget(self.Mean_label)
+        row1.addWidget(self.Mean_box)
+        
+        row2 = QHBoxLayout()
+        row2.addWidget(self.npy_button)
+        row2.addWidget(self.mat_button)
+        
+        
+        row3 = QHBoxLayout()
+        row3.addWidget(self.save_button)
+        
+        layout.addLayout(row1)
+        layout.addLayout(row2)
+        layout.addLayout(row3)
+        
+        mainWidget = QWidget()
+        mainWidget.setLayout(layout)
+        self.setCentralWidget(mainWidget)
+        
+    def save(self):
+        output = self.getSelectedData()
+        if output is None:
+            return
+
+        output = output.reshape((128,128, output.shape[1]))
+
+        dirs = ImportExportDirectories() # get export directory
+        file_path, _ = QFileDialog.getSaveFileName(
+            None, "Save APD/DI Data", dirs.exportDir+self.filename+ "-APD-DI" + self.file_ext,
+        )
+        if file_path:
+            dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+            dirs.SaveDirectories()
+            print(dirs.exportDir)
+            if self.file_ext == ".npy":
+                np.save(file_path, output)
+            else:
+                output = {"data": output}
+                savemat(file_path, output)
+            print("Saved APD/DI data to: ", file_path)
+
+        self.close()
+                
+    def getSelectedData(self):
+        if self.APD_box.isChecked():
+            output = np.zeros((16384, self.apds.shape[1] + self.dis.shape[1] + 1))
+            output[:, 1::2] = self.dis
+            output[:, 2::2] = self.apds
+            output[:, 0] = self.tOffsets
+            if self.Mean_box.isChecked():
+                output2 = np.zeros((16384, 5))
+                output2[:, 0] = np.mean(self.dis, axis=1)
+                output2[:, 1] = np.mean(self.apds, axis=1)
+                output2[:, 2] = np.std(self.dis, axis=1)
+                output2[:, 3] = np.std(self.apds, axis=1)
+                output2[:, 4] = -1
+                output = np.hstack((output2, output))
+
+        elif self.Mean_box.isChecked():
+            output = np.zeros((16384, 5))
+            output[:, 0] = np.mean(self.dis, axis=1)
+            output[:, 1] = np.mean(self.apds, axis=1)
+            output[:, 2] = np.std(self.dis, axis=1)
+            output[:, 3] = np.std(self.apds, axis=1)
+            output[:, 4] = -1
+        else:
+            print("No data selected for saving")
+            return None
+
+        return output
+    
+    def set_file_ext(self, button):
+        if self.mat_button.isChecked():
+            self.file_ext = ".mat"
+        else:
+            self.file_ext = ".npy"
     
 class ExportVideoWindow(QMainWindow):
 
-    def __init__(self, parent):
+    def __init__(self, parent, filename=""):
 
         super().__init__()
         self.parent = parent
@@ -36,7 +172,7 @@ class ExportVideoWindow(QMainWindow):
         central_widget = QWidget()
         layout = QVBoxLayout()
 
-        self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0])
+        self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0] * self.mask)
         self.plot_item = pg.PlotItem()
         self.image_view = pg.ImageView(view=self.plot_item, imageItem=self.image_item)
         self.image_view.view.enableAutoRange(enable=True)
@@ -54,11 +190,6 @@ class ExportVideoWindow(QMainWindow):
 
         self.image_view.view.showAxes(False)
         self.image_view.view.invertY(True)
-
-        size_policy = QSizePolicy()
-        size_policy.setVerticalPolicy(QSizePolicy.Policy.Fixed)
-        size_policy.setHorizontalPolicy(QSizePolicy.Policy.Fixed)
-        self.image_view.setSizePolicy(size_policy)
         self.image_view.setMinimumWidth(380)
         self.image_view.setMinimumHeight(500)
 
@@ -151,12 +282,12 @@ class ExportVideoWindow(QMainWindow):
         )
         
     def export_video(self):
-        # slice data
+        # slice data and apply mask
         s_frame = int(self.start_time.value() // self.ms)
         e_frame = int(self.end_time.value() // self.ms)
         if e_frame <= s_frame:
             e_frame = len(self.parent.signal.transformed_data)
-        data = self.parent.signal.transformed_data[s_frame: e_frame]
+        data = self.parent.signal.transformed_data[s_frame: e_frame] * self.mask
         
         # set params
         fps = self.fps.value()
@@ -177,12 +308,15 @@ class ExportVideoWindow(QMainWindow):
             intData = np.take(lut, intData, axis=0)
             outShape = intData[0].shape[:2]
             print("WITH COLOR")
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Video", filename, "Lossless AVI (*.avi);;All Files (*)"
-        )
         
+        dirs = ImportExportDirectories() # get export directory
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Video", dirs.exportDir+filename, "AVI (*.avi);;All Files (*)"
+        )
         if file_path:
+            dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+            dirs.SaveDirectories()
+            print(dirs.exportDir)
             out = cv2.VideoWriter(file_path, fourCC, fps, outShape, isColor=color)
             for i in range(len(data)):
                 frame = intData[i]
@@ -192,14 +326,19 @@ class ExportVideoWindow(QMainWindow):
             
             out.release()
 
-def export_histogram(data, binSize = 1, signal_name = ""):
+def export_histogram(data, binSize = 1, filename=""):
     bins = np.arange(np.floor(data.min()), np.ceil(data.max()), binSize)
     counts, ranges = np.histogram(data,bins)
     output = np.zeros((2, counts.shape[0]))
     output[0, :] = ranges[:-1]
     output[1, :] = counts
-    file_path, _ = QFileDialog.getSaveFileName(None, "Save Histogram", signal_name+"_histogram.csv", "Comma Seperated Value (*.csv);")
-
+    dirs = ImportExportDirectories() # get export directory
+    file_path, _ = QFileDialog.getSaveFileName(
+        None, "Save Histogram", dirs.exportDir+filename+"-histogram.csv", "Comma Seperated Value (*.csv);"
+    )
     if file_path:
+        dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
+        dirs.SaveDirectories()
+        print(dirs.exportDir)
         np.savetxt(file_path, output, delimiter=",", fmt="%.2f")
         print("Saved histogram data to: ", file_path)

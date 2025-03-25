@@ -1,11 +1,10 @@
 ﻿import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import HoverEvent, MouseDragEvent
-from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -18,12 +17,18 @@ from PySide6.QtWidgets import (
 )
 
 from cardiacmap.viewer.panels import SignalPanel
-from cardiacmap.viewer.panels.apds import ScatterPanel, ScatterPlotView, SpatialPlotView, SaveAPDView
+from cardiacmap.viewer.panels.apds import ScatterPanel, ScatterPlotView, SpatialPlotView
 from cardiacmap.viewer.components import Spinbox
 from cardiacmap.viewer.utils import loading_popup
 from cardiacmap.transforms.apd import GetThresholdIntersections, GetThresholdIntersections1D
 
+from cardiacmap.viewer.export import ExportAPDsWindow
+
+
+from skimage.draw import polygon
+
 import time
+
 QTOOLBAR_STYLE = """
             QToolBar {spacing: 5px;} 
             """
@@ -217,6 +222,7 @@ class APDWindow(QMainWindow):
         self.ms = parent.ms
         self.mask = parent.signal.mask
         self.settings = parent.settings
+        self.filename = parent.signal.signal_name
         
         self.img_data = parent.signal.transformed_data[0] * self.mask
         self.ts = None
@@ -227,7 +233,7 @@ class APDWindow(QMainWindow):
         self.image_tab = APDPositionView(
             self, self.img_data
         )  
-        self.save_apds = SaveAPDView(self)
+        self.save_apds = SaveAPDView(self, self.filename)
         # ----------------------------
         self.image_tabs = QTabWidget()
         self.image_tabs.addTab(self.image_tab, "Preview")
@@ -626,6 +632,172 @@ class APDSubWindow(QMainWindow):
                                 "-" + 
                                 str((self.parent.line_idxs[interval_idx+1]-1) * self.ms) +
                                 "]:") 
+
+class SaveAPDView(QWidget):
+
+    def __init__(self, parent, filename):
+
+        super().__init__(parent=parent)
+
+        self.parent = parent
+        self.filename = filename
+
+        # Create Image View
+        layout = QVBoxLayout()
+
+        # Button Layout
+        self.button_layout = QVBoxLayout()
+        row_0 = QHBoxLayout()
+        row_1 = QHBoxLayout()
+        row_2 = QHBoxLayout()
+        
+        self.load_coords = QPushButton("Load Coordinates")
+        self.edit_roi_button = QPushButton("Edit R.O.I.")
+        self.edit_roi_button.setCheckable(True)
+        self.reset_roi_button = QPushButton("Reset")
+        self.save_roi_button = QPushButton("Save APD/DI Data")
+        
+        row_0.addWidget(self.load_coords)
+        row_1.addWidget(self.edit_roi_button)
+        row_1.addWidget(self.reset_roi_button)
+        row_2.addWidget(self.save_roi_button)
+        self.button_layout.addLayout(row_0)
+        self.button_layout.addLayout(row_1)
+        self.button_layout.addLayout(row_2)
+
+        self.img_view: pg.ImageView = pg.ImageView(view=pg.PlotItem())
+
+        self.img_view.view.enableAutoRange(enable=False)
+        self.img_view.view.showAxes(False)
+        self.img_view.view.setMouseEnabled(False, False)
+        self.img_view.view.setRange(xRange=(-2, 128), yRange=(-2, 128))
+
+        self.img_view.ui.roiBtn.hide()
+        self.img_view.ui.menuBtn.hide()
+        self.img_view.ui.histogram.hide()
+
+        self.img_view.getView().setAspectLocked(True)
+
+        layout.addLayout(self.button_layout)
+        layout.addWidget(self.img_view)
+
+        # Initialize Image View
+
+        self.image_data = self.parent.img_data[:, :]
+        self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
+        self.img_view.view.invertY(True)
+
+        # Set layout
+        self.setLayout(layout)
+
+        # Connect buttons to methods
+        self.load_coords.clicked.connect(self.upload_coords)
+        self.edit_roi_button.clicked.connect(self.toggle_drawing_mode)
+        self.reset_roi_button.clicked.connect(self.remove_roi)
+        self.save_roi_button.clicked.connect(self.confirm_roi)
+
+        self.roi = None
+        self.drawing = False
+        self.points = []
+        self.coords = None
+
+        # Connect mouse click to plot
+        self.img_view.scene.sigMouseClicked.connect(self.add_point)
+
+    def toggle_drawing_mode(self):
+        self.drawing = not self.drawing
+        # self.points = []
+
+    def add_point(self, event):
+        if not self.drawing:
+            return
+
+        pos = event.scenePos()
+        mousePoint = self.img_view.view.vb.mapSceneToView(pos)
+
+        # Get the x and y coordinates of the mouse click
+        x = mousePoint.x()
+        y = mousePoint.y()
+
+        self.points.append((x, y))
+
+        if len(self.points) > 1:
+            if self.roi is not None:
+                self.img_view.removeItem(self.roi)
+
+            self.roi = pg.PolyLineROI(self.points, closed=True)
+            self.img_view.addItem(self.roi)
+
+    def remove_roi(self):
+        if self.roi is not None:
+            self.img_view.removeItem(self.roi)
+            self.roi = None
+            self.drawing = False
+            self.points = []
+            
+        if self.coords is not None:
+            self.coords = None
+            self.image_data = self.parent.img_data[:, :]
+            self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
+
+    def confirm_roi(self):
+        self.edit_roi_button.setChecked(False)
+        self.drawing = False
+
+        #print(self.drawing)
+        if self.roi is None and self.coords is None:
+            mask = np.ones((128, 128))
+        elif self.roi is not None:
+            mask = self.get_roi_mask((IMAGE_SIZE, IMAGE_SIZE))
+        elif self.coords is not None:
+            mask = np.zeros((128, 128), dtype=np.uint8)
+            mask[self.coords[:, 0], self.coords[:, 1]] = 1
+            
+        APDdata = []
+        DIdata = []
+        for i in range(len(self.parent.data[0])):
+            APDdata.extend(self.parent.data[0][i])
+            DIdata.extend(self.parent.data[1][i])
+        APDdata = np.array(APDdata, dtype=np.float16) * mask
+        DIdata = np.array(DIdata, dtype=np.float16) * mask
+            
+        self.export_data(APDdata, DIdata, self.parent.tOffsets)
+
+
+    def get_roi_mask(self, shape):
+        self.points = np.array(
+            [(p.x(), p.y()) for p in np.array(self.roi.getLocalHandlePositions(), dtype="object")[:, 1]]
+        )  # Convert to (row, col) format
+        #print(points)
+        rr, cc = polygon(self.points[:, 0], self.points[:, 1], shape)
+        mask = np.zeros(shape, dtype=np.uint8)
+        mask[rr, cc] = 1
+        return mask
+    
+    def upload_coords(self):
+        self.loading = True
+        # file popup
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Coordinates", "coords.txt", "Text File(*.txt);;All Files (*)"
+        )
+        
+        # read coords
+        self.coords = np.loadtxt(file_path, delimiter=',', dtype=np.int16)
+        
+        mask = np.zeros((128, 128))
+        mask[self.coords[:, 0], self.coords[:, 1]] = 1
+        
+        # update image
+        self.image_data = self.image_data * mask
+        self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
+
+    def export_data(self, apds, dis, tOffsets):
+        # swap axes
+        apds = np.moveaxis(apds, 0, -1)
+        dis = np.moveaxis(dis, 0, -1)
+        # open export menu
+        self.exportWindow = ExportAPDsWindow(self, apds, dis, tOffsets, self.filename)
+        self.exportWindow.show()
 
         
 

@@ -165,9 +165,12 @@ def _calculate_isochrone(
 ):
 
     all_c = []
-
+    
+    print("APD Data Range:", sig.min(), "-",sig.max())
+    print("Threshold:", t)
+    print("Step Interval (frames)", skip_frame)
     for i in range(cycles):
-
+        print("Drawing Contour:", i)
         idx = i * skip_frame + start_frame
 
         if idx < len(sig):
@@ -176,7 +179,7 @@ def _calculate_isochrone(
                 for j in p:
                     c[int(j[0]), int(j[1])] = 1
             all_c.append(c)
-
+        print("Marked Pixel Count:", c.sum())
         if update_progress:
             update_progress(i / cycles)
 
@@ -220,13 +223,14 @@ def _calculate_isochrone_filled(
 
 class APDIsochroneWindow(QMainWindow):
 
-    def __init__(self, parent, img, data):
+    def __init__(self, parent, imgIdx, data):
 
         super().__init__()
         self.parent = parent
         self.mask = parent.mask
         self.ms = parent.ms
         self.data = data
+        self.initFrame = imgIdx
 
         self.setWindowTitle("Isochrone View")
 
@@ -236,26 +240,39 @@ class APDIsochroneWindow(QMainWindow):
         print("SHAPE: ", data.shape)
 
         self.image_view = pg.ImageView()
-        self.image_view.setImage(img)
+        self.image_view.setImage(self.data[imgIdx])
+        self.image_view.ui.histogram.item.sigLevelChangeFinished.connect(self.update_keyframe)
         self.image_view.view.setMouseEnabled(False, False)
 
         self.image_view.view.setRange(
             xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
             yRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
         )
+        self.output_view = pg.ImageView()
+        self.output_view.setImage(self.data[imgIdx])
+        self.output_view.view.setMouseEnabled(False, False)
+
+        self.output_view.view.setRange(
+            xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
+            yRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
+        )
 
         self.image_views = QTabWidget()
         self.image_views.addTab(self.image_view, "Image")
+        self.image_views.addTab(self.output_view, "Output")
 
         # Hide UI stuff not needed
         self.image_view.ui.roiBtn.hide()
         self.image_view.ui.menuBtn.hide()
+        self.output_view.ui.roiBtn.hide()
+        self.output_view.ui.menuBtn.hide()
 
         #self.image_view.view.showAxes(False)
         #self.image_view.view.invertY(True)
 
         cm = pg.colormap.get("nipy_spectral", source="matplotlib")
         self.image_view.setColorMap(cm)
+        self.output_view.setColorMap(cm)
 
         img_layout.addWidget(self.image_views)
 
@@ -279,7 +296,7 @@ class APDIsochroneWindow(QMainWindow):
         )
         self.threshold.valueChanged.connect(self.update_threshold)
         self.start_frame = Spinbox(
-            min=0,
+            min=self.initFrame,
             max=1000, # SET MAX TO NUMBER OF BEATS
             val=0,
             step=1,
@@ -355,7 +372,7 @@ class APDIsochroneWindow(QMainWindow):
             )
         )
 
-        self.image_view.setImage(isochrone)
+        self.output_view.setImage(isochrone)
 
     def calculate_isochrone_filled(self):
 
@@ -374,15 +391,22 @@ class APDIsochroneWindow(QMainWindow):
             )
         )
 
-        self.image_view.setImage(isochrone)
+        self.output_view.setImage(isochrone)
 
     def update_keyframe(self):
+        print("Updated")
         levels = self.image_view.ui.histogram.item.getLevels()
+        # block signals to avoid recursive callback
+        self.image_view.ui.histogram.item.blockSignals(True)
 
+        # set image
         self.image_view.setImage(self.data[int(self.start_frame.value())])
 
+        # set levels
         self.image_view.setLevels(levels[0], levels[1])
-        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 5, levels[1] + 5)
-        #self.update_threshold()
+        self.image_view.ui.histogram.item.setHistogramRange(levels[0], levels[1])
+
+        # unblock signals
+        self.image_view.ui.histogram.item.blockSignals(False)
         
         
