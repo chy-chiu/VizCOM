@@ -397,8 +397,11 @@ class SpatialPlotView(QWidget):
                 self.line_visable = True
 
     def open_isochrone_window(self):
-        interval_idx = self.intervalIdx.value()-1
-        self.isochrone_window = APDIsochroneWindow(self, self.image_view.image, self.parent.data_slices[interval_idx])
+        self.isochrone_window = APDIsochroneWindow(
+            self, 
+            self.beatNumber-1, 
+            self.parent.data_slices[self.intervalIdx.value()-1]
+        )
         self.isochrone_window.show()
 
     def save_histogram(self):
