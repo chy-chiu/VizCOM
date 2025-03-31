@@ -175,14 +175,14 @@ class CardiacMap(QMainWindow):
         self.stacking.triggered.connect(self.create_stacking_window)
         self.apd = QAction("APD / DI")
         self.apd.triggered.connect(self.create_apd_window)
-        self.isochrome = QAction("Isochrome / Vector Map")
-        self.isochrome.triggered.connect(self.create_isochrome_window)
+        self.isochrone = QAction("Isochrone / Vector Map")
+        self.isochrone.triggered.connect(self.create_isochrone_window)
         self.fft = QAction("FFT", self)
         self.fft.triggered.connect(self.create_fft_window)
 
         self.windows_menu.addAction(self.stacking)
         self.windows_menu.addAction(self.apd)
-        self.windows_menu.addAction(self.isochrome)
+        self.windows_menu.addAction(self.isochrone)
         self.windows_menu.addAction(self.fft)
 
         # # TODO: Transforms Menu
@@ -703,9 +703,9 @@ class CardiacMap(QMainWindow):
         self.stacking_window = StackingWindow(self)
         self.stacking_window.show()
 
-    def create_isochrome_window(self):
-        self.isochrome_window = IsochromeWindow(self)
-        self.isochrome_window.show()
+    def create_isochrone_window(self):
+        self.isochrone_window = IsochroneWindow(self)
+        self.isochrone_window.show()
 
     def create_export_window(self):
         self.export_window = ExportVideoWindow(self)

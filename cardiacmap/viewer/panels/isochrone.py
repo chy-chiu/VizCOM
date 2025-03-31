@@ -178,7 +178,7 @@ def rgb2gray(rgb):
 
 
 @loading_popup
-def _calculate_isochrome(
+def _calculate_isochrone(
     sig: np.ndarray, t: float, start_frame, cycles, skip_frame, line=False, update_progress=None
 ):
 
@@ -229,14 +229,14 @@ def _calculate_isochrome(
 #     image = image.reshape((DPI, DPI, 3))
 #     return np.round(rgb2gray(image) * cycles) * skip_frame
 
-def _calculate_isochrome_filled(
+def _calculate_isochrone_filled(
     sig: np.ndarray, t: float, start_frame, cycles, skip_frame
 ):
-    C = _calculate_isochrome(sig, t, start_frame, cycles, skip_frame)
+    C = _calculate_isochrone(sig, t, start_frame, cycles, skip_frame)
 
     return fill_zeros_with_mean_of_neighbors(fill_contours(C))
 
-class IsochromeSignalPanel(SignalPanel):
+class IsochroneSignalPanel(SignalPanel):
     def __init__(self, parent, settings):
         super().__init__(parent=parent, settings=settings)
         self.parent = parent
@@ -282,10 +282,10 @@ class IsochroneWindow(QMainWindow):
         self.signal = self.parent.signal
         self.xVals = self.parent.xVals
         self.ms = self.parent.ms
-        self.setWindowTitle("Isochrome View")
+        self.setWindowTitle("Isochrone View")
         self.settings = parent.settings
 
-        self.signal_panel = IsochromeSignalPanel(self, settings=self.settings)
+        self.signal_panel = IsochroneSignalPanel(self, settings=self.settings)
 
         img_layout = QVBoxLayout()
         central_layout = QHBoxLayout()
@@ -405,9 +405,9 @@ class IsochroneWindow(QMainWindow):
         self.cal_iso_video = QPushButton("Calculate Video")
 
         self.reset = QPushButton("Reset")
-        self.cal_iso_color.clicked.connect(partial(self.calculate_isochrome, line=False))
-        self.cal_iso_lines.clicked.connect(partial(self.calculate_isochrome, line=True))
-        self.cal_iso_filled.clicked.connect(self.calculate_isochrome_filled)
+        self.cal_iso_color.clicked.connect(partial(self.calculate_isochrone, line=False))
+        self.cal_iso_lines.clicked.connect(partial(self.calculate_isochrone, line=True))
+        self.cal_iso_filled.clicked.connect(self.calculate_isochrone_filled)
         self.cal_iso_video.clicked.connect(self.calculate_contour_video)
         self.reset.clicked.connect(partial(self.update_keyframe))
         self.actions_bar.addWidget(self.cal_iso_color)
@@ -449,14 +449,14 @@ class IsochroneWindow(QMainWindow):
         self.signal_panel.threshold_marker.setValue(self.threshold.value())
 
     # TODO: Fix colorscale, add overlay mode, adjust y-axis value.
-    def calculate_isochrome(self, line=False):
+    def calculate_isochrone(self, line=False):
 
         cycles = int(self.cycles.value())
         skip_frames = int(self.skip.value())
         start_frame = int(self.start_frame.value() / self.ms)
 
-        isochrome = (
-            _calculate_isochrome(
+        isochrone = (
+            _calculate_isochrone(
                 self.parent.signal.transformed_data,
                 t=self.threshold.value(),
                 start_frame=start_frame,
@@ -467,21 +467,21 @@ class IsochroneWindow(QMainWindow):
             * self.parent.ms
         )
 
-        self.image_item.setImage(isochrome)
+        self.image_item.setImage(isochrone)
         if not line: 
             self.colorbar.setLevels((0, cycles * self.parent.ms * skip_frames))
         
         self.colorbar.setLabel("right", "ms")
 
-    def calculate_isochrome_filled(self):
+    def calculate_isochrone_filled(self):
 
         cycles = int(self.cycles.value())
         skip_frames = int(self.skip.value())
 
         start_frame = int(self.start_frame.value() / self.ms)
 
-        isochrome = (
-            _calculate_isochrome_filled(
+        isochrone = (
+            _calculate_isochrone_filled(
                 self.parent.signal.transformed_data,
                 t=self.threshold.value(),
                 start_frame=start_frame,
@@ -491,7 +491,7 @@ class IsochroneWindow(QMainWindow):
             * self.parent.ms
         )
 
-        self.image_item.setImage(isochrome)
+        self.image_item.setImage(isochrone)
         self.colorbar.setLevels((0, cycles * self.parent.ms * skip_frames))
         self.colorbar.setLabel("right", "ms")
 
