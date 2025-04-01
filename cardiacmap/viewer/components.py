@@ -78,7 +78,7 @@ COMPOSITE_BUTTON_STYLE = """
             
             """
 
-PARAMETERBUTTON_STYLE = """
+PARAMETER_BUTTON_STYLE = """
             QToolButton {
                 border: 1px solid #C0C0C0;
                 border-radius: 5px;
@@ -122,7 +122,7 @@ class ParameterButton(QToolButton):
         self.setMenu(menu)
         self.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
 
-        self.setStyleSheet(PARAMETERBUTTON_STYLE)
+        self.setStyleSheet(PARAMETER_BUTTON_STYLE)
 
         self.show()
 

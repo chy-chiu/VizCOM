@@ -36,7 +36,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.button_layout = QVBoxLayout()
         row_1 = QHBoxLayout()
         row_2 = QHBoxLayout()
-        self.add_mask_button = QPushButton("Edit Mask")
+        self.add_mask_button = QPushButton("Add Points")
         self.add_mask_button.setCheckable(True)
         self.confirm_mask_button = QPushButton("Set Mask")
         self.reset_mask_button = QPushButton("Reset Mask")
@@ -90,8 +90,16 @@ class AnnotateView(QtWidgets.QWidget):
         self.img_view.scene.sigMouseClicked.connect(self.add_point)
 
     def toggle_drawing_mode(self):
+        print('clicking here')
         self.drawing = not self.drawing
+        self.add_mask_button.setChecked(self.drawing)
         # self.points = []
+        
+    def save_points(self):
+        print('dragging event here')
+        if self.roi:
+            points = self.roi.getState()['points']
+        self.points = points
 
     def add_point(self, event):
         if not self.drawing:
@@ -105,13 +113,24 @@ class AnnotateView(QtWidgets.QWidget):
         y = mousePoint.y()
 
         self.points.append((x, y))
-
-        if len(self.points) > 1:
-            if self.roi is not None:
-                self.img_view.removeItem(self.roi)
-
+        
+        if len(self.points) > 1 and not self.roi:
             self.roi = pg.PolyLineROI(self.points, closed=True)
+            self.roi.sigRegionChangeFinished.connect(self.save_points)
             self.img_view.addItem(self.roi)
+        else:
+            self.roi.setPoints(self.points)
+        
+
+
+        # if len(self.points) > 1:
+        #     if self.roi is not None:
+        #         self.img_view.removeItem(self.roi)
+
+        #     self.roi = pg.PolyLineROI(self.points, closed=True)
+            
+        #     print(self.roi.getState())
+            
 
     def remove_roi(self):
         if self.roi is not None:

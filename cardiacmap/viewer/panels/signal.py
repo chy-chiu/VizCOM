@@ -207,12 +207,15 @@ class SignalPanel(QWidget):
 
         invert = QAction("Invert", self)
 
-        #self.stacking = ParameterButton("Stacking", self.parent.settings.child("Stacking Parameters"))
         time_average = ParameterButton(
             "Time Average", self.settings.child("Time Average")
         )
         spatial_average = ParameterButton(
             "Spatial Average", self.settings.child("Spatial Average")
+        )
+        
+        normalize = ParameterButton(
+            "Normalize", self.settings.child("Normalize Options")
         )
         trim = QAction("Trim", self)
 
@@ -256,6 +259,9 @@ class SignalPanel(QWidget):
         time_average.pressed.connect(
             partial(self.parent.signal_transform, transform="time_average")
         )
+        normalize.pressed.connect(
+            partial(self.parent.signal_transform, transform="normalize")
+        )
         trim.triggered.connect(
             partial(self.parent.signal_transform, transform="trim")
         )
@@ -285,6 +291,7 @@ class SignalPanel(QWidget):
         self.transform_bar.addAction(self.undo)
         self.transform_bar.addAction(invert)
         self.transform_bar.addAction(trim)
+        self.transform_bar.addWidget(normalize)
         self.transform_bar.addWidget(time_average)
         self.transform_bar.addWidget(spatial_average)
         self.transform_bar.addWidget(self.baseline_drift)

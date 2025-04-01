@@ -30,10 +30,13 @@ def TrimSignal(arr, trimStart, trimEnd):
     newArr = np.delete(arr, trimIndices, axis=0)
     return newArr
 
-
 def NormalizeData(data: np.ndarray):
     d = (data - data.min(axis=0))
     return d / d.max(axis=0)
+
+def NormalizeDataGlobal(data: np.ndarray):
+    d = (data - data.min())
+    return d / d.max()
 
 def FFT(signal):
     """

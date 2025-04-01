@@ -7,6 +7,7 @@ from cardiacmap.transforms import (
     FFT,
     InvertSignal,
     NormalizeData,
+    NormalizeDataGlobal,
     RemoveBaselineDrift,
     SpatialAverage,
     Stacking,
@@ -144,10 +145,14 @@ class CardiacSignal:
     def reset_image(self):
         self.image_data = (self.base_data - self.base_data.min()) / self.base_data.max()
 
-    def normalize(self, start=None, end=None):
+    def normalize(self, normalize_global: bool, start=None, end=None):
         start = start or 0
         end = end or len(self.transformed_data)
-        n = NormalizeData(self.transformed_data[start:end, :, :])
+        if normalize_global:
+            n = NormalizeDataGlobal(self.transformed_data[start:end, :, :])
+        else:
+            n = NormalizeData(self.transformed_data[start:end, :, :])
+        
         print("Normalized Max:", np.unique(n.max(axis=0)), "Min:", np.unique(n.min(axis=0)))
         self.transformed_data[start:end, :, :] = n
 

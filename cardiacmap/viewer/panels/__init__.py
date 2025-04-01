@@ -1,5 +1,5 @@
 from .annotate import *
-from .isochrome import *
+from .isochrone import *
 from .metadata import *
 from .position import *
 from .settings import *
