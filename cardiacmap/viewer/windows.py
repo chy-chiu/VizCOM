@@ -396,6 +396,9 @@ class CardiacMap(QMainWindow):
                 pickle.dump(self.signal, f)
             
     def export_numpy(self):
+        start_frame = self.signal_panel.start_frame
+        end_frame = self.signal_panel.end_frame
+        
         dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getSaveFileName(
             self,
@@ -407,9 +410,12 @@ class CardiacMap(QMainWindow):
             # update import directory
             dirs.exportDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
-            np.save(filepath, self.signal.transformed_data)
+            np.save(filepath, self.signal.transformed_data[start_frame:end_frame])
         
     def export_matlab(self):
+        start_frame = self.signal_panel.start_frame
+        end_frame = self.signal_panel.end_frame
+        
         dirs = ImportExportDirectories() # get import directory
         filepath, _ = QFileDialog.getSaveFileName(
             self,
@@ -421,7 +427,7 @@ class CardiacMap(QMainWindow):
             # update import directory
             dirs.exportDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
-            scipy.io.savemat(filepath, {'data': self.signal.transformed_data})
+            scipy.io.savemat(filepath, {'data': self.signal.transformed_data[start_frame:end_frame]})
     
 
     # TODO: Fix scroll / header issue here
@@ -474,7 +480,7 @@ class CardiacMap(QMainWindow):
 
         else:
             self.title = title
-            self.signal = signal
+            self.signal: CardiacSignal = signal
             self.init_viewer()
 
     def largeFilePopUp(self, tLen, maxFrames):
