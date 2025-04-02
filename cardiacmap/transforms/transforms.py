@@ -6,10 +6,10 @@ def InvertSignal(arr):
     Args:
         arr (array): data
     Returns:
-        newArr: -data
+        newArr: Inverted signal where max becomes min etc.
     """
 
-    newArr = np.multiply(arr, -1)
+    newArr = np.multiply(arr, -1) + np.max(arr)
     return newArr
 
 
