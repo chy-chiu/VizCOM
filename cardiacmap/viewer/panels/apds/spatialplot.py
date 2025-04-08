@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cardiacmap.viewer.panels.apds.apdIsochrone import APDIsochroneWindow
+from cardiacmap.viewer.panels.apds.apdThreshold import APDThresholdWindow
 from cardiacmap.viewer.export import export_histogram
 from cardiacmap.viewer.components import Spinbox
 
@@ -105,9 +105,9 @@ class SpatialPlotView(QWidget):
         self.init_image_view()
         self.init_toolbars()
 
-        self.isochrone_button = QPushButton(self)
-        self.isochrone_button.setText("Contours")
-        self.isochrone_button.clicked.connect(self.open_isochrone_window)
+        self.contour_button = QPushButton(self)
+        self.contour_button.setText("Contours")
+        self.contour_button.clicked.connect(self.open_contour_window)
 
         self.histogram_button = QPushButton(self)
         self.histogram_button.setText("Save Histogram")
@@ -123,7 +123,7 @@ class SpatialPlotView(QWidget):
         
         layout = QVBoxLayout()
         layout.addWidget(self.interval_bar)
-        layout.addWidget(self.isochrone_button)
+        layout.addWidget(self.contour_button)
         layout.addLayout(self.histogram_export)
         layout.addWidget(self.image_view)
         layout.addWidget(self.beat_bar)
@@ -294,7 +294,7 @@ class SpatialPlotView(QWidget):
         self.max_spinbox = self.settings_bar.addWidget(self.max_val)
         
     def radio_state(self, b):
-        print(b.text())
+        #print(b.text())
         self.update_data()
 
     def update_spinbox_values(self):
@@ -311,7 +311,7 @@ class SpatialPlotView(QWidget):
             self.zero_val.setValue(levels[0])
 
     def update_ui(self):
-        print("UI Update Call")
+        #print("UI Update Call")
         # show proper min
         if self.show_diff.isChecked():
             self.diff_range_label.setVisible(True)
@@ -382,6 +382,9 @@ class SpatialPlotView(QWidget):
         else:
             data = self.parent.data_slices[interval_idx][self.frameIdx.value()-1] * self.ms
 
+        # apply mask
+        data = np.array(data) * self.mask
+
         # set colormap
         if self.show_diff.isChecked():
             if (self.image_view.imageItem.getColorMap().getLookupTable() != self.divergent_cm.getLookupTable()).any():
@@ -424,13 +427,13 @@ class SpatialPlotView(QWidget):
                 imgVw.addItem(self.endPoint)
                 self.line_visable = True
 
-    def open_isochrone_window(self):
-        self.isochrone_window = APDIsochroneWindow(
+    def open_contour_window(self):
+        self.contour_window = APDThresholdWindow(
             self, 
             self.beatNumber-1, 
             self.parent.data_slices[self.intervalIdx.value()-1]
         )
-        self.isochrone_window.show()
+        self.contour_window.show()
 
     def save_histogram(self):
         # parent.parent.parent.signal gotta be the worst code in this whole project

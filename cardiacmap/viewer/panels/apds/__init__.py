@@ -1,4 +1,4 @@
-from .apdIsochrone import *
+from .apdThreshold import *
 from .scatterplot import *
 from .spatialplot import *
 

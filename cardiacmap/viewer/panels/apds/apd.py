@@ -514,6 +514,7 @@ class APDSubWindow(QMainWindow):
         QMainWindow.__init__(self)
         self.parent = parent
         self.ms = parent.ms
+        self.mask = parent.mask
         self.settings = parent.settings
         self.intervals = intervals
         
