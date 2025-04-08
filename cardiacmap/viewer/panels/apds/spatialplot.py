@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cardiacmap.viewer.panels.apds.apdIsochrone import APDIsochroneWindow
+from cardiacmap.viewer.panels.apds.apdThreshold import APDThresholdWindow
 from cardiacmap.viewer.export import export_histogram
 from cardiacmap.viewer.components import Spinbox
 
@@ -105,9 +105,9 @@ class SpatialPlotView(QWidget):
         self.init_image_view()
         self.init_toolbars()
 
-        self.isochrone_button = QPushButton(self)
-        self.isochrone_button.setText("Contours")
-        self.isochrone_button.clicked.connect(self.open_isochrone_window)
+        self.contour_button = QPushButton(self)
+        self.contour_button.setText("Contours")
+        self.contour_button.clicked.connect(self.open_contour_window)
 
         self.histogram_button = QPushButton(self)
         self.histogram_button.setText("Save Histogram")
@@ -123,7 +123,7 @@ class SpatialPlotView(QWidget):
         
         layout = QVBoxLayout()
         layout.addWidget(self.interval_bar)
-        layout.addWidget(self.isochrone_button)
+        layout.addWidget(self.contour_button)
         layout.addLayout(self.histogram_export)
         layout.addWidget(self.image_view)
         layout.addWidget(self.beat_bar)
@@ -145,6 +145,11 @@ class SpatialPlotView(QWidget):
         self.image_view = pg.ImageView(view=self.plot)
         self.image_view.view.enableAutoRange(enable=True)
         self.image_view.view.setMouseEnabled(False, False)
+
+        self.divergent_cm = pg.ColorMap([0, .5, 1], ['r', 'w', 'b'])
+        self.normal_cm = pg.ColorMap([0, 1], ['k', 'w'])
+        self.image_view.imageItem.setColorMap(self.normal_cm)
+        self.image_view.ui.histogram.item.sigLookupTableChanged.connect(self.on_lut_change)
 
         self.image_view.view.setRange(
             xRange=(-2, IMAGE_SIZE + 2), yRange=(-2, IMAGE_SIZE + 2)
@@ -243,13 +248,13 @@ class SpatialPlotView(QWidget):
         self.hide_line.setChecked(False)
         self.hide_line.checkStateChanged.connect(self.update_data)
 
-        self.diff_min = QtWidgets.QSpinBox()
-        self.diff_min.setFixedWidth(60)
-        self.diff_min.setMinimum(-100000)
-        self.diff_min.setMaximum(100000)
-        self.diff_min.setValue(np.min(np.diff(self.parent.data_slices[0])))
-        self.diff_min.setStyleSheet(SPINBOX_STYLE)
-        self.diff_min.valueChanged.connect(self.update_data)
+        self.diff_range = QtWidgets.QSpinBox()
+        self.diff_range.setFixedWidth(60)
+        self.diff_range.setMinimum(0)
+        self.diff_range.setMaximum(100000)
+        self.diff_range.setValue(np.min(np.diff(self.parent.data_slices[0])))
+        self.diff_range.setStyleSheet(SPINBOX_STYLE)
+        self.diff_range.valueChanged.connect(self.update_data)
 
         self.zero_val = QtWidgets.QSpinBox()
         self.zero_val.setFixedWidth(60)
@@ -277,42 +282,55 @@ class SpatialPlotView(QWidget):
         self.settings_bar.addWidget(QLabel("   Hide Line: "))
         self.settings_bar.addWidget(self.hide_line)
 
-        self.settings_bar.addWidget(QLabel("   Image Min: "))
-        self.diff_min_spinbox = self.settings_bar.addWidget(self.diff_min)
+        self.diff_range_label = self.settings_bar.addWidget(QLabel("   Range: "))
+        self.diff_range_spinbox = self.settings_bar.addWidget(self.diff_range)
+
+        
+        self.img_min_label = self.settings_bar.addWidget(QLabel("   Image Min: "))
         self.min_spinbox = self.settings_bar.addWidget(self.zero_val)
 
-        self.settings_bar.addWidget(QLabel("   Image Max: "))
-        self.settings_bar.addWidget(self.max_val)
+        
+        self.img_max_label = self.settings_bar.addWidget(QLabel("   Image Max: "))
+        self.max_spinbox = self.settings_bar.addWidget(self.max_val)
         
     def radio_state(self, b):
-        print(b.text())
+        #print(b.text())
         self.update_data()
 
     def update_spinbox_values(self):
         """Called When Range Changes"""
         # scale histogram
         levels = self.image_view.ui.histogram.item.getLevels()
-        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 2, levels[1])
+        self.image_view.ui.histogram.item.setHistogramRange(levels[0], levels[1])
 
         # set numerical vals to their visual levels
-        self.max_val.setValue((levels[1]))
         if self.show_diff.isChecked():
-            self.diff_min.setValue(levels[0])
+            self.diff_range.setValue(max(abs(levels[0]), abs(levels[1])))
         else:
+            self.max_val.setValue((levels[1]))
             self.zero_val.setValue(levels[0])
 
     def update_ui(self):
+        #print("UI Update Call")
         # show proper min
         if self.show_diff.isChecked():
-            self.diff_min_spinbox.setVisible(True)
+            self.diff_range_label.setVisible(True)
+            self.diff_range_spinbox.setVisible(True)
+            self.img_min_label.setVisible(False)
             self.min_spinbox.setVisible(False)
+            self.img_max_label.setVisible(False)
+            self.max_spinbox.setVisible(False)
         else:
-            self.diff_min_spinbox.setVisible(False)
+            self.diff_range_label.setVisible(False)
+            self.diff_range_spinbox.setVisible(False)
+            self.img_min_label.setVisible(True)
             self.min_spinbox.setVisible(True)
+            self.img_max_label.setVisible(True)
+            self.max_spinbox.setVisible(True)
 
         # scale histogram
         levels = self.image_view.ui.histogram.item.getLevels()
-        self.image_view.ui.histogram.item.setHistogramRange(levels[0] - 2, levels[1])
+        self.image_view.ui.histogram.item.setHistogramRange(levels[0], levels[1])
 
     def jump_frames(self):
         if self.beatNumber < self.frameIdx.value():
@@ -346,11 +364,11 @@ class SpatialPlotView(QWidget):
         color_range = (self.zero_val.value(), self.max_val.value())
         self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]))
         self.numBeatDisplay.setText(" of " + str(len(self.parent.data_slices[interval_idx])))
-        
+
         if self.show_diff.isChecked():
-            color_range = (self.diff_min.value(), self.max_val.value())
+            color_range = (-self.diff_range.value(), self.diff_range.value())
             self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]) - 1)
-            data = np.diff(self.parent.data_slices[interval_idx][self.frameIdx.value()-1]) * self.ms
+            data = np.diff(self.parent.data_slices[interval_idx], axis=0) * self.ms
         elif self.show_min.isChecked():
             d = self.parent.data_slices[interval_idx]
             md = ma.masked_array(d, mask = d==0)
@@ -363,6 +381,19 @@ class SpatialPlotView(QWidget):
             data = np.mean(md, axis=0) * self.ms
         else:
             data = self.parent.data_slices[interval_idx][self.frameIdx.value()-1] * self.ms
+
+        # apply mask
+        data = data * self.mask
+
+        # set colormap
+        if self.show_diff.isChecked():
+            if (self.image_view.imageItem.getColorMap().getLookupTable() != self.divergent_cm.getLookupTable()).any():
+                self.image_view.imageItem.setColorMap(self.divergent_cm)
+                self.image_view.setColorMap(self.divergent_cm)
+        else:
+            if (self.image_view.imageItem.getColorMap().getLookupTable() != self.normal_cm.getLookupTable()).any():
+                self.image_view.imageItem.setColorMap(self.normal_cm)
+                self.image_view.setColorMap(self.normal_cm)
 
         # set image
         self.image_view.setImage(data,levels=color_range,autoRange=False)
@@ -396,14 +427,24 @@ class SpatialPlotView(QWidget):
                 imgVw.addItem(self.endPoint)
                 self.line_visable = True
 
-    def open_isochrone_window(self):
-        self.isochrone_window = APDIsochroneWindow(
+    def open_contour_window(self):
+        self.contour_window = APDThresholdWindow(
             self, 
             self.beatNumber-1, 
             self.parent.data_slices[self.intervalIdx.value()-1]
         )
-        self.isochrone_window.show()
+        self.contour_window.show()
 
     def save_histogram(self):
         # parent.parent.parent.signal gotta be the worst code in this whole project
         export_histogram(self.image_view.image, self.bin_size.value(), self.parent.parent.parent.signal.signal_name)
+
+    def on_lut_change(self):
+        if self.show_diff.isChecked():
+            if (self.divergent_cm.getLookupTable() != self.image_view.imageItem.getColorMap().getLookupTable()).any():
+                print("Div Colormap Changed")
+                self.divergent_cm = self.image_view.imageItem.getColorMap()
+        else:
+            if (self.normal_cm.getLookupTable() != self.image_view.imageItem.getColorMap().getLookupTable()).any():
+                print("Normal Colormap Changed")
+                self.normal_cm = self.image_view.imageItem.getColorMap()
