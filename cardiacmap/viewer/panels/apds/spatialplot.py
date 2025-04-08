@@ -368,7 +368,7 @@ class SpatialPlotView(QWidget):
         if self.show_diff.isChecked():
             color_range = (-self.diff_range.value(), self.diff_range.value())
             self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]) - 1)
-            data = np.diff(self.parent.data_slices[interval_idx][self.frameIdx.value()-1]) * self.ms
+            data = np.diff(self.parent.data_slices[interval_idx], axis=0) * self.ms
         elif self.show_min.isChecked():
             d = self.parent.data_slices[interval_idx]
             md = ma.masked_array(d, mask = d==0)
@@ -383,7 +383,7 @@ class SpatialPlotView(QWidget):
             data = self.parent.data_slices[interval_idx][self.frameIdx.value()-1] * self.ms
 
         # apply mask
-        data = np.array(data) * self.mask
+        data = data * self.mask
 
         # set colormap
         if self.show_diff.isChecked():
