@@ -179,7 +179,7 @@ def rgb2gray(rgb):
 
 @loading_popup
 def _calculate_isochrone(
-    sig: np.ndarray, t: float, start_frame, cycles, skip_frame, line=False, update_progress=None
+    sig: np.ndarray, t: float, start_frame, cycles, skip_frame, line=False, update_progress=None, upstroke=True, downstroke=False,
 ):
 
     all_c = []
@@ -187,12 +187,30 @@ def _calculate_isochrone(
     for i in range(cycles):
 
         idx = i * skip_frame + start_frame
+        
+        prev_idx = (i - 1) * skip_frame + start_frame if i > 0 else start_frame
 
+        # Make sure it doesn't get past the end of signal
         if idx < len(sig):
+            
+            contour_points = find_contours(sig[idx], level=t)
+
+            # Generate empty slice of where contours would be
             c = np.zeros((128, 128))
-            for p in find_contours(sig[idx], level=t):
-                for j in p:
-                    c[int(j[0]), int(j[1])] = 1
+            
+            # Check if upstroke or downstroke, by majority          
+            for contour_line in contour_points: 
+                _line = np.array(contour_line).astype(int)
+                wave_direction = np.sign(sig[idx, _line[:, 0], _line[:, 1]] - sig[prev_idx, _line[:, 0], _line[:, 1]])
+                if np.mean(wave_direction) >= 0:
+                    is_upstroke = True
+                else:
+                    is_upstroke = False
+                    
+                if (is_upstroke and upstroke) or (not is_upstroke and downstroke):
+                    for c_point in contour_line:
+                        c[int(c_point[0]), int(c_point[1])] = 1
+                                    
             all_c.append(c)
 
         if update_progress:
@@ -384,11 +402,20 @@ class IsochroneWindow(QMainWindow):
             min=1, max=1000, val=10, step=1, min_width=60, max_width=60
         )
         self.skip = Spinbox(min=1, max=100, val=1, step=1, min_width=50, max_width=50)
+        
+        self.showUpstroke = QCheckBox()
+        self.showUpstroke.setChecked = True
+        self.showDownstroke = QCheckBox()
+        self.showDownstroke.setChecked = True
 
         self.options_1.addWidget(QLabel("Threshold: "))
         self.options_1.addWidget(self.threshold)
-        self.options_1.addWidget(QLabel("Start Time: "))
-        self.options_1.addWidget(self.start_frame)
+        self.options_1.addWidget(QLabel("Upstroke: "))
+        self.options_1.addWidget(self.showUpstroke)
+        self.options_1.addWidget(QLabel("Downstroke: "))
+        self.options_1.addWidget(self.showDownstroke)
+        self.options_2.addWidget(QLabel("Start Time: "))
+        self.options_2.addWidget(self.start_frame)
         self.options_2.addWidget(QLabel("# of Steps: "))
         self.options_2.addWidget(self.cycles)
         self.options_2.addWidget(QLabel("Step Interval: "))
@@ -450,6 +477,9 @@ class IsochroneWindow(QMainWindow):
 
     # TODO: Fix colorscale, add overlay mode, adjust y-axis value.
     def calculate_isochrone(self, line=False):
+        
+        upstroke = self.showUpstroke.isChecked()
+        downstroke = self.showDownstroke.isChecked()
 
         cycles = int(self.cycles.value())
         skip_frames = int(self.skip.value())
@@ -462,7 +492,9 @@ class IsochroneWindow(QMainWindow):
                 start_frame=start_frame,
                 cycles=cycles,
                 skip_frame=skip_frames,
-                line=line
+                line=line,
+                upstroke=upstroke,
+                downstroke=downstroke,
             )
             * self.parent.ms
         )
@@ -519,11 +551,10 @@ class IsochroneWindow(QMainWindow):
         self.video_tab.image_view.setImage(self.contour_data)
         self.video_tab.image_view.setCurrentIndex(start_frame)
 
-    def update_keyframe(self, i):
-        idx = self.start_frame.value()
-        self.signal_panel.update_signal_marker(idx)
+    def update_keyframe(self, i=None):
         idx = self.signal_panel.signal_marker.getXPos()
         idx = int(idx / self.ms)
+        self.signal_panel.update_signal_marker(idx)
         self.image_item.setImage(
             self.parent.signal.transformed_data[idx] * self.mask,
             autoLevels=True,
