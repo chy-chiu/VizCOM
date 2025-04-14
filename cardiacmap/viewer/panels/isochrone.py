@@ -47,6 +47,7 @@ QTOOLBAR_STYLE = """
 VIEWPORT_MARGIN = 2
 IMAGE_SIZE = 128
 
+
 def fill_contours(arr):
     # Copy the input array to avoid modifying the original data
     result = arr.copy()
@@ -56,19 +57,21 @@ def fill_contours(arr):
     # Process levels in decreasing order to handle higher contours first
     for level in reversed(levels):
         # Create a mask for the current contour level
-        mask = (arr == level)
+        mask = arr == level
         # Fill holes within the contour
         filled_mask = binary_fill_holes(mask)
         # Update the result where the filled mask is True and the current value is less than the contour level
         result[filled_mask & (result < level)] = level
     return result
 
+
 def fill_contours_with_morphology(arr):
     seed = arr.copy()
     seed[arr == 0] = np.max(arr) + 1
     mask = arr
-    filled = reconstruction(seed, mask, method='erosion')
+    filled = reconstruction(seed, mask, method="erosion")
     return filled
+
 
 def fill_zeros_with_min_adjacent(arr):
     nrows, ncols = arr.shape
@@ -138,12 +141,13 @@ def fill_zeros_with_max_adjacent(arr):
     filled[filled == -np.inf] = 0
     return filled
 
+
 def fill_zeros_with_mean_of_neighbors(arr):
     nrows, ncols = arr.shape
     filled = arr.copy()
 
     # Label connected components of zeros
-    zero_mask = (arr == 0)
+    zero_mask = arr == 0
     labeled_array, num_features = label(zero_mask)
 
     # Directions: up, down, left, right
@@ -173,13 +177,22 @@ def fill_zeros_with_mean_of_neighbors(arr):
 
     return filled
 
+
 def rgb2gray(rgb):
     return np.dot(rgb[..., :3], [0.2989, 0.5870, 0.1140]) / 255
 
 
 @loading_popup
 def _calculate_isochrone(
-    sig: np.ndarray, t: float, start_frame, cycles, skip_frame, line=False, update_progress=None, upstroke=True, downstroke=False,
+    sig: np.ndarray,
+    t: float,
+    start_frame,
+    cycles,
+    skip_frame,
+    line=False,
+    update_progress=None,
+    upstroke=True,
+    downstroke=False,
 ):
 
     all_c = []
@@ -187,30 +200,40 @@ def _calculate_isochrone(
     for i in range(cycles):
 
         idx = i * skip_frame + start_frame
-        
+
         prev_idx = (i - 1) * skip_frame + start_frame if i > 0 else start_frame
 
         # Make sure it doesn't get past the end of signal
         if idx < len(sig):
-            
+
             contour_points = find_contours(sig[idx], level=t)
 
             # Generate empty slice of where contours would be
             c = np.zeros((128, 128))
-            
-            # Check if upstroke or downstroke, by majority          
-            for contour_line in contour_points: 
-                _line = np.array(contour_line).astype(int)
-                wave_direction = np.sign(sig[idx, _line[:, 0], _line[:, 1]] - sig[prev_idx, _line[:, 0], _line[:, 1]])
-                if np.mean(wave_direction) >= 0:
-                    is_upstroke = True
-                else:
-                    is_upstroke = False
-                    
-                if (is_upstroke and upstroke) or (not is_upstroke and downstroke):
-                    for c_point in contour_line:
-                        c[int(c_point[0]), int(c_point[1])] = 1
-                                    
+
+            for contour_line in contour_points:
+
+                _countour_line = np.array(contour_line).astype(int)
+
+                # Check if upstroke or downstroke, by majority
+                # wave_direction = np.sign(sig[idx, _countour_line[:, 0], _countour_line[:, 1]] - sig[prev_idx, _countour_line[:, 0], _countour_line[:, 1]])
+                # if np.mean(wave_direction) >= 0:
+                #     is_upstroke = True
+                # else:
+                #     is_upstroke = False
+
+                # if (is_upstroke and upstroke) or (not is_upstroke and downstroke):
+                #     for c_point in contour_line:
+                #         c[int(c_point[0]), int(c_point[1])] = 1
+
+                # Alternate version: Single points only
+                for point in _countour_line:
+                    x, y = point
+                    point_diff = sig[idx, x, y] - sig[prev_idx, x, y]
+                    is_upstroke = True if point_diff >= 0 else False
+                    if (is_upstroke and upstroke) or (not is_upstroke and downstroke):
+                        c[x, y] = 1
+
             all_c.append(c)
 
         if update_progress:
@@ -220,11 +243,12 @@ def _calculate_isochrone(
 
     _c = np.array(all_c).max(axis=0) * skip_frame
 
-    if line: 
+    if line:
         img = np.where(_c > 0, 0, sig[start_frame])
         return img
     else:
         return _c
+
 
 # def _calculate_isochrome_filled(
 #     sig: np.ndarray, t: float, start_frame, cycles, skip_frame
@@ -247,12 +271,14 @@ def _calculate_isochrone(
 #     image = image.reshape((DPI, DPI, 3))
 #     return np.round(rgb2gray(image) * cycles) * skip_frame
 
+
 def _calculate_isochrone_filled(
     sig: np.ndarray, t: float, start_frame, cycles, skip_frame
 ):
     C = _calculate_isochrone(sig, t, start_frame, cycles, skip_frame)
 
     return fill_zeros_with_mean_of_neighbors(fill_contours(C))
+
 
 class IsochroneSignalPanel(SignalPanel):
     def __init__(self, parent, settings):
@@ -402,7 +428,7 @@ class IsochroneWindow(QMainWindow):
             min=1, max=1000, val=10, step=1, min_width=60, max_width=60
         )
         self.skip = Spinbox(min=1, max=100, val=1, step=1, min_width=50, max_width=50)
-        
+
         self.showUpstroke = QCheckBox()
         self.showUpstroke.setChecked = True
         self.showDownstroke = QCheckBox()
@@ -432,7 +458,9 @@ class IsochroneWindow(QMainWindow):
         self.cal_iso_video = QPushButton("Calculate Video")
 
         self.reset = QPushButton("Reset")
-        self.cal_iso_color.clicked.connect(partial(self.calculate_isochrone, line=False))
+        self.cal_iso_color.clicked.connect(
+            partial(self.calculate_isochrone, line=False)
+        )
         self.cal_iso_lines.clicked.connect(partial(self.calculate_isochrone, line=True))
         self.cal_iso_filled.clicked.connect(self.calculate_isochrone_filled)
         self.cal_iso_video.clicked.connect(self.calculate_contour_video)
@@ -477,7 +505,7 @@ class IsochroneWindow(QMainWindow):
 
     # TODO: Fix colorscale, add overlay mode, adjust y-axis value.
     def calculate_isochrone(self, line=False):
-        
+
         upstroke = self.showUpstroke.isChecked()
         downstroke = self.showDownstroke.isChecked()
 
@@ -500,9 +528,9 @@ class IsochroneWindow(QMainWindow):
         )
 
         self.image_item.setImage(isochrone)
-        if not line: 
+        if not line:
             self.colorbar.setLevels((0, cycles * self.parent.ms * skip_frames))
-        
+
         self.colorbar.setLabel("right", "ms")
 
     def calculate_isochrone_filled(self):
@@ -560,5 +588,3 @@ class IsochroneWindow(QMainWindow):
             autoLevels=True,
             autoRange=True,
         )
-        
-        
