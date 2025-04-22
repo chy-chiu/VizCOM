@@ -28,6 +28,8 @@ class AnnotateView(QtWidgets.QWidget):
         super().__init__(parent=parent)
 
         self.parent = parent
+        self.filename = parent.title[:-4]
+        print(self.filename)
 
         # Create Image View
         layout = QVBoxLayout()
@@ -178,14 +180,14 @@ class AnnotateView(QtWidgets.QWidget):
     
     def save_mask(self):
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Mask", "mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
+            self, "Save Mask", self.filename+"-mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
         )
         np.save(file_path, self.points)
     
     def load_mask(self):
         self.loading = True
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Load Mask", "mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
+            self, "Load Mask", "", "Binary NumPy Object (*.npy);;All Files (*)"
         )
         self.points = np.load(file_path)
         if self.roi is not None:
