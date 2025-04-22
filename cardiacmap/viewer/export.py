@@ -298,13 +298,14 @@ class ExportVideoWindow(QMainWindow):
             filename = str(filename) + ".avi"
 
         fourCC = cv2.VideoWriter_fourcc(*'MJPG')
-        intData = data * 255
-        intData = intData.astype(np.uint8)
+        intData = data * 511
+        intData = intData.astype(np.uint16)
         intData = np.swapaxes(intData, 1, 2) # swap xs and ys (OpenCV)
     
         outShape = intData[0].shape
         if color:
             lut = self.image_item.getColorMap().getLookupTable()
+            lut = np.flip(lut, 0)
             intData = np.take(lut, intData, axis=0)
             outShape = intData[0].shape[:2]
             print("WITH COLOR")
