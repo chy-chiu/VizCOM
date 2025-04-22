@@ -175,7 +175,7 @@ class PositionView(QWidget):
         self.settings_bar.addWidget(self.skiprate)
 
         self.data_select = QComboBox()
-        self.data_select.addItems(["Base", "Transformed"])
+        self.data_select.addItems([ "Transformed", "Base"])
         self.data_select.currentTextChanged.connect(self.update_data)
 
         self.show_marker = QCheckBox()
