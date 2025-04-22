@@ -209,7 +209,7 @@ class ScatterPanel(QWidget):
 
         xyData = tuple(zip(diData, apdData))
         # remove zero values
-        xyData = [pt for pt in xyData if pt != (0.0, 0.0)]
+        xyData = [pt for pt in xyData if (pt[0] != 0 and pt[1] != 0)]
         self.plot_item.setData(np.array(xyData))
         self.plot_item.scatter.getData()
         if alternans:
