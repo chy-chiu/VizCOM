@@ -430,9 +430,9 @@ class IsochroneWindow(QMainWindow):
         self.skip = Spinbox(min=1, max=100, val=1, step=1, min_width=50, max_width=50)
 
         self.showUpstroke = QCheckBox()
-        self.showUpstroke.setChecked = True
+        self.showUpstroke.setChecked(True)
         self.showDownstroke = QCheckBox()
-        self.showDownstroke.setChecked = True
+        self.showDownstroke.setChecked(True)
 
         self.options_1.addWidget(QLabel("Threshold: "))
         self.options_1.addWidget(self.threshold)
