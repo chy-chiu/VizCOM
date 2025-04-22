@@ -100,7 +100,7 @@ class ScatterPanel(QWidget):
         
         # Set up Image View
         self.plot = pg.PlotWidget()
-        self.plot.setRange(xRange=(-2,np.max(self.di_data[0])), yRange=(-2,np.max(self.apd_data[0])))
+        self.plot.setRange(xRange=(-2,np.max(self.di_data[0][0])), yRange=(-2,np.max(self.apd_data[0][0])))
         
         self.plot_item: pg.PlotDataItem = self.plot.plot(
             pen=None, symbol="o", symbolSize=6,
