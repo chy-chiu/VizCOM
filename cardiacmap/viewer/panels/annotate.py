@@ -182,7 +182,7 @@ class AnnotateView(QtWidgets.QWidget):
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save Mask", self.filename+"-mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
         )
-        np.save(file_path, self.points)
+        np.save(file_path, self.get_roi_mask((IMAGE_SIZE, IMAGE_SIZE)))
     
     def load_mask(self):
         self.loading = True
