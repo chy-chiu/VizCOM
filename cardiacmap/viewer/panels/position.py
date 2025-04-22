@@ -259,11 +259,11 @@ class PositionView(QWidget):
             #print(mask)
         if mode == "Base":
             self.image_view.setImage(
-                self.parent.signal.image_data * mask, autoLevels=False, autoRange=False
+                self.parent.signal.image_data * mask, autoLevels=True, autoRange=True
             )
         elif mode == "Transformed":
             self.image_view.setImage(
-                self.parent.signal.transformed_data * mask, autoLevels=False, autoRange=False
+                self.parent.signal.transformed_data * mask, autoLevels=True, autoRange=True
             )
             
         self.image_view.setColorMap(self.cmap)
