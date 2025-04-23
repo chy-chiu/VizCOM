@@ -240,8 +240,8 @@ class CardiacSignal:
         print("Mask Applied")
         # print(self.transformed_data.shape)
         # print(self.image_data.shape)
-        # self.transformed_data = self.transformed_data * np.expand_dims(self.mask, 0)
-        # self.image_data = self.image_data * self.mask
+        self.transformed_data = self.transformed_data * self.mask
+        self.image_data = self.image_data * self.mask
 
     def get_curr_signal(self):
         return self.transformed_data

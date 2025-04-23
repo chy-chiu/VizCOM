@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 
 
 def InvertSignal(arr):
@@ -32,7 +33,9 @@ def TrimSignal(arr, trimStart, trimEnd):
 
 def NormalizeData(data: np.ndarray):
     d = (data - data.min(axis=0))
-    return d / d.max(axis=0)
+    dMa = ma.array(d, mask=d==0)
+    normalMa = dMa / dMa.max(axis=0)
+    return ma.getdata(normalMa)
 
 def NormalizeDataGlobal(data: np.ndarray):
     d = (data - data.min())

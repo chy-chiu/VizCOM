@@ -1,6 +1,7 @@
 import concurrent.futures as cf
 
 import numpy as np
+import numpy.ma as ma
 from scipy.ndimage import gaussian_filter, uniform_filter
 
 import time
@@ -68,18 +69,15 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
         raise IndexError("mask must have same shape as a single frame")
     
     # select averaging mode
+
     if mode == "Gaussian":
-        maskedData = gaussian_filter(arr * mask, newSigma, radius=radius, axes=(1, 2))
+        maskedData = gaussian_filter(arr, newSigma, radius=radius, axes=(1, 2))
+        maskWeights = gaussian_filter(mask.astype(np.float64), newSigma, radius=radius, axes=(0, 1))
     elif mode == "Uniform":
-        maskedData = uniform_filter(arr * mask, size=radius, axes=(1, 2))
+        maskedData = uniform_filter(arr, size=radius, axes=(1, 2))
+        maskWeights = uniform_filter(mask.astype(np.float64), newSigma, size=radius, axes=(0, 1))
 
-    # maskWeights = avgFunc(mask, newSigma, radius=radius, axes=(0, 1))
+    # normalize data by relative mask weights
+    data = maskedData / ma.array(maskWeights, mask = maskWeights==0)
 
-    ## normalize data by relative mask weights
-    # data = maskedData / maskWeights
-
-    # set masked points back to original value
-    data = np.where(mask == 0, arr, maskedData)
-    #e = time.time()
-    #print("Spatial Avg Runtime:", e-s)
-    return data
+    return ma.getdata(data) * mask
