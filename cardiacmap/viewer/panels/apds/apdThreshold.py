@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-import cv2
+from cv2 import dilate
 from skimage.measure import find_contours
 from cardiacmap.viewer.components import Spinbox
 
@@ -103,12 +103,22 @@ class APDThresholdWindow(QMainWindow):
             max_width=70,
         )
 
+        self.thickness = Spinbox(
+            min=1,
+            max=10,
+            val=1,
+            step=1,
+            min_width=70,
+            max_width=70,
+        )
+
         self.contour_list_layout = QVBoxLayout()
         self.contour_list = []
 
         # set listeners
         self.start_frame.valueChanged.connect(self.update_keyframe)
         self.num_thresholds.valueChanged.connect(self.update_threshold)
+        self.thickness.valueChanged.connect(self.update_threshold)
 
         # set up toolbars
         self.options_1.addWidget(QLabel("Beat: "))
@@ -116,6 +126,9 @@ class APDThresholdWindow(QMainWindow):
 
         self.options_1.addWidget(QLabel("# of Contours: "))
         self.options_1.addWidget(self.num_thresholds)
+
+        self.options_1.addWidget(QLabel("Thickness: "))
+        self.options_1.addWidget(self.thickness)
 
         self.options_1.setStyleSheet(QTOOLBAR_STYLE)
 
@@ -160,6 +173,8 @@ class APDThresholdWindow(QMainWindow):
 
         outputImage = np.copy(self.data[start_frame])
 
+        thickness = int(self.thickness.value())
+
         # contouring 
         c = []
         for i in range(int(self.num_thresholds.value())):
@@ -181,13 +196,23 @@ class APDThresholdWindow(QMainWindow):
         lut = self.image_view.getHistogramWidget().gradient.colorMap().getLookupTable()
         outputImage = np.take(lut, outputImage, axis=0)
 
-        # add color contours
+        # color contours
+        contour_image = np.zeros((128,128))
         for i in range(int(self.num_thresholds.value())):
             contours = c[i]
             for contour in contours:
                 for p in contour:
                     #print(self.contour_list[i].color_button.color().getRgb()[:3])
-                    outputImage[int(p[0]), int(p[1]), :] = self.contour_list[i].color_button.color().getRgb()[:3]
+                    contour_image[int(p[0]), int(p[1])] = 1
+
+        # add thickness
+        if thickness > 1:
+            contour_image = dilate(contour_image, np.ones((thickness, thickness)))
+
+        # apply to image
+        coords = np.argwhere(contour_image > 0)
+        for r,c in coords:
+            outputImage[r, c, :] = self.contour_list[i].color_button.color().getRgb()[:3]
 
         # set image
         self.output_view.setImage(outputImage)
