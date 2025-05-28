@@ -577,6 +577,10 @@ class CardiacMap(QMainWindow):
                 start=start_frame,
                 end=end_frame,
             )
+            if (self.settings.child("Normalize").child("Auto").value()):
+                normalize_global = self.settings.child("Normalize").child("Mode").value()
+                normalize_global = True if normalize_global == "Global" else False
+                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
             
         elif transform == "time_average":
             sigma = self.settings.child("Time Average").child("Sigma").value()
@@ -590,18 +594,25 @@ class CardiacMap(QMainWindow):
                 start=start_frame,
                 end=end_frame,
             )
-            
+            if (self.settings.child("Normalize").child("Auto").value()):
+                normalize_global = self.settings.child("Normalize").child("Mode").value()
+                normalize_global = True if normalize_global == "Global" else False
+                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+
         elif transform == "trim":
             left = start_frame
             right = max(len(self.signal.transformed_data) - end_frame, 1)
             print("Trim Left", left, "Trim Right", right)
             self.signal.trim_data(startTrim=left, endTrim=right)
+            if (self.settings.child("Normalize").child("Auto").value()):
+                    normalize_global = self.settings.child("Normalize").child("Mode").value()
+                    normalize_global = True if normalize_global == "Global" else False
+                    self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
             
         elif transform == "normalize":
-            normalize_global = self.settings.child("Normalize Options").child("Normalize").value()
+            normalize_global = self.settings.child("Normalize").child("Mode").value()
             normalize_global = True if normalize_global == "Global" else False
             self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
-            
         elif transform == "reset":
             self.signal.reset_data()
             
@@ -610,7 +621,10 @@ class CardiacMap(QMainWindow):
 
         elif transform == "invert":
             self.signal.invert_data()
-            
+            if (self.settings.child("Normalize").child("Auto").value()):
+                normalize_global = self.settings.child("Normalize").child("Mode").value()
+                normalize_global = True if normalize_global == "Global" else False
+                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
         self.update_signal_plot()
         self.position_tab.update_data()
 
@@ -648,7 +662,11 @@ class CardiacMap(QMainWindow):
                 self.signal.remove_baseline(
                     params, peaks=False, start=start_frame, end=end_frame
                 )
-                # self.signal.normalize(start=start_frame, end=end_frame)
+                if (self.settings.child("Normalize").child("Auto").value()):
+                    normalize_global = self.settings.child("Normalize").child("Mode").value()
+                    normalize_global = True if normalize_global == "Global" else False
+                    self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+
             self.signal_panel.show_baseline(0)
             self.signal.reset_baseline()
             self.signal.show_baseline = False
@@ -690,7 +708,6 @@ class CardiacMap(QMainWindow):
                 self.signal.remove_baseline(
                     params, peaks=True, start=start_frame, end=end_frame
                 )
-                # self.signal.normalize(start=start_frame, end=end_frame)
             self.signal_panel.show_baseline(0)
             self.signal_panel.normalize_peaks.disable_confirm_buttons()
             self.signal.show_baseline = False

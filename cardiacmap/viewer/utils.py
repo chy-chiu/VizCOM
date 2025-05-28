@@ -77,8 +77,9 @@ DEFAULT_VALUES = {
         {"name": "background", "value": [0, 0, 0]},
         {"name": "thickness", "value": 1},
     ],
-    "Normalize Options": [
-        {"name": "Normalize", "type": "list", "value": "Pixel", "limits": ["Global", "Pixel"]},
+    "Normalize": [
+        {"name": "Auto", "type": "bool", "value": True},
+        {"name": "Mode", "type": "list", "value": "Pixel", "limits": ["Global", "Pixel"]},
     ]
 }
 

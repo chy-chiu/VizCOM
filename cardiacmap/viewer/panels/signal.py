@@ -215,7 +215,7 @@ class SignalPanel(QWidget):
         )
         
         normalize = ParameterButton(
-            "Normalize", self.settings.child("Normalize Options")
+            "Normalize", self.settings.child("Normalize")
         )
         trim = QAction("Trim", self)
 
