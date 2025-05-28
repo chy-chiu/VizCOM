@@ -106,9 +106,10 @@ def FindPeaks(t, d, params):
             prominence (float): minimum peak prominance to be considered for the baseline
             threshold (float): maximal value to be considered for the baseline
     """
+    yScale = d.max() - d.min()
     # find peaks
     peakIdx = find_peaks(
-        d, distance=params["distance"], prominence=params["prominence"]
+        d, distance=params["distance"], prominence=params["prominence"] * yScale
     )[0]
 
     # check threshold
