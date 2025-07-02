@@ -255,16 +255,27 @@ class APDWindow(QMainWindow):
         # Preview Panel
         self.line_count = 0
         self.lines = None
-        self.preview_tab = SignalPanel(self, settings=self.settings)
-        self.add_line(self.preview_tab)
-        self.add_line(self.preview_tab)
+        self.signal_viewer = SignalPanel(self, settings=self.settings)
+        self.add_line(self.signal_viewer)
+        self.add_line(self.signal_viewer)
         self.update_lines()
+
+        self.apd_di_viewer = SignalPanel(self, settings=self.settings)
+
+        self.preview_layout = QVBoxLayout()
+        self.preview_splitter = QSplitter()
+        self.preview_splitter.setOrientation(Qt.Orientation.Vertical)
+        self.preview_splitter.addWidget(self.signal_viewer)
+        self.preview_splitter.addWidget(self.apd_di_viewer)
+        self.preview_layout.addWidget(self.offset_toolbar)
+        self.preview_layout.addWidget(self.preview_splitter)
+        self.preview_tab = QWidget(layout = self.preview_layout)
         
         # set up axes        
-        leftAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("left")
-        bottomAxis: pg.AxisItem = self.preview_tab.plot.getPlotItem().getAxis("bottom")
-        leftAxis.setLabel(text="Normalized Voltage")
-        bottomAxis.setLabel(text="Time (ms)")
+        leftAxis: pg.AxisItem = self.apd_di_viewer.plot.getPlotItem().getAxis("left")
+        bottomAxis: pg.AxisItem = self.apd_di_viewer.plot.getPlotItem().getAxis("bottom")
+        leftAxis.setLabel(text="APD/DI (ms)")
+        bottomAxis.setLabel(text="")
         
         # add panels
         self.signal_tabs = QTabWidget()
@@ -282,22 +293,41 @@ class APDWindow(QMainWindow):
         layout.addWidget(self.splitter)
 
         self.setCentralWidget(self.splitter)
-
         self.x = 64
         self.y = 64
         
         self.calculate_apds()
 
     def update_signal_plot(self):
-        self.preview_tab.signal_data.setData(
-            x=np.arange(len(self.parent.signal.transformed_data[:, self.x, self.y])) * self.ms, 
+        data = self.parent.signal.transformed_data[:, self.x, self.y]
+        
+        # plot data
+        self.signal_viewer.signal_data.setData(
+            x=np.arange(len(data)) * self.ms, 
             y=self.parent.signal.transformed_data[:, self.x, self.y]
         )
+
+        # if apds have been calculated
         if self.ts is not None:
-            self.preview_tab.apd_data.setData(
-                x=self.ts * self.ms,
+            # show apd crossing points
+            self.signal_viewer.apd_data.setData(
+                x= self.ts * self.ms,
                 y= np.array([self.threshold.value()] * len(self.ts))
             )
+
+            # offset by 1 apd to show alternans
+            if self.alternans.isChecked():
+                if self.offset.value() == 0:
+                    self.offset.setValue(int(np.diff(self.ts).mean() *  self.ms))
+
+                averageAPD = int(self.offset.value())
+                offsetData = self.parent.signal.transformed_data[averageAPD:, self.x, self.y]
+                self.signal_viewer.signal2_data.setData(
+                    x= np.arange(len(offsetData)) * self.ms, 
+                    y= offsetData
+                )
+            else:
+                self.signal_viewer.signal2_data.setData()
 
     def update_signal_value(self, evt, idx=None):
         return
@@ -325,9 +355,30 @@ class APDWindow(QMainWindow):
         self.options_widget = QWidget()
         layout = QVBoxLayout()
         self.apd_toolbar = QToolBar()
+        self.offset_toolbar = QToolBar()
         self.interval_toolbar = QToolBar()
         self.calculate_bar = QToolBar()
         self.plotting_bar = QToolBar()
+
+        # Display Options ================================================
+        self.alternans = QCheckBox()
+        self.alternans.setChecked(False)
+        self.alternans.stateChanged.connect(self.update_signal_plot)
+
+        self.offset = Spinbox(            
+            min=0,
+            max=len(self.parent.signal.transformed_data),
+            val=0,
+            step=1,
+            min_width=50,
+            max_width=50,
+        )
+        self.offset.valueChanged.connect(self.update_signal_plot)
+        self.offset_toolbar.addWidget(QLabel("Show Offset: "))
+        self.offset_toolbar.addWidget(self.alternans)
+        self.offset_toolbar.addWidget(QLabel("Offset (ms): "))
+        self.offset_toolbar.addWidget(self.offset)
+        #=================================================================
         
         # APD Parameters ========================================================
         self.threshold = Spinbox(
@@ -343,7 +394,7 @@ class APDWindow(QMainWindow):
         self.min_frames = Spinbox(
             min= 0,
             max= 500,
-            val=3,
+            val=15,
             step=1,
             min_width=50,
             max_width=50,
@@ -403,6 +454,7 @@ class APDWindow(QMainWindow):
         
 
         self.apd_toolbar.setStyleSheet(QTOOLBAR_STYLE)
+        self.offset_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.interval_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.calculate_bar.setStyleSheet(QTOOLBAR_STYLE)
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
@@ -421,7 +473,17 @@ class APDWindow(QMainWindow):
     def calculate_apds(self):
         threshold = self.threshold.value()
         spacing = self.min_frames.value() / self.ms
-        self.ts, _ = GetThresholdIntersections1D(self.parent.signal.transformed_data[:, self.x, self.y], threshold, spacing)
+        data = self.parent.signal.transformed_data[:, self.x, self.y]
+        self.ts, _ = GetThresholdIntersections1D(data, threshold, spacing)
+        
+        intervals = np.diff(self.ts)
+        if data[int(self.ts[0])] < data[int(self.ts[0]) + 1]:
+            self.apd_di_viewer.signal_data.setData(intervals[::2])
+            self.apd_di_viewer.signal2_data.setData(intervals[1::2])
+        else:
+            self.apd_di_viewer.signal_data.setData(intervals[1::2])
+            self.apd_di_viewer.signal2_data.setData(intervals[::2])
+
         self.update_signal_plot()
         
     def calculate_all_apds(self):
@@ -464,9 +526,9 @@ class APDWindow(QMainWindow):
         # generate proper number of lines for selected number of subintervals
         while self.line_count != len(timeVals):
             if self.line_count < len(timeVals):
-                self.add_line(self.preview_tab)
+                self.add_line(self.signal_viewer)
             elif self.line_count > len(timeVals):
-                self.remove_line(self.preview_tab)
+                self.remove_line(self.signal_viewer)
         
         # set lines to be evenly placed over the selected time interval
         for i in range(self.line_count):
