@@ -188,30 +188,14 @@ def _calculate_isochrone(
     start_frame,
     cycles,
     skip_frame,
-    lut,
-    lutLevels,
     line=False,
+    thickness=1,
     update_progress=None,
     upstroke=True,
     downstroke=False,
-    color=np.array([255, 0, 255]),
-    thickness=1
 ):
 
     all_c = []
-    if line:
-        # normalize, [0-511]
-        output_img = np.copy(sig[start_frame])
-        output_img -= lutLevels[0]
-        output_img /= lutLevels[1] - lutLevels[0]
-        output_img *= 511
-        output_img[output_img > 511] = 511
-        output_img[output_img < 0] = 0
-        output_img = output_img.astype(np.uint16)
-        # convert to color
-        output_img = np.take(lut, output_img, axis=0)
-    else:
-        output_img = np.zeros((128, 128, 3))
 
     for i in range(cycles):
 
@@ -250,20 +234,19 @@ def _calculate_isochrone(
                     if (is_upstroke and upstroke) or (not is_upstroke and downstroke):
                         c[x, y] = 1
 
-            _c = np.array(c)
-            if thickness > 1:
-                _c = dilate(_c, np.ones((thickness, thickness)))
-
-            coords = np.argwhere(_c > 0)
-            for r,c in coords:
-                output_img[r, c] =  color
-
             all_c.append(c)
 
         if update_progress:
             update_progress(i / cycles)
 
-    return output_img
+    all_c = [c * (i + 1) for i, c in enumerate(all_c)]
+
+    _c = np.array(all_c).max(axis=0) * skip_frame
+    if thickness > 1:
+        _c = dilate(_c, np.ones((thickness, thickness)))
+
+    return _c
+
 
 def _calculate_isochrone_filled(
     sig: np.ndarray, t: float, start_frame, cycles, skip_frame
@@ -416,9 +399,11 @@ class IsochroneWindow(QMainWindow):
     def init_options(self):
         self.options_widget = QWidget()
         layout = QVBoxLayout()
+        self.color_list_widget = QWidget()
         self.options_1 = QToolBar()
         self.options_2 = QToolBar()
-        self.actions_bar = QToolBar()
+        self.single_color_bar = QToolBar()
+        self.multicolor_bar = QToolBar()
 
         self.threshold = Spinbox(
             min=0, max=1, val=0.5, step=0.1, min_width=60, max_width=60
@@ -435,6 +420,7 @@ class IsochroneWindow(QMainWindow):
         self.cycles = Spinbox(
             min=1, max=1000, val=10, step=1, min_width=60, max_width=60
         )
+        self.cycles.valueChanged.connect(self.update_colors)
         self.skip = Spinbox(min=1, max=100, val=1, step=1, min_width=50, max_width=50)
 
         self.showUpstroke = QCheckBox()
@@ -458,8 +444,6 @@ class IsochroneWindow(QMainWindow):
         self.options_1.addWidget(self.showUpstroke)
         self.options_1.addWidget(QLabel("Downstroke: "))
         self.options_1.addWidget(self.showDownstroke)
-        self.options_1.addWidget(QLabel("Color: "))
-        self.options_1.addWidget(self.color_button)
         self.options_1.addWidget(QLabel("Thickness: "))
         self.options_1.addWidget(self.thickness)
         self.options_2.addWidget(QLabel("Start Time: "))
@@ -487,11 +471,15 @@ class IsochroneWindow(QMainWindow):
         self.cal_iso_filled.clicked.connect(self.calculate_isochrone_filled)
         self.cal_iso_video.clicked.connect(self.calculate_contour_video)
         self.reset.clicked.connect(partial(self.update_keyframe))
-        self.actions_bar.addWidget(self.cal_iso_color)
-        self.actions_bar.addWidget(self.cal_iso_lines)
-        self.actions_bar.addWidget(self.cal_iso_filled)
-        self.actions_bar.addWidget(self.cal_iso_video)
-        self.actions_bar.addWidget(self.reset)
+        self.single_color_bar.addWidget(self.cal_iso_lines)
+        self.single_color_bar.addWidget(self.cal_iso_video)
+        self.single_color_bar.addWidget(QLabel("Color: "))
+        self.single_color_bar.addWidget(self.color_button)
+
+        self.multicolor_bar.addWidget(self.cal_iso_color)
+        self.multicolor_bar.addWidget(self.cal_iso_filled)
+        self.multicolor_bar.addWidget(self.reset)
+
         # TODO: Overlay
         # self.overlay = QCheckBox()
 
@@ -499,7 +487,17 @@ class IsochroneWindow(QMainWindow):
         layout.addSpacing(5)
         layout.addWidget(self.options_2)
         layout.addSpacing(5)
-        layout.addWidget(self.actions_bar)
+        layout.addWidget(self.single_color_bar)
+        layout.addSpacing(5)
+        layout.addWidget(self.multicolor_bar)
+        layout.addSpacing(5)
+        layout.addWidget(self.color_list_widget)
+
+        self.color_list = None
+        self.color_list_layout = QHBoxLayout()
+        self.color_list_layout.setSpacing(0)
+        self.color_list_widget.setLayout(self.color_list_layout)
+        self.update_colors()
 
         self.update_threshold_spinbox()
         self.options_widget.setLayout(layout)
@@ -534,10 +532,6 @@ class IsochroneWindow(QMainWindow):
         cycles = int(self.cycles.value())
         skip_frames = int(self.skip.value())
         start_frame = int(self.start_frame.value() / self.ms)
-
-        lut = self.image_tab.getHistogramWidget().gradient.colorMap().getLookupTable()
-        levels = self.image_tab.ui.histogram.item.getLevels()
-        color = self.color_button.color().getRgb()[:3]
         thickness = int(self.thickness.value())
 
         isochrone = (
@@ -547,18 +541,18 @@ class IsochroneWindow(QMainWindow):
                 start_frame=start_frame,
                 cycles=cycles,
                 skip_frame=skip_frames,
-                lut=lut,
-                lutLevels=levels,
                 line=line,
                 upstroke=upstroke,
                 downstroke=downstroke,
-                color=color,
                 thickness=thickness
             )
             * self.parent.ms
         )
+        if line:
+            self.output_item.setImage(self.color_contour(isochrone, self.signal.transformed_data[start_frame]))
+        else:
+            self.output_item.setImage(self.color_contour(isochrone))
 
-        self.output_item.setImage(isochrone)
         self.image_tabs.setCurrentIndex(1)
 
     def calculate_isochrone_filled(self):
@@ -578,8 +572,8 @@ class IsochroneWindow(QMainWindow):
             )
             * self.parent.ms
         )
-
-        self.output_item.setImage(isochrone)
+        
+        self.output_item.setImage(self.color_contour(isochrone))
         self.image_tabs.setCurrentIndex(1)
 
     def calculate_contour_video(self):
@@ -590,14 +584,11 @@ class IsochroneWindow(QMainWindow):
         self.contour_data = deepcopy(self.signal.transformed_data[start_frame: start_frame + cycles])
         video_output = np.zeros((len(self.contour_data), 128, 128, 3))
 
-        lut = self.image_tab.getHistogramWidget().gradient.colorMap().getLookupTable()
-        levels = self.image_tab.ui.histogram.item.getLevels()
-        color = self.color_button.color().getRgb()[:3]
         thickness = int(self.thickness.value())
 
         for i in range(cycles):
-            image = _calculate_isochrone(self.contour_data[None, i], t, 0, 1, 1, lut, levels, True, False, color=color, thickness=thickness )
-            video_output[i] = image
+            image = _calculate_isochrone(self.contour_data[None, i], t, 0, 1, True, False, thickness=thickness )
+            video_output[i] = self.color_contour(image, self.contour_data[i])
 
         self.video_tab.image_view.setImage(video_output)
         self.video_tab.image_view.setCurrentIndex(start_frame)
@@ -612,3 +603,81 @@ class IsochroneWindow(QMainWindow):
             autoLevels=True,
             autoRange=True,
         )
+
+    def color_contour(self, contour, img = None):
+        lut = self.image_tab.getHistogramWidget().gradient.colorMap().getLookupTable()
+        levels = self.image_tab.ui.histogram.item.getLevels()
+
+        if img is None:
+            # create empty background
+            output_img = np.zeros((128,128,3), np.uint16)
+            #scale = 511 / contour.max()
+            #output_img = np.take(lut, (contour * scale).astype(np.uint16), axis=0)
+            #return output_img
+        else:
+            # normalize image, [0-511]
+            output_img = np.copy(img)
+            output_img -= levels[0]
+            output_img /= levels[1] - levels[0]
+            output_img *= 511
+            output_img[output_img > 511] = 511
+            output_img[output_img < 0] = 0
+            output_img = output_img.astype(np.uint16)
+            # convert to color
+            output_img = np.take(lut, output_img, axis=0)
+
+        uniqueVals = np.unique(contour)
+        # fill every unique value with the appropriate color
+        for contourValue in uniqueVals:
+            if contourValue != 0:
+                xs, ys = np.where(contour == contourValue)
+                if img is None:
+                    output_img[xs, ys] = self.color_list[int(contourValue/self.skip.value()/self.ms - 1)].getRgb()
+                else:
+                    output_img[xs, ys] = np.array(self.color_button.color().getRgb()[:3])
+        return output_img
+
+    def update_colors(self):
+        numColors = int(self.cycles.value())
+        lut = self.image_tab.getHistogramWidget().gradient.colorMap().getLookupTable()
+        scale = 511 / (self.skip.value() * numColors)
+
+        # reset colors
+        if self.color_list is not None:
+            for colorItem in self.color_list:
+                self.color_list_layout.removeWidget(colorItem)
+                colorItem.delete()
+
+        self.color_list = []
+        # add colors
+        for i in range(numColors):
+            colorIndex = int((i+1) * scale)
+            cli = ColorListItem(self, str(int((i+1) * self.skip.value() * self.ms)), lut[colorIndex])
+            self.color_list_layout.addWidget(cli)
+            self.color_list.append(cli)
+
+class ColorListItem(QWidget):
+        def  __init__(self, parent, time, color = (255, 255, 255)):
+            QWidget.__init__(self)
+
+            self.parent = parent
+
+            self.color_button = pg.ColorButton(color = color)
+            self.t_label = QLabel(time + " ms:")
+
+            self.layout = QHBoxLayout()
+            self.layout.addWidget(self.t_label)
+            self.layout.addWidget(self.color_button)
+            self.layout.addStretch()
+
+            self.setLayout(self.layout)
+
+        def delete(self):
+            self.color_button.setParent(None)
+            self.t_label.setParent(None)
+            self.setLayout(None)
+            self.destroy()
+
+        def getRgb(self):
+            return self.color_button.color().getRgb()[:3]
+
