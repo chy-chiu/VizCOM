@@ -4,10 +4,11 @@ import numpy as np
 import skimage
 
 from cardiacmap.model.data import CardiacSignal
+from cardiacmap.viewer.components import large_file_check
 
 
 # TODO: To test and make robust
-def read_scimedia_data(filepath: str, update_progress=None):
+def read_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
 
     file = open(filepath, "rb")
 
@@ -22,7 +23,6 @@ def read_scimedia_data(filepath: str, update_progress=None):
     nFrames = struct.unpack("<" + "h" * 1, file.read(2))[0]
 
     print(nFrames)
-
     file = open(filepath, "rb")
 
     file.read(972)
@@ -37,6 +37,11 @@ def read_scimedia_data(filepath: str, update_progress=None):
 
     dt = np.dtype("int16")
     dt = dt.newbyteorder("<")
+
+    trimFrames = large_file_check(filepath, largeFilePopup, nFrames)
+    if trimFrames[1] != 0:
+        file.read(xPixels * yPixels * trimFrames[0] * 2) # skip
+        nFrames = trimFrames[1] # set new file length
 
     sig_array = np.frombuffer(
         file.read(xPixels * yPixels * nFrames * 2), dtype=dt
@@ -61,7 +66,7 @@ def read_scimedia_data(filepath: str, update_progress=None):
 def load_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
 
     file_metadata, sigarray = read_scimedia_data(
-        filepath, update_progress=update_progress
+        filepath, largeFilePopup, update_progress=update_progress
     )
 
     signals = {}

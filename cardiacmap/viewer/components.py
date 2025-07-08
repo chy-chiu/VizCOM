@@ -1,5 +1,6 @@
 from typing import List, Optional
-
+import psutil
+import os
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
 from PySide6.QtCore import Qt
@@ -209,7 +210,7 @@ class FrameInputDialog(QDialog):
 
         self.startLabel = QLabel(f"Enter Start Frame (0, {tLen}):")
         self.startInput = Spinbox(0, tLen, 0, min_width=100, max_width=100)
-        layout.addWidget(QLabel(f"File too large. Recommended max frames at {maxFrames} frames."))
+        layout.addWidget(QLabel(f"File too large. {maxFrames} frames or less recommended."))
         layout.addWidget(self.startLabel)
         layout.addWidget(self.startInput)
 
@@ -250,3 +251,41 @@ class FrameInputDialog(QDialog):
 
     def getValues(self):
         return self.start, self.end
+
+def large_file_check(filepath, _callback, fileLen):
+    """Helper method to check a Cascade file against available RAM to avoid OOM error
+    Args:
+        filepath(str): Input file path
+    Returns:
+        tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
+    """
+    USAGE_THRESHOLD = 0.5
+    freeMem = psutil.virtual_memory()[1]
+    estDataSize = (
+        os.path.getsize(filepath) * 6
+    )  # estimate conversion to float16 and 3 data sets (raw, transformed, previous)
+    # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
+
+    (skip, size) = (0, 0)
+
+    usePercentage = estDataSize / freeMem
+
+    # use 50% threshold to leave room for apd, di, fft, etc.
+    if usePercentage > USAGE_THRESHOLD:
+        maxFrames = int(
+            (freeMem * 0.5) / 1040000
+        )  # AGAIN, VERY ROUGH ESTIMATE BASED ON 5k FRAMES @ 650MB
+        print(maxFrames)
+        start, end = _callback(
+            fileLen, maxFrames
+        )  # pauses execution until popup is closed
+
+        print(start, end)
+
+        if start is not None and end is not None:
+            skip = start
+            size = end - start
+        else:
+            return None
+
+    return (skip, size)
