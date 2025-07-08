@@ -1,6 +1,7 @@
 import os
 import pickle
 import sys
+import copy
 from functools import partial
 from typing import List, Literal, Optional
 import numpy as np
@@ -376,6 +377,10 @@ class CardiacMap(QMainWindow):
             dirs.SaveDirectories()
             with open(filepath, "rb") as f:
                 signal = pickle.load(f)
+                if signal.transformed_data is None:
+                    # repopulate data fields
+                    signal.transformed_data = signal.base_data
+                    signal.previous_transform = signal.base_data
                 print(signal.transformed_data)
                 self.create_viewer(signal, os.path.split(filepath)[-1])
 
@@ -393,7 +398,12 @@ class CardiacMap(QMainWindow):
             dirs.SaveDirectories()
             with open(filepath, "wb") as f:
                 print(self.signal.transformed_data)
-                pickle.dump(self.signal, f)
+                signal_copy = copy.deepcopy(self.signal)
+                signal_copy.base_data = signal_copy.transformed_data
+                # empty these copies to save space
+                signal_copy.transformed_data = None
+                signal_copy.previous_transform = None
+                pickle.dump(signal_copy, f)
             
     def export_numpy(self):
         start_frame = self.signal_panel.start_frame
@@ -607,7 +617,7 @@ class CardiacMap(QMainWindow):
             if (self.settings.child("Normalize").child("Auto").value()):
                     normalize_global = self.settings.child("Normalize").child("Mode").value()
                     normalize_global = True if normalize_global == "Global" else False
-                    self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+                    self.signal.normalize(start=0, end=len(self.signal.transformed_data), normalize_global=normalize_global)
             
         elif transform == "normalize":
             normalize_global = self.settings.child("Normalize").child("Mode").value()
