@@ -71,10 +71,10 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     # select averaging mode
 
     if mode == "Gaussian":
-        maskedData = gaussian_filter(arr, newSigma, radius=radius, axes=(1, 2))
+        maskedData = gaussian_filter(arr * mask, newSigma, radius=radius, axes=(1, 2))
         maskWeights = gaussian_filter(mask.astype(np.float64), newSigma, radius=radius, axes=(0, 1))
     elif mode == "Uniform":
-        maskedData = uniform_filter(arr, size=radius, axes=(1, 2))
+        maskedData = uniform_filter(arr * mask, size=radius, axes=(1, 2))
         maskWeights = uniform_filter(mask.astype(np.float64), newSigma, size=radius, axes=(0, 1))
 
     # normalize data by relative mask weights
