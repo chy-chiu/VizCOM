@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.scimedia import load_scimedia_data
+from cardiacmap.model.sql import load_sql_file
 from cardiacmap.model.data import CardiacSignal
 
 from cardiacmap.viewer.panels import (
@@ -143,6 +144,16 @@ class CardiacMap(QMainWindow):
         self.load_scimedia_single = QAction("Load SciMedia Data (Beta)")
         self.load_scimedia_single.triggered.connect(self.load_scimedia)
 
+        self.load_voltage_sql = QAction("Load SQL Data")
+        self.load_voltage_sql.triggered.connect(
+            partial(self.load_sql, calcium_mode=False)
+        )
+
+        self.load_calcium_sql = QAction("Load SQL VCa Data")
+        self.load_calcium_sql.triggered.connect(
+            partial(self.load_sql, calcium_mode=True)
+        )
+
         self.load_saved_signal = QAction("Load Saved Signal")
         self.load_saved_signal.triggered.connect(self.load_preprocessed)
 
@@ -160,6 +171,9 @@ class CardiacMap(QMainWindow):
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
+        self.file_menu.addSeparator()
+        self.file_menu.addAction(self.load_voltage_sql)
+        self.file_menu.addAction(self.load_calcium_sql)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_scimedia_single)
         self.file_menu.addSeparator()
@@ -306,6 +320,21 @@ class CardiacMap(QMainWindow):
             dirs.SaveDirectories()
             self._load_signal(filepath, calcium_mode=calcium_mode)
 
+    def load_sql(self, calcium_mode: bool):
+        dirs = ImportExportDirectories() # get import directory
+        filepath = QFileDialog.getOpenFileName(
+            self,
+            "Load SQL File",
+            dirs.importDir,
+            "SQLite (*.sql);;All Files (*)",
+        )[0]
+
+        if filepath and ".sql" in filepath:
+            # update import directory
+            dirs.importDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
+            self._load_signal(filepath, calcium_mode=calcium_mode, mode="sql")
+
     @loading_popup
     def load_scimedia(self, update_progress=None):
         dirs = ImportExportDirectories() # get import directory
@@ -331,7 +360,7 @@ class CardiacMap(QMainWindow):
         self,
         filepath,
         calcium_mode: bool,
-        mode: Literal["cascade", "scimedia"] = "cascade",
+        mode: Literal["cascade", "scimedia", "sql"] = "cascade",
         update_progress=None,
     ):
 
@@ -343,6 +372,11 @@ class CardiacMap(QMainWindow):
             )
         elif mode == "scimedia":
             signals = load_scimedia_data(filepath, self.largeFilePopUp)
+
+        elif mode == "sql":
+            signals = load_sql_file(
+                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+            )
 
         if update_progress:
             update_progress(0.5)
@@ -362,6 +396,8 @@ class CardiacMap(QMainWindow):
                 signal = signals[0]
 
                 self.create_viewer(signal, filename)
+
+        else: print("There was an Error loading that file.")
 
     def load_preprocessed(self):
         dirs = ImportExportDirectories() # get import directory
