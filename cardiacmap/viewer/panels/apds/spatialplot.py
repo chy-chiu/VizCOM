@@ -365,20 +365,25 @@ class SpatialPlotView(QWidget):
         self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]))
         self.numBeatDisplay.setText(" of " + str(len(self.parent.data_slices[interval_idx])))
 
+        # show difference between frameIdx and the previous frame
         if self.show_diff.isChecked():
             color_range = (-self.diff_range.value(), self.diff_range.value())
             self.frameIdx.setMaximum(len(self.parent.data_slices[interval_idx]) - 1)
-            data = np.diff(self.parent.data_slices[interval_idx], axis=0) * self.ms
+            data = np.diff(self.parent.data_slices[interval_idx], axis=0)[self.frameIdx.value()-1] * self.ms
+        # show global min value for each pixel (non 0)
         elif self.show_min.isChecked():
             d = self.parent.data_slices[interval_idx]
             md = ma.masked_array(d, mask = d==0)
             data = np.min(md, axis=0) * self.ms
+        # show global max value for each pixel
         elif self.show_max.isChecked():
             data = np.max(self.parent.data_slices[interval_idx], axis=0) * self.ms
+        # show global mean value for each pixel (non 0)
         elif self.show_mean.isChecked():
             d = self.parent.data_slices[interval_idx]
             md = ma.masked_array(d, mask = d==0)
             data = np.mean(md, axis=0) * self.ms
+        # show normal data at frameIdx
         else:
             data = self.parent.data_slices[interval_idx][self.frameIdx.value()-1] * self.ms
 
