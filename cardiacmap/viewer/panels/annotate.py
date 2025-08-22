@@ -7,9 +7,11 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QPushButton,
     QVBoxLayout,
+    QToolBar,
     QWidget,
     QFileDialog
 )
@@ -17,6 +19,7 @@ from skimage.draw import polygon
 from skimage.transform import resize
 
 from cardiacmap.model.cascade import load_cascade_file
+from cardiacmap.viewer.components import Spinbox
 
 IMAGE_SIZE = 128
 
@@ -38,20 +41,26 @@ class AnnotateView(QtWidgets.QWidget):
         self.button_layout = QVBoxLayout()
         row_1 = QHBoxLayout()
         row_2 = QHBoxLayout()
+        row_3 = QToolBar()
         self.add_mask_button = QPushButton("Add Points")
         self.add_mask_button.setCheckable(True)
         self.confirm_mask_button = QPushButton("Set Mask")
         self.reset_mask_button = QPushButton("Reset Mask")
         self.save_mask_button = QPushButton("Save Mask")
         self.load_mask_button = QPushButton("Load Mask")
+
+        self.brightness = Spinbox(0, 10, 1, step=.1)
         
         row_1.addWidget(self.save_mask_button)
         row_1.addWidget(self.load_mask_button)
         row_2.addWidget(self.add_mask_button)
         row_2.addWidget(self.confirm_mask_button)
         row_2.addWidget(self.reset_mask_button)
+        row_3.addWidget(QLabel("Brightness: "))
+        row_3.addWidget(self.brightness)
         self.button_layout.addLayout(row_1)
         self.button_layout.addLayout(row_2)
+        self.button_layout.addWidget(row_3)
 
         self.img_view: pg.ImageView = pg.ImageView(view=pg.PlotItem())
 
@@ -83,6 +92,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.confirm_mask_button.clicked.connect(self.confirm_roi)
         self.save_mask_button.clicked.connect(self.save_mask)
         self.load_mask_button.clicked.connect(self.load_mask)
+        self.brightness.valueChanged.connect(self.update_brightness)
 
         self.roi = None
         self.drawing = False
@@ -195,6 +205,11 @@ class AnnotateView(QtWidgets.QWidget):
         self.roi = pg.PolyLineROI(self.points, closed=True)
         self.img_view.addItem(self.roi)
         self.confirm_roi()
+    
+    def update_brightness(self):
+        thresholdedImage = self.image_data * self.brightness.value()
+        thresholdedImage = np.clip(thresholdedImage, 0, self.image_data.max())
+        self.img_view.setImage(thresholdedImage, autoLevels=False, autoRange=False)
 
 
 if __name__ == "__main__":
