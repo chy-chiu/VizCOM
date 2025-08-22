@@ -76,6 +76,9 @@ DEFAULT_VALUES = {
         {"name": "ptSize", "value": 10},
         {"name": "background", "value": [0, 0, 0]},
         {"name": "thickness", "value": 1},
+        {"name": "axis", "value": [127, 127, 127]},
+        {"name": "fontSize", "value": 16},
+
     ],
     "Normalize": [
         {"name": "Auto", "type": "bool", "value": True},

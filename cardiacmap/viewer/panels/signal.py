@@ -1,34 +1,16 @@
-import os
-from pyexpat import model
-import sys
 from functools import partial
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtGui
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QColor, QRgba64
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QDialog,
-    QDockWidget,
-    QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
-    QPushButton,
-    QSplitter,
-    QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
-    QWidgetAction,
-    QSlider,
 )
 
 from cardiacmap.viewer.colorpalette import ColorPaletteButton
@@ -62,19 +44,35 @@ class SignalPlot(pg.PlotWidget):
         else:
             self.plotItem.getViewBox().setMouseMode(pg.ViewBox.PanMode)
                 
-        # TODO: To make this settable later
         font=QtGui.QFont()
-        font.setPixelSize(16)
+        font.setPixelSize(parent.fontSize)
         # set up axes
         leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
         bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
         leftAxis.setLabel(text="Normalized Voltage")
         bottomAxis.setLabel(text="Time (ms)")
+        leftAxis.setTextPen(parent.axis_pen)
+        bottomAxis.setTextPen(parent.axis_pen)
         leftAxis.setTickFont(font)
         bottomAxis.setTickFont(font)
         leftAxis.label.setFont(font)
         bottomAxis.label.setFont(font)
 
+    def setAxisColor(self, c):
+        leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
+        bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
+        leftAxis.setTextPen(c)
+        bottomAxis.setTextPen(c)
+
+    def setFontSize(self, s):
+        leftAxis: pg.AxisItem = self.plot_item.getAxis("left")
+        bottomAxis: pg.AxisItem = self.plot_item.getAxis("bottom")
+        font=QtGui.QFont()
+        font.setPixelSize(s)
+        leftAxis.setTickFont(font)
+        bottomAxis.setTickFont(font)
+        leftAxis.label.setFont(font)
+        bottomAxis.label.setFont(font)
 
     def mouseDoubleClickEvent(self, e):
         self.plot_item.enableAutoRange()
@@ -94,35 +92,10 @@ class SignalPanel(QWidget):
         
         self.mainSignal = main_signal
 
+        self.init_colors() # set up colors for plotting
+
         self.plot = SignalPlot(self)
         self.plot_item = self.plot.getPlotItem()
-
-        sig_c = self.settings.child("Signal Plot Colors").child("signal").value()
-        sig2_c = self.settings.child("Signal Plot Colors").child("signal 2").value()
-        apd_c = self.settings.child("Signal Plot Colors").child("apd").value()
-        base_c = self.settings.child("Signal Plot Colors").child("baseline").value()
-        pts_c = self.settings.child("Signal Plot Colors").child("points").value()
-        bg_c = self.settings.child("Signal Plot Colors").child("background").value()
-        
-        thickness = self.settings.child("Signal Plot Colors").child("thickness").value()
-        self.thickness = thickness
-        
-        self.colors = dict(
-            {
-                "signal": QColor(sig_c[0], sig_c[1], sig_c[2], a=255),
-                "signal 2": QColor(sig2_c[0], sig2_c[1], sig2_c[2], a=255),
-                "apd": QColor(apd_c[0], apd_c[1], apd_c[2], a=255),
-                "baseline": QColor(base_c[0], base_c[1], base_c[2], a=255),
-                "points": QColor(pts_c[0], pts_c[1], pts_c[2], a=255),
-                "background": QColor(bg_c[0], bg_c[1], bg_c[2], a=255),
-            }
-        )
-        # set up colors
-        self.sig_pen = pg.mkPen(self.colors['signal'], width=thickness)
-        self.sig2_pen = pg.mkPen(self.colors['signal 2'], width=thickness)
-        self.apd_pen = pg.mkPen(self.colors['apd'], width=thickness)
-        self.base_pen = pg.mkPen(self.colors['baseline'], width=thickness)
-        self.pt_brush = pg.mkBrush(self.colors['points'])
         self.plot.setBackground(self.colors['background'])
         
         if self.mainSignal: 
@@ -189,6 +162,38 @@ class SignalPanel(QWidget):
 
         
         self.plot.scene().sigMouseMoved.connect(self.mouseMoved)
+
+
+    def init_colors(self):
+        sig_c = self.settings.child("Signal Plot Colors").child("signal").value()
+        sig2_c = self.settings.child("Signal Plot Colors").child("signal 2").value()
+        apd_c = self.settings.child("Signal Plot Colors").child("apd").value()
+        base_c = self.settings.child("Signal Plot Colors").child("baseline").value()
+        pts_c = self.settings.child("Signal Plot Colors").child("points").value()
+        bg_c = self.settings.child("Signal Plot Colors").child("background").value()
+        axis_c = self.settings.child("Signal Plot Colors").child("axis").value()
+        
+        thickness = self.settings.child("Signal Plot Colors").child("thickness").value()
+        self.thickness = thickness
+        self.fontSize = self.settings.child("Signal Plot Colors").child("fontSize").value()
+        self.colors = dict(
+            {
+                "signal": QColor(sig_c[0], sig_c[1], sig_c[2], a=255),
+                "signal 2": QColor(sig2_c[0], sig2_c[1], sig2_c[2], a=255),
+                "apd": QColor(apd_c[0], apd_c[1], apd_c[2], a=255),
+                "baseline": QColor(base_c[0], base_c[1], base_c[2], a=255),
+                "points": QColor(pts_c[0], pts_c[1], pts_c[2], a=255),
+                "background": QColor(bg_c[0], bg_c[1], bg_c[2], a=255),
+                "axis": QColor(axis_c[0], axis_c[1], axis_c[2], a=255),
+            }
+        )
+        # set up colors
+        self.sig_pen = pg.mkPen(self.colors['signal'], width=thickness)
+        self.sig2_pen = pg.mkPen(self.colors['signal 2'], width=thickness)
+        self.apd_pen = pg.mkPen(self.colors['apd'], width=thickness)
+        self.base_pen = pg.mkPen(self.colors['baseline'], width=thickness)
+        self.pt_brush = pg.mkBrush(self.colors['points'])
+        self.axis_pen = pg.mkPen(self.colors['axis'])
 
     def init_toolbars(self):
 
@@ -446,6 +451,9 @@ class SignalPanel(QWidget):
                 self.baseline_data.setSymbolBrush(self.pt_brush)
             elif c == "background":
                 self.plot.setBackground(self.colors[c])
+            elif c == "axis":
+                self.plot.setAxisColor(self.colors[c])
+                self.plot.setFontSize(self.fontSize)
             
         self.parent.update_signal_plot()
 

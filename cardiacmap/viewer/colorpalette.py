@@ -45,6 +45,10 @@ class ColorPaletteButton(QAction):
         self.parent.thickness = spinbox.value()
         self.parent.update_pens()
 
+    def new_font_size(self, spinbox):
+        self.parent.fontSize = spinbox.value()
+        self.parent.update_pens()
+
 
 class ColorPalette(QMainWindow):
     """Window for color customization"""
@@ -74,6 +78,7 @@ class ColorPalette(QMainWindow):
                 row = QHBoxLayout()
                 row.addWidget(QLabel(c + " "))
                 row.addWidget(self.color_buttons[-1])
+
                 if c == "points":
                     row.addWidget(QLabel("Size: "))
                     initVal = self.settings.child("Signal Plot Colors").child("ptSize").value()
@@ -82,6 +87,14 @@ class ColorPalette(QMainWindow):
                         partial(self.save_spinbox, itemKey="ptSize")    
                     )
                     row.addWidget(self.sizeSpinbox)
+
+                elif c == "axis":
+                    row.addWidget(QLabel("Font Size: "))
+                    initVal = self.settings.child("Signal Plot Colors").child("fontSize").value()
+                    self.fontSizeSpinbox = Spinbox(1, 100, initVal, 45, 45, 1)
+                    self.fontSizeSpinbox.sigValueChanged.connect(self.update_font_size)
+                    row.addWidget(self.fontSizeSpinbox)
+
 
                 layout.addLayout(row)
                 
@@ -110,6 +123,10 @@ class ColorPalette(QMainWindow):
     def update_thickness(self, thickness):
         self.save_spinbox(self.thickSpinbox, "thickness")
         self.parent.new_thickness(thickness)
+
+    def update_font_size(self, size):
+        self.save_spinbox(self.fontSizeSpinbox, "fontSize")
+        self.parent.new_font_size(size)
         
     def save_spinbox(self, spinbox, itemKey="none"):
         self.parent.settings.child("Signal Plot Colors").child(itemKey).setValue(spinbox.value())
