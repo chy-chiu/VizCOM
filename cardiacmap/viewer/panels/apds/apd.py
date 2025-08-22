@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QPushButton,
+    QRadioButton,
     QSplitter,
     QTabWidget,
     QToolBar,
@@ -269,13 +270,14 @@ class APDWindow(QMainWindow):
         self.preview_splitter.addWidget(self.apd_di_viewer)
         self.preview_layout.addWidget(self.offset_toolbar)
         self.preview_layout.addWidget(self.preview_splitter)
+        self.preview_layout.addWidget(self.apd_display_toolbar)
         self.preview_tab = QWidget(layout = self.preview_layout)
         
         # set up axes        
-        leftAxis: pg.AxisItem = self.apd_di_viewer.plot.getPlotItem().getAxis("left")
+        self.APD_DI_LeftAxis: pg.AxisItem = self.apd_di_viewer.plot.getPlotItem().getAxis("left")
         bottomAxis: pg.AxisItem = self.apd_di_viewer.plot.getPlotItem().getAxis("bottom")
-        leftAxis.setLabel(text="APD/DI (ms)")
-        bottomAxis.setLabel(text="")
+        self.APD_DI_LeftAxis.setLabel(text="APD/DI (ms)")
+        bottomAxis.setLabel(text="Beat Number")
         
         # add panels
         self.signal_tabs = QTabWidget()
@@ -297,6 +299,23 @@ class APDWindow(QMainWindow):
         self.y = 64
         
         self.calculate_apds()
+
+    def toggle_apd_points(self):
+        """Toggles size of apd_data.scatter points"""
+        if self.show_apd_points.isChecked():
+            # show
+            self.signal_viewer.apd_data.setSymbolSize(self.settings.child("Signal Plot Colors").child("ptSize").value())
+            # make signal hoverable
+            self.signal_viewer.apd_data.scatter.setData(hoverable=True)
+            
+        else:
+            # hide
+            self.signal_viewer.apd_data.setSymbolSize(0)
+            # make signal unhoverable
+            self.signal_viewer.apd_data.scatter.setData(hoverable=False)
+
+        # refresh signal
+        self.update_signal_plot();
 
     def update_signal_plot(self):
         data = self.parent.signal.transformed_data[:, self.x, self.y]
@@ -359,11 +378,30 @@ class APDWindow(QMainWindow):
         self.interval_toolbar = QToolBar()
         self.calculate_bar = QToolBar()
         self.plotting_bar = QToolBar()
+        self.apd_display_toolbar = QToolBar()
 
         # Display Options ================================================
         self.alternans = QCheckBox()
         self.alternans.setChecked(False)
         self.alternans.stateChanged.connect(self.update_signal_plot)
+
+        self.show_apd_points = QCheckBox()
+        self.show_apd_points.setChecked(True)
+        self.show_apd_points.stateChanged.connect(self.toggle_apd_points)
+
+        self.show_APD = QRadioButton("APD")
+        self.show_APD.setChecked(False)
+        self.show_APD.toggled.connect(lambda: self.radio_state(self.show_APD))
+        self.show_DI = QRadioButton("DI")
+        self.show_DI.setChecked(False)
+        self.show_DI.toggled.connect(lambda: self.radio_state(self.show_DI))
+        self.show_APD_DI = QRadioButton("Both")
+        self.show_APD_DI.setChecked(True)
+        self.show_APD_DI.toggled.connect(lambda: self.radio_state(self.show_APD_DI))
+
+        self.apd_display_toolbar.addWidget(self.show_APD)
+        self.apd_display_toolbar.addWidget(self.show_DI)
+        self.apd_display_toolbar.addWidget(self.show_APD_DI)
 
         self.offset = Spinbox(            
             min=0,
@@ -374,6 +412,8 @@ class APDWindow(QMainWindow):
             max_width=50,
         )
         self.offset.valueChanged.connect(self.update_signal_plot)
+        self.offset_toolbar.addWidget(QLabel("Show Intersections: "))
+        self.offset_toolbar.addWidget(self.show_apd_points)
         self.offset_toolbar.addWidget(QLabel("Show Offset: "))
         self.offset_toolbar.addWidget(self.alternans)
         self.offset_toolbar.addWidget(QLabel("Offset (ms): "))
@@ -404,7 +444,7 @@ class APDWindow(QMainWindow):
         
         self.apd_toolbar.addWidget(QLabel("Threshold: "))
         self.apd_toolbar.addWidget(self.threshold)
-        self.apd_toolbar.addWidget(QLabel("Min APD Spacing: "))
+        self.apd_toolbar.addWidget(QLabel("Min Spacing: "))
         self.apd_toolbar.addWidget(self.min_frames)
         #========================================================================
         
@@ -478,11 +518,26 @@ class APDWindow(QMainWindow):
         
         intervals = np.diff(self.ts)
         if data[int(self.ts[0])] < data[int(self.ts[0]) + 1]:
-            self.apd_di_viewer.signal_data.setData(intervals[::2])
-            self.apd_di_viewer.signal2_data.setData(intervals[1::2])
+            # APD first
+            apds = intervals[::2]
+            dis = intervals[1::2]
         else:
-            self.apd_di_viewer.signal_data.setData(intervals[1::2])
-            self.apd_di_viewer.signal2_data.setData(intervals[::2])
+            # DI first
+            apds = intervals[1::2]
+            dis = intervals[::2]
+
+        if self.show_APD_DI.isChecked():
+            self.apd_di_viewer.signal_data.setData(apds)
+            self.apd_di_viewer.signal2_data.setData(dis)
+            self.APD_DI_LeftAxis.setLabel(text="APD/DI (ms)")
+        elif self.show_APD.isChecked():
+            self.apd_di_viewer.signal_data.setData(apds)
+            self.apd_di_viewer.signal2_data.setData()
+            self.APD_DI_LeftAxis.setLabel(text="APD (ms)")
+        else:
+            self.apd_di_viewer.signal_data.setData()
+            self.apd_di_viewer.signal2_data.setData(dis)
+            self.APD_DI_LeftAxis.setLabel(text="DI (ms)")
 
         self.update_signal_plot()
         
@@ -569,6 +624,10 @@ class APDWindow(QMainWindow):
             print("change max", self.end_time.value(), 'to', maxLineX)
             self.end_time.setValue(maxLineX)
             self.update_lines()
+
+    def radio_state(self, b):
+        #print(b.text())
+        self.calculate_apds()
       
 
 class APDSubWindow(QMainWindow):
