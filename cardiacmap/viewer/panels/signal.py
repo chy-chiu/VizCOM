@@ -334,7 +334,6 @@ class SignalPanel(QWidget):
         dl = len(self.parent.signal.transformed_data) * 2
         self.start_spinbox = Spinbox(1, dl, 0, min_width=40, max_width=80)
         self.end_spinbox = Spinbox(1, dl, dl, min_width=40, max_width=80)
-
         self.start_spinbox.valueChanged.connect(self.update_range_spinbox)
         self.end_spinbox.valueChanged.connect(self.update_range_spinbox)
 
@@ -363,6 +362,9 @@ class SignalPanel(QWidget):
     def update_range_spinbox(self):
         start = int(self.start_spinbox.value())
         end = int(self.end_spinbox.value())
+        maxRange = int(self.ms_per_frame.value() * len(self.parent.signal.transformed_data))
+        self.start_spinbox.resetMax(maxRange)
+        self.end_spinbox.resetMax(maxRange)
         
         # Ensure start is always less than or equal to end
         if start > end:

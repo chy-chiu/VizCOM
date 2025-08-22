@@ -198,6 +198,9 @@ class Spinbox(pg.SpinBox):
         self.setSingleStep(step)
         self.setStyleSheet(SPINBOX_STYLE)
 
+    def resetMax(self, max):
+        self.setMaximum(max)
+
 class FrameInputDialog(QDialog):
     def __init__(self, tLen, maxFrames, parent=None):
         super(FrameInputDialog, self).__init__(parent)
