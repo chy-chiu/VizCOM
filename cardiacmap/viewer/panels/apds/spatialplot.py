@@ -48,7 +48,6 @@ SPINBOX_STYLE = """QSpinBox
 
 IMAGE_SIZE = 128
 
-
 class SpatialDragPlot(pg.PlotItem):
     # Position Plot used by APD/DI v.s. Space Plots
     def __init__(self, parent, sCallback, eCallback):
@@ -375,6 +374,7 @@ class SpatialPlotView(QWidget):
             d = self.parent.data_slices[interval_idx]
             md = ma.masked_array(d, mask = d==0)
             data = np.min(md, axis=0) * self.ms
+            data = ma.filled(data, data.max())
         # show global max value for each pixel
         elif self.show_max.isChecked():
             data = np.max(self.parent.data_slices[interval_idx], axis=0) * self.ms
@@ -402,7 +402,6 @@ class SpatialPlotView(QWidget):
 
         # set image
         self.image_view.setImage(data,levels=color_range,autoRange=False)
-
         #print(self.frameIdx.value())
         #print(self.parent.data.shape)
 
