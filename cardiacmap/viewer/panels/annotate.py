@@ -1,5 +1,4 @@
 import sys
-
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseDragEvent
@@ -102,13 +101,13 @@ class AnnotateView(QtWidgets.QWidget):
         self.img_view.scene.sigMouseClicked.connect(self.add_point)
 
     def toggle_drawing_mode(self):
-        print('clicking here')
+        #print('clicking here')
         self.drawing = not self.drawing
         self.add_mask_button.setChecked(self.drawing)
         # self.points = []
         
     def save_points(self):
-        print('dragging event here')
+        #print('dragging event here')
         if self.roi:
             points = self.roi.getState()['points']
         self.points = points
@@ -123,14 +122,20 @@ class AnnotateView(QtWidgets.QWidget):
         # Get the x and y coordinates of the mouse click
         x = mousePoint.x()
         y = mousePoint.y()
-
-        self.points.append((x, y))
+        
+        # catch duplicate points
+        duplicate = False
+        for point in self.points:
+            if np.isclose(point[0], x, rtol=.001) and np.isclose(point[1], y, rtol=.001):
+                duplicate = True
+        if not duplicate:
+            self.points.append((x,y))
         
         if len(self.points) > 1 and not self.roi:
             self.roi = pg.PolyLineROI(self.points, closed=True)
             self.roi.sigRegionChangeFinished.connect(self.save_points)
             self.img_view.addItem(self.roi)
-        else:
+        elif len(self.points) >= 1 and self.roi is not None:
             self.roi.setPoints(self.points)
         
 
