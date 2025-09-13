@@ -249,9 +249,9 @@ class SpatialPlotView(QWidget):
 
         self.diff_range = QtWidgets.QSpinBox()
         self.diff_range.setFixedWidth(60)
-        self.diff_range.setMinimum(0)
+        self.diff_range.setMinimum(1)
         self.diff_range.setMaximum(100000)
-        self.diff_range.setValue(np.min(np.diff(self.parent.data_slices[0])))
+        self.diff_range.setValue(20)
         self.diff_range.setStyleSheet(SPINBOX_STYLE)
         self.diff_range.valueChanged.connect(self.update_data)
 
@@ -267,7 +267,7 @@ class SpatialPlotView(QWidget):
         self.max_val.setFixedWidth(60)
         self.max_val.setMinimum(-100000)
         self.max_val.setMaximum(100000)
-        self.max_val.setValue(np.max(self.parent.data_slices[0]))
+        self.max_val.setValue(np.percentile(self.parent.data_slices[0][0], 90))
         self.max_val.setStyleSheet(SPINBOX_STYLE)
         self.max_val.valueChanged.connect(self.update_data)
 
