@@ -1,27 +1,15 @@
 from functools import partial
-from PySide6 import QtCore, QtGui, QtWidgets
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QComboBox,
-    QDialog,
-    QDockWidget,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMainWindow,
-    QMenu,
-    QMenuBar,
-    QPlainTextEdit,
     QPushButton,
-    QSizePolicy,
-    QSplitter,
     QTabWidget,
     QToolBar,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -29,7 +17,7 @@ from skimage.measure import find_contours
 
 from cardiacmap.viewer.components import Spinbox
 from cardiacmap.viewer.panels.position import PositionView
-from cardiacmap.viewer.panels.signal import SignalPanel, SignalPlot
+from cardiacmap.viewer.panels.signal import SignalPanel
 from cardiacmap.viewer.utils import loading_popup
 import matplotlib.pyplot as plt
 from copy import deepcopy
@@ -252,7 +240,6 @@ def _calculate_isochrone_filled(
     sig: np.ndarray, t: float, start_frame, cycles, skip_frame
 ):
     C = _calculate_isochrone(sig, t, start_frame, cycles, skip_frame)
-
     return fill_zeros_with_mean_of_neighbors(fill_contours(C))
 
 
@@ -402,8 +389,8 @@ class IsochroneWindow(QMainWindow):
         self.color_list_widget = QWidget()
         self.options_1 = QToolBar()
         self.options_2 = QToolBar()
-        self.single_color_bar = QToolBar()
-        self.multicolor_bar = QToolBar()
+        self.calc_toolbar = QToolBar()
+        self.color_toolbar = QToolBar()
 
         self.threshold = Spinbox(
             min=0, max=1, val=0.5, step=0.1, min_width=60, max_width=60
@@ -458,10 +445,10 @@ class IsochroneWindow(QMainWindow):
 
         self.start_frame.valueChanged.connect(self.update_keyframe)
 
-        self.cal_iso_color = QPushButton("Calculate Color")
-        self.cal_iso_lines = QPushButton("Calculate Lines")
-        self.cal_iso_filled = QPushButton("Calculate Filled")
-        self.cal_iso_video = QPushButton("Calculate Video")
+        self.cal_iso_color = QPushButton("Isochrones")
+        self.cal_iso_lines = QPushButton("Isochrones w/ Overlay")
+        self.cal_iso_filled = QPushButton("Isochrones Filled")
+        self.cal_iso_video = QPushButton("Isochrones Video")
 
         self.reset = QPushButton("Reset")
         self.cal_iso_color.clicked.connect(
@@ -471,14 +458,15 @@ class IsochroneWindow(QMainWindow):
         self.cal_iso_filled.clicked.connect(self.calculate_isochrone_filled)
         self.cal_iso_video.clicked.connect(self.calculate_contour_video)
         self.reset.clicked.connect(partial(self.update_keyframe))
-        self.single_color_bar.addWidget(self.cal_iso_lines)
-        self.single_color_bar.addWidget(self.cal_iso_video)
-        self.single_color_bar.addWidget(QLabel("Color: "))
-        self.single_color_bar.addWidget(self.color_button)
 
-        self.multicolor_bar.addWidget(self.cal_iso_color)
-        self.multicolor_bar.addWidget(self.cal_iso_filled)
-        self.multicolor_bar.addWidget(self.reset)
+        self.calc_toolbar.addWidget(self.cal_iso_color)
+        self.calc_toolbar.addWidget(self.cal_iso_lines)
+        self.calc_toolbar.addWidget(self.cal_iso_filled)
+        self.calc_toolbar.addWidget(self.cal_iso_video)
+        self.calc_toolbar.addWidget(self.reset)
+
+        self.color_toolbar.addWidget(QLabel("Contour Color: "))
+        self.color_toolbar.addWidget(self.color_button)
 
         # TODO: Overlay
         # self.overlay = QCheckBox()
@@ -487,9 +475,9 @@ class IsochroneWindow(QMainWindow):
         layout.addSpacing(5)
         layout.addWidget(self.options_2)
         layout.addSpacing(5)
-        layout.addWidget(self.single_color_bar)
+        layout.addWidget(self.calc_toolbar)
         layout.addSpacing(5)
-        layout.addWidget(self.multicolor_bar)
+        layout.addWidget(self.color_toolbar)
         layout.addSpacing(5)
         layout.addWidget(self.color_list_widget)
 
@@ -572,8 +560,29 @@ class IsochroneWindow(QMainWindow):
             )
             * self.parent.ms
         )
-        
-        self.output_item.setImage(self.color_contour(isochrone))
+
+        lines = (
+            _calculate_isochrone(
+                self.parent.signal.transformed_data,
+                t=self.threshold.value(),
+                start_frame=start_frame,
+                cycles=cycles,
+                skip_frame=skip_frames,
+                line=True
+                )
+            * self.parent.ms
+        )
+
+        thickness = int(self.thickness.value())
+        if thickness > 1:
+            lines = dilate(lines, np.ones((thickness, thickness)))
+
+        filledContours = self.color_contour(isochrone)
+        filledWithLines = np.zeros((128, 128, 3))
+        filledWithLines[lines == 0] = filledContours[lines == 0]
+        filledWithLines[lines != 0] = self.color_button.color().getRgb()[:3]
+
+        self.output_item.setImage(filledWithLines)
         self.image_tabs.setCurrentIndex(1)
 
     def calculate_contour_video(self):
@@ -644,16 +653,31 @@ class IsochroneWindow(QMainWindow):
 
         # reset colors
         if self.color_list is not None:
-            for colorItem in self.color_list:
-                self.color_list_layout.removeWidget(colorItem)
+            for i in range(len(self.color_list)):
+                colorItem = self.color_list[i]
+                colorColumn = self.color_column_list[i//5]
+                colorColumn.removeWidget(colorItem)
                 colorItem.delete()
+                # delete column after all colors have been deleted
+                if (i+1) % 5 == 0:
+                    self.color_list_layout.removeItem(colorColumn)
 
         self.color_list = []
+        self.color_column_list = []
+
+        # create column layouts for color list
+        numColumn = (numColors // 5) + 1 # 5 colors per column
+        for i in range(numColumn):
+            col = QVBoxLayout()
+            self.color_column_list.append(col)
+            self.color_list_layout.addLayout(col)
+
         # add colors
         for i in range(numColors):
             colorIndex = int((i+1) * scale)
+            columnIndex = i // 5
             cli = ColorListItem(self, str(int((i+1) * self.skip.value() * self.ms)), lut[colorIndex])
-            self.color_list_layout.addWidget(cli)
+            self.color_column_list[columnIndex].addWidget(cli)
             self.color_list.append(cli)
 
 class ColorListItem(QWidget):
