@@ -187,7 +187,7 @@ class AnnotateView(QtWidgets.QWidget):
         self.points = np.array(
             [(p.x(), p.y()) for p in np.array(self.roi.getLocalHandlePositions(), dtype="object")[:, 1]]
         )  # Convert to (row, col) format
-        #print(points)
+        #print(self.points)
         rr, cc = polygon(self.points[:, 0], self.points[:, 1], shape)
         mask = np.zeros(shape, dtype=np.uint8)
         mask[rr, cc] = 1
@@ -197,7 +197,7 @@ class AnnotateView(QtWidgets.QWidget):
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save Mask", self.filename+"-mask.npy", "Binary NumPy Object (*.npy);;All Files (*)"
         )
-        np.save(file_path, self.get_roi_mask((IMAGE_SIZE, IMAGE_SIZE)))
+        np.save(file_path, self.points)
     
     def load_mask(self):
         self.loading = True
