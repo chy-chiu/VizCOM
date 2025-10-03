@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 from skimage.measure import find_contours
 
 from cardiacmap.viewer.components import Spinbox
-from cardiacmap.viewer.panels.position import PositionView
+from cardiacmap.viewer.panels.position import PositionView, DraggablePlot
 from cardiacmap.viewer.panels.signal import SignalPanel
 from cardiacmap.viewer.utils import loading_popup
 import matplotlib.pyplot as plt
@@ -308,9 +308,17 @@ class IsochroneWindow(QMainWindow):
         self.video_tab.skiprate.setValue(1)
 
         self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0])
-        self.image_plot = pg.PlotItem()
+        self.image_plot = DraggablePlot(self.update_position)
         self.image_tab = pg.ImageView(view=self.image_plot, imageItem=self.image_item)
         self.image_tab.view.setMouseEnabled(False, False)
+
+        self.pos_marker_input = pg.ScatterPlotItem(
+            pos=[[64, 64]],
+            size=5,
+            pen=pg.mkPen("r"),
+            brush=pg.mkBrush("r"),
+        )
+        self.image_tab.getView().addItem(self.pos_marker_input)
 
         self.image_tab.view.setRange(
             xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
@@ -318,9 +326,17 @@ class IsochroneWindow(QMainWindow):
         )
 
         self.output_item = pg.ImageItem(np.zeros((128,128)))
-        self.output_plot = pg.PlotItem()
+        self.output_plot = DraggablePlot(self.update_position)
         self.output_tab = pg.ImageView(view=self.output_plot, imageItem=self.output_item)
         self.output_tab.view.setMouseEnabled(False, False)
+
+        self.pos_marker_output = pg.ScatterPlotItem(
+            pos=[[64, 64]],
+            size=5,
+            pen=pg.mkPen("r"),
+            brush=pg.mkBrush("r"),
+        )
+        self.output_tab.getView().addItem(self.pos_marker_output)
 
         self.output_tab.view.setRange(
             xRange=(-VIEWPORT_MARGIN, IMAGE_SIZE + VIEWPORT_MARGIN),
@@ -489,6 +505,19 @@ class IsochroneWindow(QMainWindow):
 
         self.update_threshold_spinbox()
         self.options_widget.setLayout(layout)
+
+    def update_position(self, x, y):
+        y = np.clip(y, 0, IMAGE_SIZE - 1)
+        x = np.clip(x, 0, IMAGE_SIZE - 1)
+        self.update_marker(x, y)
+        self.x = x
+        self.y = y
+        self.update_signal_plot()
+
+    def update_marker(self, x, y):
+        self.pos_marker_input.setData(pos=[[x, y]])
+        self.pos_marker_output.setData(pos=[[x, y]])
+        self.video_tab.position_marker.setData(pos=[[x, y]])
 
     def update_signal_plot(self):
         signal_data = self.signal.transformed_data[:, self.x, self.y]
@@ -731,8 +760,8 @@ class ColorListItem(QWidget):
 
             res = msg.exec()
             if res == QMessageBox.Ok:
-                print("Confirmed")
+                #print("Confirmed")
                 self.parent.use_as_outline(self.time)
             else:
-                print("Canceled")
-
+                #print("Canceled")
+                pass
