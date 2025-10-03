@@ -1,12 +1,13 @@
 from functools import partial
-
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QTabWidget,
     QToolBar,
@@ -193,7 +194,6 @@ def _calculate_isochrone(
 
         # Make sure it doesn't get past the end of signal
         if idx < len(sig):
-
             contour_points = find_contours(sig[idx], level=t)
 
             # Generate empty slice of where contours would be
@@ -680,13 +680,27 @@ class IsochroneWindow(QMainWindow):
             self.color_column_list[columnIndex].addWidget(cli)
             self.color_list.append(cli)
 
+    def use_as_outline(self, t):
+        print("Creating mask outline from " + t + " ms contour.")
+        thresh = self.threshold.value()
+        start_frame = int(self.start_frame.value() / self.ms)
+        thickness = int(self.thickness.value())
+        idx = int(int(t) / self.ms)
+        selectedFrame = self.signal.transformed_data[start_frame + idx - 1]
+
+        iso = _calculate_isochrone(selectedFrame[None, :], thresh, 0, 1, True, False, thickness=thickness )
+
+        # set masking panel as active
+        self.parent.annotate_tab.add_outline(iso)
+        self.parent.image_tabs.setCurrentIndex(1)
+
 class ColorListItem(QWidget):
         def  __init__(self, parent, time, color = (255, 255, 255)):
             QWidget.__init__(self)
-
             self.parent = parent
 
             self.color_button = pg.ColorButton(color = color)
+            self.time = time
             self.t_label = QLabel(time + " ms:")
 
             self.layout = QHBoxLayout()
@@ -704,4 +718,21 @@ class ColorListItem(QWidget):
 
         def getRgb(self):
             return self.color_button.color().getRgb()[:3]
+
+        def mousePressEvent(self, event):
+            if event.button() == Qt.MouseButton.RightButton:
+                self.showPopup()
+
+        def showPopup(self):
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Confirmation")
+            msg.setText("Use the " + self.time + " ms contour for masking?")
+            msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+
+            res = msg.exec()
+            if res == QMessageBox.Ok:
+                print("Confirmed")
+                self.parent.use_as_outline(self.time)
+            else:
+                print("Canceled")
 

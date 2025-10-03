@@ -31,10 +31,11 @@ class AnnotateView(QtWidgets.QWidget):
 
         self.parent = parent
         self.filename = parent.title[:-4]
-        print(self.filename)
+        #print(self.filename)
 
         # Create Image View
         layout = QVBoxLayout()
+        self.outline = None
 
         # Button Layout
         self.button_layout = QVBoxLayout()
@@ -131,6 +132,10 @@ class AnnotateView(QtWidgets.QWidget):
         if not duplicate:
             self.points.append((x,y))
         
+        self.update_roi()
+
+
+    def update_roi(self):
         if len(self.points) > 1 and not self.roi:
             self.roi = pg.PolyLineROI(self.points, closed=True)
             self.roi.sigRegionChangeFinished.connect(self.save_points)
@@ -147,7 +152,15 @@ class AnnotateView(QtWidgets.QWidget):
         #     self.roi = pg.PolyLineROI(self.points, closed=True)
             
         #     print(self.roi.getState())
-            
+
+    def add_outline(self, outline):
+        self.outline = outline
+        if self.outline is not None:
+            img = np.where(self.outline != 0, self.outline, self.image_data)
+            self.img_view.setImage(img, autoLevels=False, autoRange=False)
+        else:
+            self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
+                
 
     def remove_roi(self):
         if self.roi is not None:
@@ -159,12 +172,12 @@ class AnnotateView(QtWidgets.QWidget):
             self.parent.signal.reset_image()
             self.image_data = self.parent.signal.image_data[0, :, :]
 
-            self.img_view.setImage(self.image_data, autoLevels=False, autoRange=False)
-
             mask = np.ones((IMAGE_SIZE, IMAGE_SIZE))
             self.parent.signal.apply_mask(mask)
             self.parent.update_signal_plot()
             self.parent.position_tab.update_data()
+
+        self.add_outline(None); # remove outline
 
     def confirm_roi(self):
         self.add_mask_button.setChecked(False)
@@ -215,21 +228,3 @@ class AnnotateView(QtWidgets.QWidget):
         thresholdedImage = self.image_data * self.brightness.value()
         thresholdedImage = np.clip(thresholdedImage, 0, self.image_data.max())
         self.img_view.setImage(thresholdedImage, autoLevels=False, autoRange=False)
-
-
-if __name__ == "__main__":
-
-    app = QtWidgets.QApplication(sys.argv)
-
-    signals = load_cascade_file("2011-08-23_Exp000_Rec112_Cam1-Blue.dat", None)
-
-    signal = signals[0]
-
-    viewer = AnnotateView(signal)
-
-    viewer.show()
-
-    # main_window = CardiacMapWindow()
-    # main_window.show()
-
-    sys.exit(app.exec())
