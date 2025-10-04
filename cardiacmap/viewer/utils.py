@@ -112,8 +112,8 @@ def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
 
                 settings_json = json.loads(f.read())
 
-                # for param in DEFAULT_VALUES.keys():
-                #     assert param in settings_json.keys()
+                for param in DEFAULT_VALUES.keys():
+                    assert param in settings_json["children"].keys()
 
                 settings.restoreState(settings_json)
         else:
@@ -122,6 +122,7 @@ def load_settings(settings_path=DEFAULT_SETTINGS_PATH):
     except:
         print("Error Loading Settings. Using hardcoded defaults.")
         settings = get_default_settings()
+        save_settings(settings)
 
     return settings
 
