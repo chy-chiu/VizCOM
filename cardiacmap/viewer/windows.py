@@ -49,12 +49,13 @@ from cardiacmap.viewer.panels import (
     FFTWindow,
     IsochroneWindow,
     MetadataPanel,
+    MultipleFilesWindow,
     PositionView,
     SettingsDialog,
     SignalPanel,
     StackingWindow,
 )
-from cardiacmap.viewer.components import FrameInputDialog
+from cardiacmap.viewer.components import FrameInputDialog, LargeFilePopUp
 from cardiacmap.viewer.utils import load_settings, loading_popup, save_settings
 from cardiacmap.viewer.export import ExportVideoWindow, ImportExportDirectories
 
@@ -130,6 +131,10 @@ class CardiacMap(QMainWindow):
         self.settings_menu = self.menubar.addAction("Settings")
         self.settings_menu.triggered.connect(self.open_settings)
 
+        # Many Files Menu
+        self.many_files_menu = self.menubar.addAction("Process Many Files")
+        self.many_files_menu.triggered.connect(self.create_multifile_window)
+
         # File Menu
         self.load_voltage = QAction("Load Voltage Data")
         self.load_voltage.triggered.connect(
@@ -144,7 +149,7 @@ class CardiacMap(QMainWindow):
         self.load_scimedia_single = QAction("Load SciMedia Data (Beta)")
         self.load_scimedia_single.triggered.connect(self.load_scimedia)
 
-        self.load_voltage_sql = QAction("Load SQL Data")
+        """self.load_voltage_sql = QAction("Load SQL Data")
         self.load_voltage_sql.triggered.connect(
             partial(self.load_sql, calcium_mode=False)
         )
@@ -152,7 +157,7 @@ class CardiacMap(QMainWindow):
         self.load_calcium_sql = QAction("Load SQL VCa Data")
         self.load_calcium_sql.triggered.connect(
             partial(self.load_sql, calcium_mode=True)
-        )
+        )"""
 
         self.load_saved_signal = QAction("Load Saved Signal")
         self.load_saved_signal.triggered.connect(self.load_preprocessed)
@@ -172,9 +177,9 @@ class CardiacMap(QMainWindow):
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
         self.file_menu.addSeparator()
-        self.file_menu.addAction(self.load_voltage_sql)
+        """self.file_menu.addAction(self.load_voltage_sql)
         self.file_menu.addAction(self.load_calcium_sql)
-        self.file_menu.addSeparator()
+        self.file_menu.addSeparator()"""
         self.file_menu.addAction(self.load_scimedia_single)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
@@ -221,7 +226,7 @@ class CardiacMap(QMainWindow):
     def init_viewer(self):
 
         self.setWindowTitle(
-            self.title + " – CardiacMap" if self.title else "CardiacMap"
+            self.title + " – VizCOM" if self.title else "VizCOM"
         )
 
         if self.signal:
@@ -368,14 +373,14 @@ class CardiacMap(QMainWindow):
 
         if mode == "cascade":
             signals = load_cascade_file(
-                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+                filepath, LargeFilePopUp, dual_mode=calcium_mode
             )
         elif mode == "scimedia":
-            signals = load_scimedia_data(filepath, self.largeFilePopUp)
+            signals = load_scimedia_data(filepath, LargeFilePopUp)
 
         elif mode == "sql":
             signals = load_sql_file(
-                filepath, self.largeFilePopUp, dual_mode=calcium_mode
+                filepath, LargeFilePopUp, dual_mode=calcium_mode
             )
 
         if update_progress:
@@ -528,15 +533,6 @@ class CardiacMap(QMainWindow):
             self.title = title
             self.signal: CardiacSignal = signal
             self.init_viewer()
-
-    def largeFilePopUp(self, tLen, maxFrames):
-        print("Max Possible Frames:", maxFrames)
-
-        dialog = FrameInputDialog(tLen, maxFrames, self)
-        if dialog.exec() == QDialog.Accepted:
-            return dialog.getValues()
-        else:
-            return None, None
 
     def update_signal_value(self, evt, idx=None):
 
@@ -771,6 +767,10 @@ class CardiacMap(QMainWindow):
     def create_isochrone_window(self):
         self.isochrone_window = IsochroneWindow(self)
         self.isochrone_window.show()
+
+    def create_multifile_window(self):
+        self.multifile_window = MultipleFilesWindow(self)
+        self.multifile_window.exec()
 
     def create_export_window(self):
         self.export_window = ExportVideoWindow(self)

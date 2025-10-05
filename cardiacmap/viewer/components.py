@@ -201,6 +201,16 @@ class Spinbox(pg.SpinBox):
     def resetMax(self, max):
         self.setMaximum(max)
 
+
+def LargeFilePopUp(self, tLen, maxFrames):
+    print("Max Possible Frames:", maxFrames)
+
+    dialog = FrameInputDialog(tLen, maxFrames, self)
+    if dialog.exec() == QDialog.Accepted:
+        return dialog.getValues()
+    else:
+        return None, None
+
 class FrameInputDialog(QDialog):
     def __init__(self, tLen, maxFrames, parent=None):
         super(FrameInputDialog, self).__init__(parent)
