@@ -161,6 +161,8 @@ class CardiacMap(QMainWindow):
 
         self.load_saved_signal = QAction("Load Saved Signal")
         self.load_saved_signal.triggered.connect(self.load_preprocessed)
+        self.load_mat = QAction("Load MATLAB signal")
+        self.load_mat.triggered.connect(self.import_matlab)
 
         self.save_signal = QAction("Save Signal Object")
         self.save_signal.triggered.connect(self.save_preprocessed)
@@ -183,6 +185,7 @@ class CardiacMap(QMainWindow):
         self.file_menu.addAction(self.load_scimedia_single)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_saved_signal)
+        self.file_menu.addAction(self.load_mat)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.save_signal)
         self.file_menu.addSeparator()
@@ -205,10 +208,6 @@ class CardiacMap(QMainWindow):
         self.windows_menu.addAction(self.isochrone)
         self.windows_menu.addAction(self.fft)
 
-        # # TODO: Transforms Menu
-        # self.transforms_menu.addAction("Spatial Average")
-        # self.transforms_menu.addAction("Time Average")
-
         # Help Menu
         self.help = self.menubar.addAction("Help")
         self.help.triggered.connect(self.load_help)
@@ -229,7 +228,7 @@ class CardiacMap(QMainWindow):
             self.title + " – VizCOM" if self.title else "VizCOM"
         )
 
-        if self.signal:
+        if self.signal is not None:
 
             self.x, self.y = INITIAL_POSITION
 
@@ -475,10 +474,30 @@ class CardiacMap(QMainWindow):
             "MAT binary (*.mat);;All Files (*)",
         )
         if filepath:
-            # update import directory
+            # update export directory
             dirs.exportDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
             scipy.io.savemat(filepath, {'data': self.signal.transformed_data[start_frame:end_frame]})
+
+    def import_matlab(self):
+        dirs = ImportExportDirectories() # get import directory
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importing MATLAB binary",
+            dirs.importDir,
+            "MAT binary (*.mat);;All Files (*)",
+        )
+        if filepath:
+            filename = os.path.split(filepath)[-1]
+            # update import directory
+            dirs.importDir = filepath[:filepath.rindex("/") + 1]
+            dirs.SaveDirectories()
+            data = scipy.io.loadmat(filepath)["data"]
+            data = np.transpose(data, axes=(0,2, 1))
+            emptyMetadata = {"span_T": 0, "span_X": 0, "span_Y": 0, "file_metadata": 0, "datetime": 0, "framerate": 0, "filename": filename}
+            signal = CardiacSignal(signal=data, metadata=emptyMetadata, channel="Single")
+            self.create_viewer(signal, filename)
+
     
 
     # TODO: Fix scroll / header issue here
@@ -525,7 +544,6 @@ class CardiacMap(QMainWindow):
         load signal in current window"""
 
         if self.signal:
-
             viewer = CardiacMap(signal, title)
             viewer.show()
 
