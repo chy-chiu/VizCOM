@@ -63,7 +63,7 @@ class InstructionWidget(QWidget):
         self.cbox.addItems(["Trim","Time Average","Spatial Average", "Baseline Drift Removal", "Normalize Peaks", "Normalize Signal", "Invert"])
 
         self.avgModeCBox = QComboBox()
-        self.avgModeCBox.addItems(["Gaussian", "Uniform", "Butterworth"])
+        self.avgModeCBox.addItems(["Gaussian", "Uniform"])
 
         self.normModeCBox = QComboBox()
         self.normModeCBox.addItems(["Per-Pixel", "Global"])

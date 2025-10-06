@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QFileDialog
 )
+
 from cardiacmap.viewer.components import Spinbox
 from scipy.io import savemat
 
@@ -115,7 +116,6 @@ class ExportAPDsWindow(QMainWindow):
         if file_path:
             dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
             dirs.SaveDirectories()
-            print(dirs.exportDir)
             if self.file_ext == ".npy":
                 np.save(file_path, output)
             else:
@@ -167,12 +167,13 @@ class ExportVideoWindow(QMainWindow):
         self.parent = parent
         self.ms = parent.signal_panel.ms_per_frame.value()
         self.mask = parent.signal.mask
+        self.overlay = None
         self.setWindowTitle("Export Video")
 
-        central_widget = QWidget()
-        layout = QVBoxLayout()
-
-        self.image_item = pg.ImageItem(self.parent.signal.transformed_data[0] * self.mask)
+        self.init_options()
+        self.cm = pg.colormap.get("nipy_spectral", source="y")
+        self.image_item = pg.ImageItem()
+        self.update_keyframe()
         self.plot_item = pg.PlotItem()
         self.image_view = pg.ImageView(view=self.plot_item, imageItem=self.image_item)
         self.image_view.view.enableAutoRange(enable=True)
@@ -192,26 +193,14 @@ class ExportVideoWindow(QMainWindow):
         self.image_view.view.invertY(True)
         self.image_view.setMinimumWidth(380)
         self.image_view.setMinimumHeight(500)
+        self.image_view.setColorMap(self.cm)
 
-        self.image_view.view
-
-        cm = pg.colormap.get("nipy_spectral", source="y")
-        self.image_view.setColorMap(cm)
-
-        self.colorbar = self.plot_item.addColorBar(
-            self.image_item,
-            colorMap=cm,
-            values=(0, 1),
-            rounding=0.05,
-        )
-
+        layout = QVBoxLayout()
         layout.addWidget(self.image_view)
-
-        self.init_options()
         layout.addWidget(self.options_widget)
 
+        central_widget = QWidget()
         central_widget.setLayout(layout)
-
         self.setCentralWidget(central_widget)
 
     def init_options(self):
@@ -219,6 +208,8 @@ class ExportVideoWindow(QMainWindow):
         layout = QVBoxLayout()
         self.options_1 = QToolBar()
         self.options_2 = QToolBar()
+        self.options_3 = QToolBar()
+        self.options_4 = QToolBar()
         self.actions_bar = QToolBar()
         
         self.start_time = Spinbox(
@@ -245,18 +236,53 @@ class ExportVideoWindow(QMainWindow):
             min_width=60,
             max_width=60,
         )
+
+        self.rotation = Spinbox(min=0, max=359, val=0, step=1, min_width=60, max_width=60)
+        self.rotation.valueChanged.connect(self.update_keyframe)
+        self.xShift = Spinbox(min=0, max=500, val=0, step=1, min_width=60, max_width=60)
+        self.xShift.valueChanged.connect(self.update_keyframe)
+        self.yShift = Spinbox(min=0, max=500, val=0, step=1, min_width=60, max_width=60)
+        self.yShift.valueChanged.connect(self.update_keyframe)
+        self.xScale = Spinbox(min=.1, max=2, val=1, step=.1, min_width=60, max_width=60)
+        self.xScale.valueChanged.connect(self.update_keyframe)
+        self.yScale = Spinbox(min=.1, max=2, val=1, step=.1, min_width=60, max_width=60)
+        self.yScale.valueChanged.connect(self.update_keyframe)
+
+        self.overlay_threshold = Spinbox(min=0, max=1, val=.5, step=.1, min_width=60, max_width=60)
+        self.overlay_threshold.valueChanged.connect(self.update_keyframe)
         
-        self.use_color = QCheckBox()
+        #self.use_color = QCheckBox()
+        self.use_overlay = QPushButton("Add Overlay Image")
+        self.use_overlay.clicked.connect(self.load_overlay_image)
+
         self.options_1.addWidget(QLabel("Start Time: "))
         self.options_1.addWidget(self.start_time)
         self.options_1.addWidget(QLabel("End Time: "))
         self.options_1.addWidget(self.end_time)
-        self.options_2.addWidget(QLabel("FPS: "))
-        self.options_2.addWidget(self.fps)
-        self.options_2.addWidget(QLabel("Use Color: "))
-        self.options_2.addWidget(self.use_color)
+
+        self.options_1.addWidget(QLabel("FPS: "))
+        self.options_1.addWidget(self.fps)
+        #self.options_2.addWidget(QLabel("Use Color: "))
+        self.options_2.addWidget(self.use_overlay)
+
+        self.options_3.addWidget(QLabel("Rotation: "))
+        self.options_3.addWidget(self.rotation)
+        self.options_3.addWidget(QLabel("X Scale: "))
+        self.options_3.addWidget(self.xScale)
+        self.options_3.addWidget(QLabel("Y Scale: "))
+        self.options_3.addWidget(self.yScale)
+
+        self.options_4.addWidget(QLabel("X Shift: "))
+        self.options_4.addWidget(self.xShift)
+        self.options_4.addWidget(QLabel("Y Shift: "))
+        self.options_4.addWidget(self.yShift)
+        self.options_4.addWidget(QLabel("Threshold: "))
+        self.options_4.addWidget(self.overlay_threshold)
+
         self.options_1.setStyleSheet(QTOOLBAR_STYLE)
         self.options_2.setStyleSheet(QTOOLBAR_STYLE)
+        self.options_3.setStyleSheet(QTOOLBAR_STYLE)
+        self.options_4.setStyleSheet(QTOOLBAR_STYLE)
 
         self.start_time.valueChanged.connect(self.update_keyframe)
 
@@ -270,16 +296,114 @@ class ExportVideoWindow(QMainWindow):
         layout.addSpacing(5)
         layout.addWidget(self.options_2)
         layout.addSpacing(5)
+        layout.addWidget(self.options_3)
+        layout.addSpacing(5)
+        layout.addWidget(self.options_4)
+        layout.addSpacing(5)
         layout.addWidget(self.actions_bar)
+
+        self.options_3.hide()
+        self.options_4.hide()
 
         self.options_widget.setLayout(layout)
 
-    def update_keyframe(self, i):
-        self.image_item.setImage(
-            self.parent.signal.transformed_data[int(i // self.ms)] * self.mask,
-            autoLevels=False,
-            autoRange=False,
-        )
+    def update_keyframe(self):
+        output = np.zeros((128,128, 3))
+        i = self.start_time.value()
+        data = self.parent.signal.transformed_data[int(i // self.ms)] * self.mask
+        intData = data * 511
+        intData = intData.astype(np.uint16)
+        intData = np.swapaxes(intData, 0, 1) # swap xs and ys (OpenCV)
+        lut = self.cm.getLookupTable()
+        intData = np.take(lut, intData, axis=0)
+        if self.overlay is not None:
+            h, w = self.overlay.shape[:2]
+            scaledH = int(h * self.yScale.value())
+            scaledW = int(w * self.xScale.value())
+            # resize output
+            if scaledW < 128:
+                scaledW = 128
+            if scaledH < 128:
+                scaledH = 128
+            output = np.zeros((scaledW,scaledH, 3))
+
+            # apply transformations
+            M = cv2.getRotationMatrix2D((w//2, h//2), self.rotation.value(), 1)
+            img = self.overlay
+            img = cv2.warpAffine(img, M, (w, h))
+            img = cv2.resize(img, (scaledW, scaledH))
+
+            # add overlayed image to output
+            output[0: len(img[0]), 0: len(img), :] = img.swapaxes(0,1)[:, :, :]
+
+            # use shift values
+            tooWide = (int(self.xShift.value()) + 128 > scaledW)
+            tooTall = (int(self.yShift.value()) + 128 > scaledH)
+            if tooWide:
+                xs = int(scaledW - 128)
+            else:
+                xs = int(self.xShift.value())
+            if tooTall:
+                ys = int(scaledH - 128)
+            else:
+                ys = int(self.yShift.value())
+
+            # hide data below threshold
+            transparent = np.argwhere(data < self.overlay_threshold.value())
+            intData[transparent[:, 1], transparent[:, 0], :] = img[ys + transparent[:, 1], xs + transparent[:, 0], :]
+        # no overlay
+        else:
+            # ignore shift values
+            xs = ys = 0
+
+        output[xs: xs+128, ys: ys+128] = intData.swapaxes(0,1)
+        self.image_item.setImage(output)
+
+    def generate_overlay_video(self, data):
+        output = np.zeros((128,128, 3))
+        intData = data * 511
+        intData = intData.astype(np.uint16)
+        intData = np.swapaxes(intData, 1, 2) # swap xs and ys (OpenCV)
+        lut = self.cm.getLookupTable()
+        intData = np.take(lut, intData, axis=0)
+        h, w = self.overlay.shape[:2]
+        scaledH = int(h * self.yScale.value())
+        scaledW = int(w * self.xScale.value())
+        # resize output
+        if scaledW < 128:
+            scaledW = 128
+        if scaledH < 128:
+            scaledH = 128
+        output = np.zeros((len(intData), scaledW,scaledH, 3))
+
+        # transform overlay
+        M = cv2.getRotationMatrix2D((w//2, h//2), self.rotation.value(), 1)
+        img = self.overlay
+        img = cv2.warpAffine(img, M, (w, h))
+        img = cv2.resize(img, (scaledW, scaledH))
+
+        # add overlayed image to output
+        output[:, 0: len(img[0]), 0: len(img), :] = img.swapaxes(0,1)[:, :, :]
+
+        # use shift values
+        tooWide = (int(self.xShift.value()) + 128 > scaledW)
+        tooTall = (int(self.yShift.value()) + 128 > scaledH)
+        if tooWide:
+            xs = int(scaledW - 128)
+        else:
+            xs = int(self.xShift.value())
+        if tooTall:
+            ys = int(scaledH - 128)
+        else:
+            ys = int(self.yShift.value())
+
+        for i in range(len(intData)):
+            # hide data below threshold
+            transparent = np.argwhere(data[i] < self.overlay_threshold.value())
+            intData[i, transparent[:, 1], transparent[:, 0], :] = img[ys + transparent[:, 1], xs + transparent[:, 0], :]
+            output[i, xs: xs+128, ys: ys+128] = intData[i].swapaxes(0,1)
+
+        return output
         
     def export_video(self):
         # slice data and apply mask
@@ -288,27 +412,29 @@ class ExportVideoWindow(QMainWindow):
         if e_frame <= s_frame:
             e_frame = len(self.parent.signal.transformed_data)
         data = self.parent.signal.transformed_data[s_frame: e_frame] * self.mask
-        
+
         # set params
         fps = self.fps.value()
-        color = self.use_color.isChecked()
+        color = True # self.use_color.isChecked()
         filename = self.parent.signal.signal_name
         
         if filename[-4:] != ".avi":
             filename = str(filename) + ".avi"
 
         fourCC = cv2.VideoWriter_fourcc(*'MJPG')
-        intData = data * 511
-        intData = intData.astype(np.uint16)
-        intData = np.swapaxes(intData, 1, 2) # swap xs and ys (OpenCV)
+        if self.overlay is not None:
+            video = self.generate_overlay_video(data).astype(np.uint8)
+            outShape = video.shape[1:3]
+        else:
+            intData = data * 511
+            intData = intData.astype(np.uint16)
+            intData = np.swapaxes(intData, 1, 2) # swap xs and ys (OpenCV)
     
-        outShape = intData[0].shape
-        if color:
-            lut = self.image_item.getColorMap().getLookupTable()
-            lut = np.flip(lut, 0)
-            intData = np.take(lut, intData, axis=0)
-            outShape = intData[0].shape[:2]
-            print("WITH COLOR")
+            outShape = intData[0].shape
+            if color:
+                lut = self.cm.getLookupTable()
+                intData = np.take(lut, intData, axis=0)
+                outShape = intData[0].shape[:2]
         
         dirs = ImportExportDirectories() # get export directory
         file_path, _ = QFileDialog.getSaveFileName(
@@ -317,15 +443,29 @@ class ExportVideoWindow(QMainWindow):
         if file_path:
             dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
             dirs.SaveDirectories()
-            print(dirs.exportDir)
             out = cv2.VideoWriter(file_path, fourCC, fps, outShape, isColor=color)
             for i in range(len(data)):
-                frame = intData[i]
+                if self.overlay is not None:
+                    frame = video[i].swapaxes(0, 1)[:, :, ::-1]
+                else:
+                    frame = intData[i]
                 out.write(frame)
             
             print(filename, "exported at", fps, "fps")
-            
             out.release()
+
+    def load_overlay_image(self):
+        dirs = ImportExportDirectories() # get export directory
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Overlay Image", dirs.importDir, "JPG (*.jpg);;All Files (*)"
+        )
+        self.overlay = cv2.imread(file_path)[...,::-1] #BGR to RGB
+        self.update_keyframe()
+        self.image_view.view.autoRange()
+        self.xShift.setValue(self.overlay.shape[1]//2 - 64)
+        self.yShift.setValue(self.overlay.shape[0]//2 - 64)
+        self.options_3.show()
+        self.options_4.show()
 
 def export_histogram(data, binSize = 1, filename=""):
     bins = np.arange(np.floor(data.min()), np.ceil(data.max()), binSize)
@@ -340,6 +480,5 @@ def export_histogram(data, binSize = 1, filename=""):
     if file_path:
         dirs.exportDir = file_path[:file_path.rindex("/") + 1] # update export directory
         dirs.SaveDirectories()
-        print(dirs.exportDir)
         np.savetxt(file_path, output, delimiter=",", fmt="%.2f")
         print("Saved histogram data to: ", file_path)
