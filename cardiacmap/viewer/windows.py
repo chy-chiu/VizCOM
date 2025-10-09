@@ -421,7 +421,6 @@ class CardiacMap(QMainWindow):
                     # repopulate data fields
                     signal.transformed_data = signal.base_data
                     signal.previous_transform = signal.base_data
-                print(signal.transformed_data)
                 self.create_viewer(signal, os.path.split(filepath)[-1])
 
     def save_preprocessed(self):
@@ -437,7 +436,7 @@ class CardiacMap(QMainWindow):
             dirs.exportDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
             with open(filepath, "wb") as f:
-                print(self.signal.transformed_data)
+                #print(self.signal.transformed_data)
                 signal_copy = copy.deepcopy(self.signal)
                 signal_copy.base_data = signal_copy.transformed_data
                 # empty these copies to save space
@@ -612,7 +611,7 @@ class CardiacMap(QMainWindow):
     def signal_transform(
         self,
         transform: Literal[
-            "spatial_average", "time_average", "trim", "normalize", "reset", "invert"
+            "spatial_average", "time_average", "butterworth", "trim", "normalize", "reset", "invert"
         ],
         update_progress=None,
     ):
@@ -658,7 +657,14 @@ class CardiacMap(QMainWindow):
                 normalize_global = self.settings.child("Normalize").child("Mode").value()
                 normalize_global = True if normalize_global == "Global" else False
                 self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
-
+        
+        elif transform == "butterworth":
+            order = self.settings.child("Butterworth Filter").child("Order").value()
+            low = self.settings.child("Butterworth Filter").child("Low Cutoff").value()
+            high = self.settings.child("Butterworth Filter").child("High Cutoff").value()
+            
+            self.signal.butterworth(order, low, high, self.ms)
+            
         elif transform == "trim":
             left = start_frame
             right = max(len(self.signal.transformed_data) - end_frame, 1)

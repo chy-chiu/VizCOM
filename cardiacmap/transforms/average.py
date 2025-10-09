@@ -3,8 +3,7 @@ import concurrent.futures as cf
 import numpy as np
 import numpy.ma as ma
 from scipy.ndimage import gaussian_filter, uniform_filter
-
-import time
+from scipy.signal import butter, sosfilt
 
 
 def TimeAverage(arr, sigma, radius, mask=None, mode="Uniform"):
@@ -81,3 +80,29 @@ def SpatialAverage(arr, sigma, radius, mask=None, mode="Gaussian"):
     data = maskedData / ma.array(maskWeights, mask = maskWeights==0)
 
     return ma.getdata(data) * mask
+
+def ButterworthFilter(arr, order, low, high, ms=2, mask = None):
+    """ Function to perform high-pass, low-pass, or band-pass butterworth filter along the time axis
+    Args:
+        Order: order of the filter
+        Low: lowest frequency allowed by the band-pass filter. If High = 0, then used for high-pass filter
+        High: highest frequency allowed by the band-pass filter. If Low = 0, then used for low-pass filter
+    """
+    fs = int(1000 / ms)
+    if low != 0  and high != 0:
+        sos = butter(order, [low, high], btype="bandpass", fs=fs, output="sos")
+        #print("bandpass: ", order, low, high)
+    elif low != 0:
+        sos, a = butter(order, low, btype="highpass", fs=fs, output="sos")
+        #print("highpass: ", order, low)
+    elif high != 0:
+        sos = butter(order, high, btype="lowpass", fs=fs, output="sos")
+        #print("lowpass: ", order, high)
+    else:
+        print("Error: Invalid Arguments; either High or Low must be non-zero")
+        return arr
+
+    output = sosfilt(sos, arr, axis = 0)
+
+    arr = output
+    return arr

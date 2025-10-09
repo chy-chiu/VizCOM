@@ -4,6 +4,7 @@ from typing import Dict, List, Literal, Tuple
 import numpy as np
 
 from cardiacmap.transforms import (
+    ButterworthFilter,
     FFT,
     InvertSignal,
     NormalizeData,
@@ -126,6 +127,9 @@ class CardiacSignal:
             self.transformed_data[start:end] = SpatialAverage(
                 self.transformed_data[start:end], sig, rad, self.mask, mode
             )
+
+    def butterworth(self, order, low, high, ms):
+        self.transformed_data = ButterworthFilter(self.transformed_data, order, low, high, ms, self.mask)
 
     def invert_data(self):
         self.transformed_data = InvertSignal(self.transformed_data)

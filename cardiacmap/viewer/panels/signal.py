@@ -215,6 +215,10 @@ class SignalPanel(QWidget):
         time_average = ParameterButton(
             "Time Average", self.settings.child("Time Average")
         )
+        butterworth = ParameterButton(
+            "Butterworth Filter", self.settings.child("Butterworth Filter")
+        )
+
         spatial_average = ParameterButton(
             "Spatial Average", self.settings.child("Spatial Average")
         )
@@ -264,6 +268,9 @@ class SignalPanel(QWidget):
         time_average.pressed.connect(
             partial(self.parent.signal_transform, transform="time_average")
         )
+        butterworth.pressed.connect(
+            partial(self.parent.signal_transform, transform="butterworth")
+        )
         normalize.pressed.connect(
             partial(self.parent.signal_transform, transform="normalize")
         )
@@ -299,6 +306,7 @@ class SignalPanel(QWidget):
         self.transform_bar.addWidget(normalize)
         self.transform_bar.addWidget(time_average)
         self.transform_bar.addWidget(spatial_average)
+        self.transform_bar.addWidget(butterworth)
         self.transform_bar.addWidget(self.baseline_drift)
         self.transform_bar.addWidget(self.normalize_peaks)
 

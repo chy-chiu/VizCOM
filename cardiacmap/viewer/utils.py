@@ -50,6 +50,11 @@ DEFAULT_VALUES = {
             "limits": ["Gaussian", "Uniform"],
         },
     ],
+    "Butterworth Filter": [
+        {"name": "Order", "type": "int", "value": 1, "limits": (0, 10)},
+        {"name": "Low Cutoff", "type": "int", "value": 0, "limits": (0, 500)},
+        {"name": "High Cutoff", "type": "int", "value": 50, "limits": (0, 500)},
+    ],
     "Trim Parameters": [
         {"name": "Left", "type": "int", "value": 100, "limits": (0, 100000)},
         {"name": "Right", "type": "int", "value": 100, "limits": (0, 100000)},
