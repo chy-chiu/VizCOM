@@ -1,5 +1,7 @@
 import pickle
 import os
+import numpy as np
+import scipy
 import pyqtgraph as pg
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -16,10 +18,15 @@ from PySide6.QtWidgets import (
 from cardiacmap.viewer.export import ImportExportDirectories
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.scimedia import load_scimedia_data
+from cardiacmap.model.data import CardiacSignal
+from cardiacmap.transforms.transforms import FFT
+from cardiacmap.transforms.apd import GetThresholdIntersections
 
 from cardiacmap.viewer.components import FrameInputDialog, LargeFilePopUp
 
 from cardiacmap.viewer.utils import load_settings, save_settings
+
+from cardiacmap.viewer.export import ExportAPDsWindow
 
 
 class ParameterWidget(QWidget):
@@ -34,14 +41,22 @@ class FileWidget(QWidget):
         self.delButton = QPushButton("X")
         self.delButton.setMaximumSize(20, 20)
         self.delButton.clicked.connect(self.delete)
+        self.fileMode = QComboBox()
+        self.fileMode.addItems(["Single Channel", "Dual Channel"])
+        self.fileMode.currentIndexChanged.connect(self.toggleEditModeBox)
+        self.editMode = QComboBox()
+        self.editMode.addItems(["Edit Both", "Edit Voltage", "Edit Calcium"])
         self.status = QLabel("                                  ") # empty label allows for progress updates
 
         self.layout = QHBoxLayout()
         self.layout.addWidget(self.delButton)
         self.layout.addWidget(self.label)
+        self.layout.addWidget(self.fileMode)
+        self.layout.addWidget(self.editMode)
         self.layout.addStretch(10)
         self.layout.addWidget(self.status)
         self.setLayout(self.layout)
+        self.editMode.hide()
 
     def delete(self):
         self.parent.delete_file(self)
@@ -49,8 +64,18 @@ class FileWidget(QWidget):
         self.delButton.destroy()
         self.label.setParent(None)
         self.label.destroy()
+        self.fileMode.setParent(None)
+        self.fileMode.destroy()
+        self.editMode.setParent(None)
+        self.editMode.destroy()
         self.setLayout(None)
         self.destroy()
+
+    def toggleEditModeBox(self):
+        if self.fileMode.currentIndex() == 1:
+            self.editMode.show()
+        else:
+            self.editMode.hide()
 
 class InstructionWidget(QWidget):
     def __init__(self, parent, settings):
@@ -60,13 +85,19 @@ class InstructionWidget(QWidget):
         self.hlayout = QHBoxLayout()
 
         self.cbox = QComboBox()
-        self.cbox.addItems(["Trim","Time Average","Spatial Average", "Baseline Drift Removal", "Normalize Peaks", "Normalize Signal", "Invert"])
+        self.cbox.addItems(["Trim","Time Average","Spatial Average", 
+                            "Baseline Drift Removal", "Normalize Peaks", 
+                            "Normalize Signal", "Invert", "APD/DI"])
 
         self.avgModeCBox = QComboBox()
         self.avgModeCBox.addItems(["Gaussian", "Uniform"])
 
         self.normModeCBox = QComboBox()
         self.normModeCBox.addItems(["Per-Pixel", "Global"])
+
+        self.apdSaveCbox = QComboBox()
+        self.apdSaveCbox.addItems(["Numpy (.npy)", "MatLAB (.mat)"])
+
 
         self.hlayout.addWidget(self.cbox)               # 0
         self.hlayout.addWidget(QLabel("Trim Start:"))   # 1
@@ -89,8 +120,14 @@ class InstructionWidget(QWidget):
         self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Threshold").value()))       # 18
         self.hlayout.addWidget(QLabel("Mode:"))         # 19
         self.hlayout.addWidget(self.normModeCBox)       # 20
+        self.hlayout.addWidget(QLabel("Threshold:"))    # 21
+        self.hlayout.addWidget(MinWidthSpinbox(.5))     # 22
+        self.hlayout.addWidget(QLabel("Min Spacing:"))  # 23
+        self.hlayout.addWidget(MinWidthSpinbox(15))     # 24
+        self.hlayout.addWidget(QLabel("Save As:"))      # 25
+        self.hlayout.addWidget(self.apdSaveCbox)        # 26
         self.hlayout.addStretch(10)
-        self.paramsList = [[1, 5], [5, 11], [5, 11], [11, 19], [11, 19], [19, 21], [0, 0]] # indicies of needed parameters
+        self.paramsList = [[1, 5], [5, 11], [5, 11], [11, 19], [11, 19], [19, 21], [0, 0], [21, 27]] # indicies of needed parameters
 
         self.setLayout(self.hlayout)
         
@@ -149,10 +186,14 @@ class MultipleFilesWindow(QDialog):
         self.confirm_button.clicked.connect(self.process_multiple_files)
 
         self.file_suffix = QLineEdit("_processed")
+
+        self.saveAs = QComboBox()
+        self.saveAs.addItems([".signal", ".mat"])
         
         suffix_layout = QHBoxLayout()
         suffix_layout.addWidget(QLabel("Saved File Suffix:"))
         suffix_layout.addWidget(self.file_suffix)
+        suffix_layout.addWidget(self.saveAs)
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(QLabel("Files:"))
@@ -197,14 +238,15 @@ class MultipleFilesWindow(QDialog):
 
     def process_multiple_files(self):
         for i in range(len(self.file_list)):
+            s2 = False # flag to track second signal
             file_item = self.file_list_layout.itemAt(i).widget()
             # load file
             file_item.status.setText("Loading File...")
             self.repaint()
-
             filepath = self.file_list[i]
             file_ext = filepath[filepath.rindex(".") + 1:]
             filename = os.path.split(filepath)[-1]
+            savedFilename = filepath[:filepath.rindex(".")] + str(self.file_suffix.text())
 
             if file_ext == "signal":
                 with open(filepath, "rb") as f:
@@ -215,11 +257,34 @@ class MultipleFilesWindow(QDialog):
                         signal.previous_transform = signal.base_data
 
             elif file_ext == "dat":
-                signal = load_cascade_file(filepath, LargeFilePopUp, False)[0]
+                if file_item.fileMode.currentIndex() == 1:
+                    signals = load_cascade_file(filepath, LargeFilePopUp, True)
+                    signal = signals[0]
+                    signal_2 = signals[1]
+                    if file_item.editMode.currentIndex() > 0:
+                        # determine which is V and Ca
+                        s1FFT = FFT(signal.transformed_data[:, 64, 64])
+                        s2FFT =  FFT(signal_2.transformed_data[:, 64, 64])
+                        if s1FFT[0:10].sum() > s2FFT[0:10].sum():
+                            #s2 is voltage
+                            if file_item.editMode.currentIndex() == 1: # edit voltage
+                                signal = signal_2
+                        else:
+                            # s1 is voltage
+                            if file_item.editMode.currentIndex() == 2: # edit calcium
+                                signal = signal_2
+                    else:
+                        # edit both
+                        s2 = True
+                else: 
+                    signal = load_cascade_file(filepath, LargeFilePopUp, False)[0]
             elif file_ext == "gsd":
                 signal = load_scimedia_data(filepath, LargeFilePopUp)[0]
             elif file_ext == "mat":
-                print("MatLab format not yet supported.")
+                data = scipy.io.loadmat(filepath)["data"]
+                data = np.transpose(data, axes=(0,2, 1))
+                emptyMetadata = {"span_T": 0, "span_X": 0, "span_Y": 0, "file_metadata": 0, "datetime": 0, "framerate": 0, "filename": filename}
+                signal = CardiacSignal(signal=data, metadata=emptyMetadata, channel="Single")
             else: print("Error loading file: skipping " + filename + "...")
 
             # perform each instruction on the file
@@ -239,6 +304,8 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Trimming...")
                         self.repaint()
                         signal.trim_data(int(left_trim), int(right_trim))
+                        if s2:
+                            signal_2.trim_data(int(left_trim), int(right_trim))
                     case 1:
                         m = widget.paramsList[operation][0] + 1
                         s = widget.paramsList[operation][0] + 3
@@ -254,6 +321,8 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Time Averaging...")
                         self.repaint()
                         signal.perform_average("time", sigma, int(radius), mode)
+                        if s2:
+                            signal_2.perform_average("time", sigma, int(radius), mode)
                     case 2:
                         m = widget.paramsList[operation][0] + 1
                         s = widget.paramsList[operation][0] + 3
@@ -269,6 +338,8 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Spatial Averaging...")
                         self.repaint()
                         signal.perform_average("spatial", sigma, int(radius), mode)
+                        if s2:
+                            signal_2.perform_average("spatial", sigma, int(radius), mode)
                     case 3:
                         a = widget.paramsList[operation][0] + 1
                         p = widget.paramsList[operation][0] + 3
@@ -285,6 +356,8 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Removing Drift...")
                         self.repaint()
                         signal.remove_baseline(paramDict)
+                        if s2:
+                            signal_2.remove_baseline(paramDict)
                     case 4:
                         a = widget.paramsList[operation][0] + 1
                         p = widget.paramsList[operation][0] + 3
@@ -301,6 +374,8 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Normalizing Peaks...")
                         self.repaint()
                         signal.remove_baseline(paramDict, peaks=True)
+                        if s2:
+                            signal_2.remove_baseline(paramDict, peaks=True)
                     case 5:
                         m = widget.paramsList[operation][0] + 1
                         modeCombo: QComboBox = widget.hlayout.itemAt(m).widget()
@@ -309,20 +384,84 @@ class MultipleFilesWindow(QDialog):
                         file_item.status.setText("Normalizing Signal...")
                         self.repaint()
                         signal.normalize(globalMode)
+                        if s2:
+                            signal_2.normalize(globalMode)
                     case 6:
                         file_item.status.setText("Inverting Signal...")
                         self.repaint()
                         signal.invert_data()
+                        if s2:
+                            signal_2.invert_data()
+                    case 7:
+                        t = widget.paramsList[operation][0] + 1
+                        s = widget.paramsList[operation][0] + 3
+                        o = widget.paramsList[operation][0] + 5
+                        threshold = widget.hlayout.itemAt(t).widget().value()
+                        spacing = widget.hlayout.itemAt(s).widget().value()
+                        output = widget.hlayout.itemAt(o).widget().currentIndex()
+                        file_item.status.setText("Calculating APDs...")
+                        self.repaint()
+                        apds, dis, offsets = GetThresholdIntersections(signal.transformed_data, threshold, spacing)
+                        apdDiOutput = np.zeros((len(apds[0]) + len(dis[0]) + 1, 128, 128))
+                        apdDiOutput[0] = offsets
+                        apdDiOutput[1::2] = dis[0]
+                        apdDiOutput[2::2] = apds[0]
+                        if output == 1:
+                            scipy.io.savemat(savedFilename + "_APD-DI.mat", 
+                                     {'data': apdDiOutput})
+                        else:
+                            np.save(savedFilename + "_APD-DI.npy", apdDiOutput)
+                        if s2:
+                            apds, dis, offsets = GetThresholdIntersections(signal_2.transformed_data, threshold, spacing)
+                            apdDiOutput = np.zeros((len(apds[0]) + len(dis[0]) + 1, 128, 128))
+                            apdDiOutput[0] = offsets
+                            apdDiOutput[1::2] = dis[0]
+                            apdDiOutput[2::2] = apds[0]
+                            if output == 1:
+                                scipy.io.savemat(savedFilename + "_even_APD-DI.mat", 
+                                         {'data': apdDiOutput})
+                            else:
+                                np.save(savedFilename + "_even_APD-DI.npy", apdDiOutput)
                     case _:
                         print("Error")
-            # save file
-            with open(filepath[:filepath.rindex(".")] + str(self.file_suffix.text()) + ".signal", "wb") as f:
-                signal.base_data = signal.transformed_data
-                # empty these copies to save space
-                signal.transformed_data = None
-                signal.previous_transform = None
-                pickle.dump(signal, f)
+
+            # save as .signal
+            
+            if self.saveAs.currentIndex == 1:
+                if s2:
+                    with open(savedFilename + "_odd.signal", "wb") as f:
+                        signal.base_data = signal.transformed_data
+                        # empty these copies to save space
+                        signal.transformed_data = None
+                        signal.previous_transform = None
+                        pickle.dump(signal, f)
+                    with open(savedFilename + "_even.signal", "wb") as f:
+                        signal_2.base_data = signal_2.transformed_data
+                        # empty these copies to save space
+                        signal_2.transformed_data = None
+                        signal_2.previous_transform = None
+                        pickle.dump(signal_2, f)
+                else:
+                    with open(savedFilename + ".signal", "wb") as f:
+                        signal.base_data = signal.transformed_data
+                        # empty these copies to save space
+                        signal.transformed_data = None
+                        signal.previous_transform = None
+                        pickle.dump(signal, f)
+            # save as .mat
+            else:
+                if s2:
+                    scipy.io.savemat(savedFilename + "_odd.mat", 
+                                     {'data': signal.transformed_data})
+                    scipy.io.savemat(savedFilename + "_even.mat", 
+                                     {'data': signal_2.transformed_data})
+                else:
+                    scipy.io.savemat(savedFilename + ".mat", 
+                                     {'data': signal.transformed_data})
             file_item.status.setText("Done!")
             self.repaint()
+
+
+
 
 
