@@ -52,8 +52,8 @@ DEFAULT_VALUES = {
     ],
     "Butterworth Filter": [
         {"name": "Order", "type": "int", "value": 1, "limits": (0, 10)},
-        {"name": "Low Cutoff", "type": "int", "value": 0, "limits": (0, 100000)},
-        {"name": "High Cutoff", "type": "int", "value": 50, "limits": (0, 100000)},
+        {"name": "Low Cutoff", "type": "float", "value": 0, "limits": (0, 100000)},
+        {"name": "High Cutoff", "type": "float", "value": 50, "limits": (0, 100000)},
     ],
     "Trim Parameters": [
         {"name": "Left", "type": "int", "value": 100, "limits": (0, 100000)},

@@ -91,13 +91,13 @@ def ButterworthFilter(arr, order, low, high, ms=2, mask = None):
     fs = int(1000 / ms)
     if low != 0  and high != 0:
         sos = butter(order, [low, high], btype="bandpass", fs=fs, output="sos")
-        #print("bandpass: ", order, low, high)
+        print("Bandpass: ", low, "-", high, "Hz")
     elif low != 0:
         sos, a = butter(order, low, btype="highpass", fs=fs, output="sos")
-        #print("highpass: ", order, low)
+        print("Highpass: ", low, "Hz")
     elif high != 0:
         sos = butter(order, high, btype="lowpass", fs=fs, output="sos")
-        #print("lowpass: ", order, high)
+        print("Lowpass: ", high, "Hz")
     else:
         print("Error: Invalid Arguments; either High or Low must be non-zero")
         return arr
