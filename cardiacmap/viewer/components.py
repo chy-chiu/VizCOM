@@ -202,10 +202,10 @@ class Spinbox(pg.SpinBox):
         self.setMaximum(max)
 
 
-def LargeFilePopUp(self, tLen, maxFrames):
+def LargeFilePopUp(tLen, maxFrames):
     print("Max Possible Frames:", maxFrames)
 
-    dialog = FrameInputDialog(tLen, maxFrames, self)
+    dialog = FrameInputDialog(tLen, maxFrames)
     if dialog.exec() == QDialog.Accepted:
         return dialog.getValues()
     else:
@@ -288,10 +288,7 @@ def large_file_check(filepath, _callback, fileLen):
         maxFrames = int(
             (freeMem * 0.5) / 1040000
         )  # AGAIN, VERY ROUGH ESTIMATE BASED ON 5k FRAMES @ 650MB
-        print(maxFrames)
-        start, end = _callback(
-            fileLen, maxFrames
-        )  # pauses execution until popup is closed
+        start, end = _callback(fileLen, maxFrames)  # pauses execution until popup is closed
 
         print(start, end)
 
