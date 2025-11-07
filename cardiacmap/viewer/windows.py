@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from cardiacmap.model.cascade import load_cascade_file
 from cardiacmap.model.scimedia import load_scimedia_data
 from cardiacmap.model.sql import load_sql_file
+from cardiacmap.model.mkv import load_mkv_file
 from cardiacmap.model.data import CardiacSignal
 
 from cardiacmap.viewer.panels import (
@@ -139,31 +140,13 @@ class CardiacMap(QMainWindow):
         # File Menu
         self.load_voltage = QAction("Load Voltage Data")
         self.load_voltage.triggered.connect(
-            partial(self.load_cascade, calcium_mode=False)
+            partial(self.load_file, calcium_mode=False)
         )
 
         self.load_calcium = QAction("Load Voltage / Calcium Data")
         self.load_calcium.triggered.connect(
-            partial(self.load_cascade, calcium_mode=True)
+            partial(self.load_file, calcium_mode=True)
         )
-
-        self.load_scimedia_single = QAction("Load SciMedia Data (Beta)")
-        self.load_scimedia_single.triggered.connect(self.load_scimedia)
-
-        """self.load_voltage_sql = QAction("Load SQL Data")
-        self.load_voltage_sql.triggered.connect(
-            partial(self.load_sql, calcium_mode=False)
-        )
-
-        self.load_calcium_sql = QAction("Load SQL VCa Data")
-        self.load_calcium_sql.triggered.connect(
-            partial(self.load_sql, calcium_mode=True)
-        )"""
-
-        self.load_saved_signal = QAction("Load Saved Signal")
-        self.load_saved_signal.triggered.connect(self.load_preprocessed)
-        self.load_mat = QAction("Load MATLAB signal")
-        self.load_mat.triggered.connect(self.import_matlab)
 
         self.save_signal = QAction("Save Signal Object")
         self.save_signal.triggered.connect(self.save_preprocessed)
@@ -179,14 +162,6 @@ class CardiacMap(QMainWindow):
 
         self.file_menu.addAction(self.load_voltage)
         self.file_menu.addAction(self.load_calcium)
-        self.file_menu.addSeparator()
-        """self.file_menu.addAction(self.load_voltage_sql)
-        self.file_menu.addAction(self.load_calcium_sql)
-        self.file_menu.addSeparator()"""
-        self.file_menu.addAction(self.load_scimedia_single)
-        self.file_menu.addSeparator()
-        self.file_menu.addAction(self.load_saved_signal)
-        self.file_menu.addAction(self.load_mat)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.save_signal)
         self.file_menu.addSeparator()
@@ -310,81 +285,67 @@ class CardiacMap(QMainWindow):
             self.setCentralWidget(self.default_widget)
             self._disable_menus(True)
 
-    def load_cascade(self, calcium_mode: bool):
+    def load_file(self, calcium_mode: bool):
         dirs = ImportExportDirectories() # get import directory
         filepath = QFileDialog.getOpenFileName(
             self,
-            "Load Cascade File",
+            "Load File",
             dirs.importDir,
-            "Cascade File (*.dat);;All Files (*)",
+            "All Files (*);;Cascade File (*.dat);;SciMedia CMOS File(*.gsd);;MKV File (*.mkv);;MATLAB File (*.mat);;CardiacMap Signal (*.signal)",
         )[0]
 
-        if filepath and ".dat" in filepath:
+        if filepath:
             # update import directory
             dirs.importDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
-            self._load_signal(filepath, calcium_mode=calcium_mode)
+            if ".dat" in filepath:
+                self._load_signal(filepath, calcium_mode=calcium_mode)
 
-    def load_sql(self, calcium_mode: bool):
-        dirs = ImportExportDirectories() # get import directory
-        filepath = QFileDialog.getOpenFileName(
-            self,
-            "Load SQL File",
-            dirs.importDir,
-            "SQLite (*.sql);;All Files (*)",
-        )[0]
+            elif ".sql" in filepath:
+                self._load_signal(filepath, calcium_mode=calcium_mode, mode="sql")
 
-        if filepath and ".sql" in filepath:
-            # update import directory
-            dirs.importDir = filepath[:filepath.rindex("/") + 1]
-            dirs.SaveDirectories()
-            self._load_signal(filepath, calcium_mode=calcium_mode, mode="sql")
+            elif ".gsd" in filepath:
+                self._load_signal(filepath, calcium_mode=calcium_mode, mode="gsd")
 
-    @loading_popup
-    def load_scimedia(self, update_progress=None):
-        dirs = ImportExportDirectories() # get import directory
-        filepath = QFileDialog.getOpenFileName(
-            self,
-            "Load SciMedia File",
-            dirs.importDir,
-            "SciMedia CMOS File(*.gsd);;All Files (*)",
-        )[0]
+            elif ".mkv" in filepath:
+                self._load_signal(filepath, calcium_mode=calcium_mode, mode="mkv")
 
-        if filepath and ".gsd" in filepath:
-            # update import directory
-            dirs.importDir = filepath[:filepath.rindex("/") + 1]
-            dirs.SaveDirectories()
-            self._load_signal(
-                filepath,
-                calcium_mode=False,
-                mode="scimedia",
-                update_progress=update_progress,
-            )
+            elif ".mat" in filepath:
+                data = scipy.io.loadmat(filepath)["data"]
+                data = np.transpose(data, axes=(0,2, 1))
+                emptyMetadata = {"span_T": 0, "span_X": 0, "span_Y": 0, 
+                                    "file_metadata": 0, "datetime": 0, "framerate": 0, 
+                                    "filename": os.path.split(filepath)[-1]}
+                signal = CardiacSignal(signal=data, metadata=emptyMetadata, channel="Single")
+                self.create_viewer(signal, os.path.split(filepath)[-1])
+
+            elif ".signal" in filepath:
+                with open(filepath, "rb") as f:
+                    signal = pickle.load(f)
+                    if signal.transformed_data is None:
+                        # repopulate data fields
+                        signal.transformed_data = signal.base_data
+                        signal.previous_transform = signal.base_data
+                self.create_viewer(signal, os.path.split(filepath)[-1])
 
     def _load_signal(
         self,
         filepath,
         calcium_mode: bool,
-        mode: Literal["cascade", "scimedia", "sql"] = "cascade",
+        mode: Literal["dat", "gsd", "sql", "mkv"] = "dat",
         update_progress=None,
     ):
 
         filename = os.path.split(filepath)[-1]
 
-        if mode == "cascade":
-            signals = load_cascade_file(
-                filepath, LargeFilePopUp, dual_mode=calcium_mode
-            )
-        elif mode == "scimedia":
+        if mode == "dat":
+            signals = load_cascade_file(filepath, LargeFilePopUp, dual_mode=calcium_mode)
+        elif mode == "gsd":
             signals = load_scimedia_data(filepath, LargeFilePopUp)
-
         elif mode == "sql":
-            signals = load_sql_file(
-                filepath, LargeFilePopUp, dual_mode=calcium_mode
-            )
-
-        if update_progress:
-            update_progress(0.5)
+            signals = load_sql_file(filepath, LargeFilePopUp)
+        elif mode == "mkv":
+             signals = load_mkv_file(filepath)
 
         if signals:
 
@@ -403,26 +364,6 @@ class CardiacMap(QMainWindow):
                 self.create_viewer(signal, filename)
 
         else: print("There was an Error loading that file.")
-
-    def load_preprocessed(self):
-        dirs = ImportExportDirectories() # get import directory
-        filepath, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load Preprocessed Signal",
-            dirs.importDir,
-            "CardiacMap Signal (*.signal);;All Files (*)",
-        )
-        if filepath:
-            # update import directory
-            dirs.importDir = filepath[:filepath.rindex("/") + 1]
-            dirs.SaveDirectories()
-            with open(filepath, "rb") as f:
-                signal = pickle.load(f)
-                if signal.transformed_data is None:
-                    # repopulate data fields
-                    signal.transformed_data = signal.base_data
-                    signal.previous_transform = signal.base_data
-                self.create_viewer(signal, os.path.split(filepath)[-1])
 
     def save_preprocessed(self):
         dirs = ImportExportDirectories() # get import directory
@@ -478,27 +419,6 @@ class CardiacMap(QMainWindow):
             dirs.exportDir = filepath[:filepath.rindex("/") + 1]
             dirs.SaveDirectories()
             scipy.io.savemat(filepath, {'data': self.signal.transformed_data[start_frame:end_frame]})
-
-    def import_matlab(self):
-        dirs = ImportExportDirectories() # get import directory
-        filepath, _ = QFileDialog.getOpenFileName(
-            self,
-            "Importing MATLAB binary",
-            dirs.importDir,
-            "MAT binary (*.mat);;All Files (*)",
-        )
-        if filepath:
-            filename = os.path.split(filepath)[-1]
-            # update import directory
-            dirs.importDir = filepath[:filepath.rindex("/") + 1]
-            dirs.SaveDirectories()
-            data = scipy.io.loadmat(filepath)["data"]
-            data = np.transpose(data, axes=(0,2, 1))
-            emptyMetadata = {"span_T": 0, "span_X": 0, "span_Y": 0, "file_metadata": 0, "datetime": 0, "framerate": 0, "filename": filename}
-            signal = CardiacSignal(signal=data, metadata=emptyMetadata, channel="Single")
-            self.create_viewer(signal, filename)
-
-    
 
     # TODO: Fix scroll / header issue here
     def load_help(self):
