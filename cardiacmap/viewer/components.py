@@ -129,7 +129,7 @@ class ParameterButton(QToolButton):
 
 
 class ParameterConfirmButton(QGroupBox):
-    def __init__(self, label: str, params: Parameter):
+    def __init__(self, label: str, params: Parameter, callback = None):
         super().__init__()
 
         layout = QHBoxLayout()
@@ -146,6 +146,11 @@ class ParameterConfirmButton(QGroupBox):
         menu = QMenu(self)
         tree_widget = ParameterTree()
         tree_widget.setParameters(params, showTop=False)
+
+        # connect a callback for updating preview
+        if callback is not None:
+            for param in params:
+                param.sigValueChanged.connect(lambda: callback(action = "calculate"))
 
         widgetaction = QWidgetAction(self)
         widgetaction.setDefaultWidget(tree_widget)

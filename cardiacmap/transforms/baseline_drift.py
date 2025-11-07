@@ -1,7 +1,7 @@
 import concurrent.futures as cf
 
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.ndimage import minimum_filter
 
 # NB: The multithread here might not work well / race condition? 
 # Would be better to use .map and then combine them etc.
@@ -48,7 +48,7 @@ def RemoveBaselineDrift(data, mask, threads, params, peaks=False, update_progres
     return np.array(resData).reshape(yLen, xLen, tLen)
 
 def NormalizeAmplitude1D(t, data, params, output, outIdx):
-    peaks = FindPeaks(t, data, params)
+    peaks = FindPeaks(t, -data, params)
     if len(peaks) == 0:
         print("No Mins Found @ index", outIdx)
         # keep data
@@ -75,7 +75,7 @@ def RemoveBaseline1D(t, data, params, output, outIdx):
         minsX (array): the baseline x values for d
         minsY (array): the baseline y values for d
     """
-    peaks = FindPeaks(t, -data, params)
+    peaks = FindPeaks(t, data, params)
     if len(peaks) == 0:
         print("No Mins Found @ index", outIdx)
         # keep data
@@ -103,14 +103,11 @@ def FindPeaks(t, d, params):
         params (dict): params for peak finding
             alternans (bool): use alternans
             distance (int): minimum distance between baseline points (75% of the period length)
-            prominence (float): minimum peak prominance to be considered for the baseline
             threshold (float): maximal value to be considered for the baseline
     """
-    yScale = d.max() - d.min()
-    # find peaks
-    peakIdx = find_peaks(
-        d, distance=params["distance"], prominence=params["prominence"] * yScale
-    )[0]
+    # find peaks/mins
+    min_filter = minimum_filter(d, params["distance"], mode="nearest")
+    peakIdx = np.where(d == min_filter)[0]
 
     # check threshold
     if 0 < params["threshold"] < 1:

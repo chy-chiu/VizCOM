@@ -14,6 +14,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
+
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -704,19 +705,15 @@ class CardiacMap(QMainWindow):
         dst = int(
             self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
         )
-        prominence = self.settings.child("Baseline Drift").child("Prominence").value()
         threshold = self.settings.child("Baseline Drift").child("Threshold").value()
         alternans = self.settings.child("Baseline Drift").child("Alternans").value()
         if dst < 1:
             dst = 1
-        if prominence == 0:
-            prominence = 0.00001
         params = dict(
             {
                 "alternans": alternans,
                 "threshold": threshold,
                 "distance": dst,
-                "prominence": prominence,
             }
         )
         if action == "calculate":
@@ -747,22 +744,17 @@ class CardiacMap(QMainWindow):
         start_frame = int(self.signal_panel.start_spinbox.value())
         end_frame = int(self.signal_panel.end_spinbox.value())
         dst = int(
-            self.settings.child("Baseline Drift").child("Period Len").value() / self.ms
+            self.settings.child("Normalize Peaks").child("Period Len").value() / self.ms
         )
-        prominence = self.settings.child("Baseline Drift").child("Prominence").value()
-        threshold = self.settings.child("Baseline Drift").child("Threshold").value()
-        alternans = self.settings.child("Baseline Drift").child("Alternans").value()
-
+        threshold = self.settings.child("Normalize Peaks").child("Threshold").value()
+        alternans = self.settings.child("Normalize Peaks").child("Alternans").value()
         if dst < 1:
             dst = 1
-        if prominence == 0:
-            prominence = 0.00001
         params = dict(
             {
                 "alternans": alternans,
                 "threshold": threshold,
                 "distance": dst,
-                "prominence": prominence,
             }
         )
         if action == "calculate":

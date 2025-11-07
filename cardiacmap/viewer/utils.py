@@ -52,8 +52,8 @@ DEFAULT_VALUES = {
     ],
     "Butterworth Filter": [
         {"name": "Order", "type": "int", "value": 1, "limits": (0, 10)},
-        {"name": "Low Cutoff", "type": "int", "value": 0, "limits": (0, 500)},
-        {"name": "High Cutoff", "type": "int", "value": 50, "limits": (0, 500)},
+        {"name": "Low Cutoff", "type": "int", "value": 0, "limits": (0, 100000)},
+        {"name": "High Cutoff", "type": "int", "value": 50, "limits": (0, 100000)},
     ],
     "Trim Parameters": [
         {"name": "Left", "type": "int", "value": 100, "limits": (0, 100000)},
@@ -65,12 +65,20 @@ DEFAULT_VALUES = {
             "type": "bool",
             "value": False,
         },
-        {"name": "Prominence", "type": "float", "value": 0.1, "limits": (0, 1)},
-        {"name": "Period Len", "type": "int", "value": 0, "limits": (0, 1000)},
+        {"name": "Period Len", "type": "int", "value": 100, "limits": (0, 100000)},
+        {"name": "Threshold", "type": "float", "value": 0, "limits": (0, 1)},
+    ],
+    "Normalize Peaks": [
+        {
+            "name": "Alternans",
+            "type": "bool",
+            "value": False,
+        },
+        {"name": "Period Len", "type": "int", "value": 100, "limits": (0, 100000)},
         {"name": "Threshold", "type": "float", "value": 0, "limits": (0, 1)},
     ],
     "APD Parameters": [
-        {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 1000)},
+        {"name": "Threshold", "type": "float", "value": 0.5, "limits": (0, 100000)},
     ],
     "Signal Plot Colors": [
         {"name": "signal", "value": [255, 255, 255]},

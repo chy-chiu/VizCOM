@@ -230,10 +230,12 @@ class SignalPanel(QWidget):
 
         # Baseline drift button
         self.baseline_drift = ParameterConfirmButton(
-            "Remove Baseline Drift", self.settings.child("Baseline Drift")
+            "Remove Baseline Drift", self.settings.child("Baseline Drift"), 
+            self.parent.calculate_baseline_drift
         )
         self.normalize_peaks = ParameterConfirmButton(
-            "Normalize Peaks", self.settings.child("Baseline Drift")
+            "Normalize Peaks", self.settings.child("Normalize Peaks"),
+            self.parent.normalize_peaks
         )
 
         # Display data points
@@ -516,7 +518,7 @@ class SignalPanel(QWidget):
             end = int(self.end_spinbox.value() / self.ms_per_frame.value())
             d = d[start:end]
             t = np.arange(len(d))
-            baseline = FindPeaks(t, d, params)
+            baseline = FindPeaks(t, -d, params)
             baselineYs = d[baseline]
             
             
@@ -533,7 +535,7 @@ class SignalPanel(QWidget):
             end = int(self.end_spinbox.value() / self.ms_per_frame.value())
             d = d[start:end]
             t = np.arange(len(d))
-            baseline = FindPeaks(t, -d, params)
+            baseline = FindPeaks(t, d, params)
             baselineYs = d[baseline]
             
             # extend display to the edges

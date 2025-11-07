@@ -112,22 +112,20 @@ class InstructionWidget(QWidget):
         self.hlayout.addWidget(MinWidthSpinbox(settings.child("Spatial Average").child("Radius").value()))       # 10
         self.hlayout.addWidget(QLabel("Alternans:"))    # 11
         self.hlayout.addWidget(QCheckBox())             # 12
-        self.hlayout.addWidget(QLabel("Prominence:"))   # 13
-        self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Prominence").value()))       # 14
-        self.hlayout.addWidget(QLabel("Min Distance:"))# 15
-        self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Period Len").value()))       # 16
-        self.hlayout.addWidget(QLabel("Threshold:"))    # 17
-        self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Threshold").value()))       # 18
-        self.hlayout.addWidget(QLabel("Mode:"))         # 19
-        self.hlayout.addWidget(self.normModeCBox)       # 20
-        self.hlayout.addWidget(QLabel("Threshold:"))    # 21
-        self.hlayout.addWidget(MinWidthSpinbox(.5))     # 22
-        self.hlayout.addWidget(QLabel("Min Spacing:"))  # 23
-        self.hlayout.addWidget(MinWidthSpinbox(15))     # 24
-        self.hlayout.addWidget(QLabel("Save As:"))      # 25
-        self.hlayout.addWidget(self.apdSaveCbox)        # 26
+        self.hlayout.addWidget(QLabel("Period Length:"))# 13
+        self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Period Len").value()))       # 14
+        self.hlayout.addWidget(QLabel("Threshold:"))    # 15
+        self.hlayout.addWidget(MinWidthSpinbox(settings.child("Baseline Drift").child("Threshold").value()))       # 16
+        self.hlayout.addWidget(QLabel("Mode:"))         # 17
+        self.hlayout.addWidget(self.normModeCBox)       # 18
+        self.hlayout.addWidget(QLabel("Threshold:"))    # 19
+        self.hlayout.addWidget(MinWidthSpinbox(.5))     # 20
+        self.hlayout.addWidget(QLabel("Min Spacing:"))  # 21
+        self.hlayout.addWidget(MinWidthSpinbox(15))     # 22
+        self.hlayout.addWidget(QLabel("Save As:"))      # 23
+        self.hlayout.addWidget(self.apdSaveCbox)        # 24
         self.hlayout.addStretch(10)
-        self.paramsList = [[1, 5], [5, 11], [5, 11], [11, 19], [11, 19], [19, 21], [0, 0], [21, 27]] # indicies of needed parameters
+        self.paramsList = [[1, 5], [5, 11], [5, 11], [11, 17], [11, 17], [17, 19], [0, 0], [19, 25]] # indicies of needed parameters
 
         self.setLayout(self.hlayout)
         
@@ -347,12 +345,11 @@ class MultipleFilesWindow(QDialog):
                         t = widget.paramsList[operation][0] + 7
 
                         alternans = widget.hlayout.itemAt(a).widget().isChecked()
-                        prominence = widget.hlayout.itemAt(p).widget().value()
                         distance = widget.hlayout.itemAt(d).widget().value()
                         if int(distance) == 0: distance = 1
                         thresh = widget.hlayout.itemAt(t).widget().value()
 
-                        paramDict = {"alternans": alternans, "prominence": prominence, "distance": int(distance), "threshold": thresh}
+                        paramDict = {"alternans": alternans, "distance": int(distance), "threshold": thresh}
                         file_item.status.setText("Removing Drift...")
                         self.repaint()
                         signal.remove_baseline(paramDict)
@@ -365,12 +362,11 @@ class MultipleFilesWindow(QDialog):
                         t = widget.paramsList[operation][0] + 7
 
                         alternans = widget.hlayout.itemAt(a).widget().isChecked()
-                        prominence = widget.hlayout.itemAt(p).widget().value()
                         distance = widget.hlayout.itemAt(d).widget().value()
                         if int(distance) == 0: distance = 1
                         thresh = widget.hlayout.itemAt(t).widget().value()
 
-                        paramDict = {"alternans": alternans, "prominence": prominence, "distance": int(distance), "threshold": thresh}
+                        paramDict = {"alternans": alternans, "distance": int(distance), "threshold": thresh}
                         file_item.status.setText("Normalizing Peaks...")
                         self.repaint()
                         signal.remove_baseline(paramDict, peaks=True)
@@ -426,15 +422,16 @@ class MultipleFilesWindow(QDialog):
                         print("Error")
 
             # save as .signal
-            
-            if self.saveAs.currentIndex == 1:
+            if self.saveAs.currentIndex() == 0:
                 if s2:
+                    print("Saving file:", savedFilename + "_odd.signal")
                     with open(savedFilename + "_odd.signal", "wb") as f:
                         signal.base_data = signal.transformed_data
                         # empty these copies to save space
                         signal.transformed_data = None
                         signal.previous_transform = None
                         pickle.dump(signal, f)
+                    print("Saving file:", savedFilename + "_even.signal")
                     with open(savedFilename + "_even.signal", "wb") as f:
                         signal_2.base_data = signal_2.transformed_data
                         # empty these copies to save space
@@ -442,6 +439,7 @@ class MultipleFilesWindow(QDialog):
                         signal_2.previous_transform = None
                         pickle.dump(signal_2, f)
                 else:
+                    print("Saving file:", savedFilename + ".signal")
                     with open(savedFilename + ".signal", "wb") as f:
                         signal.base_data = signal.transformed_data
                         # empty these copies to save space
@@ -451,11 +449,14 @@ class MultipleFilesWindow(QDialog):
             # save as .mat
             else:
                 if s2:
+                    print("Saving file:", savedFilename + "_odd.mat")
                     scipy.io.savemat(savedFilename + "_odd.mat", 
                                      {'data': signal.transformed_data})
+                    print("Saving file:", savedFilename + "_even.mat")
                     scipy.io.savemat(savedFilename + "_even.mat", 
                                      {'data': signal_2.transformed_data})
                 else:
+                    print("Saving file:", savedFilename + ".mat")
                     scipy.io.savemat(savedFilename + ".mat", 
                                      {'data': signal.transformed_data})
             file_item.status.setText("Done!")
