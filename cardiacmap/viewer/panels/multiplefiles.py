@@ -183,12 +183,18 @@ class MultipleFilesWindow(QDialog):
         self.confirm_button = QPushButton("Confirm")
         self.confirm_button.clicked.connect(self.process_multiple_files)
 
+        self.saveLocation = QPushButton("...")
+        self.saveLocation.clicked.connect(self.change_save_location)
+
+        self.fileLocation = ImportExportDirectories().exportDir
+
         self.file_suffix = QLineEdit("_processed")
 
         self.saveAs = QComboBox()
         self.saveAs.addItems([".signal", ".mat"])
         
         suffix_layout = QHBoxLayout()
+        suffix_layout.addWidget(self.saveLocation)
         suffix_layout.addWidget(QLabel("Saved File Suffix:"))
         suffix_layout.addWidget(self.file_suffix)
         suffix_layout.addWidget(self.saveAs)
@@ -204,6 +210,10 @@ class MultipleFilesWindow(QDialog):
 
         self.setLayout(main_layout)
 
+    def change_save_location(self):
+        directory = QFileDialog.getExistingDirectory(self, "Choose Save Directory", self.fileLocation)
+        if directory != None and len(directory) > 0:
+            self.fileLocation = directory + "/"
 
     def add_file(self):
         dirs = ImportExportDirectories() # get import directory
@@ -244,7 +254,7 @@ class MultipleFilesWindow(QDialog):
             filepath = self.file_list[i]
             file_ext = filepath[filepath.rindex(".") + 1:]
             filename = os.path.split(filepath)[-1]
-            savedFilename = filepath[:filepath.rindex(".")] + str(self.file_suffix.text())
+            savedFilename = self.fileLocation + filename[:filename.rindex(".")] + str(self.file_suffix.text())
 
             if file_ext == "signal":
                 with open(filepath, "rb") as f:
