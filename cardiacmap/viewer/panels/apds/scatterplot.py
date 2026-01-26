@@ -81,6 +81,7 @@ class ScatterPanel(QWidget):
         self.ms = parent.ms
         self.apd_data = parent.data_slices[0]
         self.di_data = parent.data_slices[1]
+        self.amplitude = False
         
         self.interval = 0
         self.x = 0
@@ -152,8 +153,12 @@ class ScatterPanel(QWidget):
             alternans = self.alternans
         else:
             self.alternans = alternans
-        
-        apdData = self.apd_data[interval][..., self.x, self.y] * self.ms
+
+        if self.amplitude: # show amplitude instead of APD (don't convert to ms)
+            apdData = self.apd_data[interval][..., self.x, self.y]
+        else: 
+            apdData = self.apd_data[interval][..., self.x, self.y] * self.ms
+
         diData = self.di_data[interval][..., self.x, self.y] * self.ms
         
         if alternans:

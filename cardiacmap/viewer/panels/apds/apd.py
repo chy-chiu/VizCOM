@@ -227,6 +227,7 @@ class APDWindow(QMainWindow):
         
         self.img_data = parent.signal.transformed_data[0] * self.mask
         self.ts = None
+        self.amps = None
         
         self.setWindowTitle("APDs")
         
@@ -249,6 +250,7 @@ class APDWindow(QMainWindow):
         
         self.image_layout = QVBoxLayout()
         self.image_layout.addWidget(self.plotting_bar)
+        self.image_layout.addWidget(self.plotting_bar2)
         self.image_layout.addWidget(self.image_tabs)
         self.image_layout.addWidget(self.options_widget)
         self.image_widget = QWidget(layout=self.image_layout)
@@ -363,11 +365,19 @@ class APDWindow(QMainWindow):
         self.DIvSpace.clicked.connect(self.plot_di_spatial)
         self.plotting_bar.addWidget(self.DIvSpace)
         
-        self.APDvDI = QPushButton("APD v.s. DI")
+        self.APDvDI = QPushButton("APD vs DI")
         self.APDvDI.clicked.connect(self.plot_apd_di)
         self.plotting_bar.addWidget(self.APDvDI)
+
+        self.AmpvSpace = QPushButton("Spatial Amplitude")
+        self.AmpvSpace.clicked.connect(self.plot_amp_spatial)
+        self.plotting_bar2.addWidget(self.AmpvSpace)
+
+        self.AmpvDI = QPushButton("Amplitude vs DI")
+        self.AmpvDI.clicked.connect(self.plot_amp_di)
+        self.plotting_bar2.addWidget(self.AmpvDI)
         
-        self.plot_buttons = [self.APDvSpace, self.DIvSpace, self.APDvDI]
+        self.plot_buttons = [self.APDvSpace, self.DIvSpace, self.APDvDI, self.AmpvDI, self.AmpvSpace]
         self.setPlottingButtons(False)
     
     def init_options(self):
@@ -378,6 +388,7 @@ class APDWindow(QMainWindow):
         self.interval_toolbar = QToolBar()
         self.calculate_bar = QToolBar()
         self.plotting_bar = QToolBar()
+        self.plotting_bar2 = QToolBar()
         self.apd_display_toolbar = QToolBar()
 
         # Display Options ================================================
@@ -490,14 +501,20 @@ class APDWindow(QMainWindow):
         self.confirm = QPushButton("Calculate")
         self.confirm.clicked.connect(self.setPlottingButtons)
         self.confirm.clicked.connect(self.calculate_all_apds)
+
+        self.amplitudes = QCheckBox()
+        self.amplitudes.setChecked(False)
+
+        self.calculate_bar.addWidget(QLabel("Amplitudes: "))
+        self.calculate_bar.addWidget(self.amplitudes)
         self.calculate_bar.addWidget(self.confirm)
         
-
         self.apd_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.offset_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.interval_toolbar.setStyleSheet(QTOOLBAR_STYLE)
         self.calculate_bar.setStyleSheet(QTOOLBAR_STYLE)
         self.plotting_bar.setStyleSheet(QTOOLBAR_STYLE)
+        self.plotting_bar2.setStyleSheet(QTOOLBAR_STYLE)
         
         # TODO: Overlay
         # self.overlay = QCheckBox()
@@ -545,13 +562,18 @@ class APDWindow(QMainWindow):
         s = time.time()
         threshold = self.threshold.value()
         spacing = self.min_frames.value()
-        print("APDs/DIs:", "\nThreshold:", threshold, "\n:", spacing)
+        #print("APDs/DIs:", "\nThreshold:", threshold, "\n:", spacing)
+
         
         self.line_idxs = [int(x.getPos()[0]//self.ms) for x in self.lines]
-        self.apds, self.dis, self.tOffsets = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs)
+        if self.amplitudes.isChecked():
+            self.apds, self.dis, self.tOffsets, self.amps = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs, ret_amp = True)
+            self.data = [self.apds, self.dis, self.amps]
+        else:
+            self.apds, self.dis, self.tOffsets = GetThresholdIntersections(self.parent.signal.transformed_data, threshold, spacing, intervals = self.line_idxs)
+            self.data = [self.apds, self.dis]
         e = time.time()
         print("Runtime:", e-s)
-        self.data = [self.apds, self.dis]
         self.setPlottingButtons(True)
         
     def plot_apd_spatial(self):
@@ -561,14 +583,26 @@ class APDWindow(QMainWindow):
     def plot_di_spatial(self):
         self.DIvSpaceWindow = APDSubWindow(self, "DI")
         self.DIvSpaceWindow.show()
+
+    def plot_amp_spatial(self):
+        self.AmpvSpaceWindow = APDSubWindow(self, "AMP")
+        self.AmpvSpaceWindow.show()
         
     def plot_apd_di(self):
-        self.APDvDI = APDSubWindow(self, "APD DI")
-        self.APDvDI.show()
+        self.APDvDIWindow = APDSubWindow(self, "APD DI")
+        self.APDvDIWindow.show()
+
+    def plot_amp_di(self):
+        self.AmpvDIWindow = APDSubWindow(self, "AMP DI")
+        self.AmpvDIWindow.show()
     
     def setPlottingButtons(self, b: bool = False):
         for button in self.plot_buttons:
-            button.setEnabled(b)
+            # hide amplitude buttons unless calculated
+            if self.amps is None and (button is self.AmpvSpace or button is self.AmpvDI):
+                button.setEnabled(False)
+            else: 
+                button.setEnabled(b)
             
         self.image_tabs.setTabEnabled(1, b)
         self.plotting_bar.repaint() # update gui before proceeding
@@ -667,6 +701,20 @@ class APDSubWindow(QMainWindow):
                 
                 # Create Signal Views
                 self.data_tab = SignalPanel(self, settings=self.settings)
+
+            case "AMP":
+                self.window_title = "Spatial Amplitude"
+                y_axis_label = "Amplitude"
+                x_axis_label = "Linear Space (px)"
+
+                self.data_slices = self.parent.data[2]
+                self.view_tab = SpatialPlotView(self)
+                self.view_tab.ms = 1
+                self.view_tab.update_data()
+                
+                # Create Signal Views
+                self.data_tab = SignalPanel(self, settings=self.settings)
+                self.ms = 1 # don't scale data
                 
             case "APD DI":
                 self.window_title = "APD v.s. DI"
@@ -678,6 +726,20 @@ class APDSubWindow(QMainWindow):
                 
                 # Create Signal Views
                 self.data_tab = ScatterPanel(self)
+
+            case "AMP DI":
+                self.window_title = "Amplitude v.s. DI"
+                y_axis_label = "APD Amplitude"
+                x_axis_label = "Diastolic Interval (ms)"
+                
+                self.data_slices = self.parent.data[::-1] # flip data (put amplitude at index 0)
+                self.view_tab = ScatterPlotView(self)
+                
+                # Create Signal Views
+                self.data_tab = ScatterPanel(self)
+                # turn on amplitude mode and refresh
+                self.data_tab.amplitude = True
+                self.data_tab.update_plot(0, 64, 64, False, False)
                 
             case _:
                 self.close()

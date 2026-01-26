@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = None):
+def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = None, ret_amp = False):
     """Function to Find intersections between threshold and data
     Args:
         data (np.ndarray): input data
@@ -10,8 +10,9 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
         intervals (array): array of index values to slice 'data'
     """
     #print("Minimum Spacing is:", spacing)
-    apdArrs = []
-    diArrs = []
+    apdArrs = [] # APD measurements
+    diArrs = [] # DI measurements
+    ampArrs = [] # APD amplitudes
     
     if intervals is None:
         slices = [data]
@@ -30,25 +31,39 @@ def GetThresholdIntersections(data, threshold, spacing, intervals=None, mask = N
         intersections = []
         tOffsets = []
         apdFlags = []
+        amps = []
         for p in pixels:
-            ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing)
+            if ret_amp: # with amplitude
+                ints, apd, amp = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing, ret_amp)
+                amps.append(amp)
+            else:       # no amplitudes
+                ints, apd = GetThresholdIntersections1D(flat_swapped_arr[p], threshold, spacing)
+
             if first_slice:
                 tOffsets.append(ints[0])
             intersections.append(ints)
             apdFlags.append(apd)
+
         if first_slice:
             tOffsets = np.array(tOffsets).reshape(128, 128)
             first_slice = False
         apdArr, diArr = CalculateIntervals(intersections, apdFlags)
+
+        # swap back and unflatten
         apdArr = np.swapaxes(apdArr, 1, 0).reshape(apdArr.shape[1], 128, 128)
         diArr = np.swapaxes(diArr, 1, 0).reshape(diArr.shape[1], 128, 128)
 
         apdArrs.append(apdArr)
         diArrs.append(diArr)
+        if ret_amp:
+            amps = pad(amps, len(apdArr))
+            amps = np.swapaxes(amps, 1, 0).reshape(amps.shape[1], 128, 128)
+            ampArrs.append(amps)
+            return apdArrs, diArrs, tOffsets, ampArrs
 
     return apdArrs, diArrs, tOffsets
 
-def GetThresholdIntersections1D(data, threshold, spacing = 0):
+def GetThresholdIntersections1D(data, threshold, spacing = 0, ret_amp = False):
     #print(spacing)
     # remove points that lie directly on the line
     threshData = data - threshold
@@ -69,14 +84,20 @@ def GetThresholdIntersections1D(data, threshold, spacing = 0):
     y1 = data[idx1]
 
     ts, apdFlags = getTimes(idx0, y0, y1, threshold, spacing)
-    
+
+    if ret_amp:
+        if apdFlags == False:
+            amps = [np.max(split) for split in np.split(data, ts[1::2].astype(np.uint32)) if len(split) > 0]
+        else:
+            amps = [np.max(split) for split in np.split(data, ts[::2].astype(np.uint32)) if len(split) > 0]
+        return ts, apdFlags, amps[1:]
+
     return ts, apdFlags
 
 
 def getTimes(x0s, y0s, y1s, threshold, spacing):
     """Helper function to calculate the exact t values of intersection for a signal
     Args:
-        threshold (int): threshold value
         x0s (array): t values BEFORE crossing threshold
         y0s (array): data values BEFORE crossing threshold
         y1s (array): data values AFTER crossing threshold
