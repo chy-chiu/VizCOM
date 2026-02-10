@@ -183,6 +183,8 @@ def CalculateIntervals(intersections, firstIntervalFlag):
 # helper function to pad an array with zeros until it is rectangular
 def pad(array, targetWidth):
     for i in range(len(array)):
+        if len(array[i]) > targetWidth:
+            array[i] = array[i][:-1] # cut off last entry (only applies to amplitude calculation when file ends in DI)
         numZeros = targetWidth - len(array[i])
         zeros = np.zeros(numZeros)
         array[i] = np.concatenate((array[i], zeros))
