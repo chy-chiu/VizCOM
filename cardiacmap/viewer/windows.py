@@ -3,13 +3,10 @@ import pickle
 import sys
 import copy
 from functools import partial
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 import numpy as np
-import pyqtgraph as pg
 import scipy.io
-from pyqtgraph.console import ConsoleWidget
-from pyqtgraph.parametertree import Parameter
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -328,6 +325,9 @@ class CardiacMap(QMainWindow):
                         signal.previous_transform = signal.base_data
                 self.create_viewer(signal, os.path.split(filepath)[-1])
 
+            else:
+                print("Error:", filepath, "is not supported.\nSupported filetypes are: \".dat\", \".gsd\", \".mkv\", \".mat\", or \".signal\".")
+
     def _load_signal(
         self,
         filepath,
@@ -557,10 +557,7 @@ class CardiacMap(QMainWindow):
                 start=start_frame,
                 end=end_frame,
             )
-            if (self.settings.child("Normalize").child("Auto").value()):
-                normalize_global = self.settings.child("Normalize").child("Mode").value()
-                normalize_global = True if normalize_global == "Global" else False
-                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+            self.check_normalize(start_frame, end_frame)
             
         elif transform == "time_average":
             sigma = self.settings.child("Time Average").child("Sigma").value()
@@ -574,10 +571,7 @@ class CardiacMap(QMainWindow):
                 start=start_frame,
                 end=end_frame,
             )
-            if (self.settings.child("Normalize").child("Auto").value()):
-                normalize_global = self.settings.child("Normalize").child("Mode").value()
-                normalize_global = True if normalize_global == "Global" else False
-                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+            self.check_normalize(start_frame, end_frame)
         
         elif transform == "butterworth":
             order = self.settings.child("Butterworth Filter").child("Order").value()
@@ -585,16 +579,14 @@ class CardiacMap(QMainWindow):
             high = self.settings.child("Butterworth Filter").child("High Cutoff").value()
             
             self.signal.butterworth(order, low, high, self.ms)
+            self.check_normalize(start_frame, end_frame)
             
         elif transform == "trim":
             left = start_frame
             right = max(len(self.signal.transformed_data) - end_frame, 1)
             print("Trim Left", left, "Trim Right", right)
             self.signal.trim_data(startTrim=left, endTrim=right)
-            if (self.settings.child("Normalize").child("Auto").value()):
-                    normalize_global = self.settings.child("Normalize").child("Mode").value()
-                    normalize_global = True if normalize_global == "Global" else False
-                    self.signal.normalize(start=0, end=len(self.signal.transformed_data), normalize_global=normalize_global)
+            self.check_normalize(0, self.signal.transformed_data.shape[0])
             
         elif transform == "normalize":
             normalize_global = self.settings.child("Normalize").child("Mode").value()
@@ -608,12 +600,15 @@ class CardiacMap(QMainWindow):
 
         elif transform == "invert":
             self.signal.invert_data()
-            if (self.settings.child("Normalize").child("Auto").value()):
-                normalize_global = self.settings.child("Normalize").child("Mode").value()
-                normalize_global = True if normalize_global == "Global" else False
-                self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+            self.check_normalize(start_frame, end_frame)
         self.update_signal_plot()
         self.position_tab.update_data()
+
+    def check_normalize(self, start_frame, end_frame):
+        if (self.settings.child("Normalize").child("Auto").value()):
+            normalize_global = self.settings.child("Normalize").child("Mode").value()
+            normalize_global = True if normalize_global == "Global" else False
+            self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
 
     # @loading_popup
     def calculate_baseline_drift(
@@ -645,10 +640,7 @@ class CardiacMap(QMainWindow):
                 self.signal.remove_baseline(
                     params, peaks=False, start=start_frame, end=end_frame
                 )
-                if (self.settings.child("Normalize").child("Auto").value()):
-                    normalize_global = self.settings.child("Normalize").child("Mode").value()
-                    normalize_global = True if normalize_global == "Global" else False
-                    self.signal.normalize(start=start_frame, end=end_frame, normalize_global=normalize_global)
+                self.check_normalize(start_frame, end_frame)
 
             self.signal_panel.show_baseline(0)
             self.signal.reset_baseline()

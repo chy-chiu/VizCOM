@@ -38,7 +38,7 @@ def read_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
     dt = np.dtype("int16")
     dt = dt.newbyteorder("<")
 
-    trimFrames = large_file_check(filepath, largeFilePopup, nFrames)
+    trimFrames, large_file_mode = large_file_check(filepath, largeFilePopup, nFrames)
     if trimFrames[1] != 0:
         file.read(xPixels * yPixels * trimFrames[0] * 2) # skip
         nFrames = trimFrames[1] # set new file length
@@ -60,19 +60,19 @@ def read_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
         filename=os.path.basename(filepath),
     )
 
-    return metadata, pooled_array
+    return metadata, pooled_array, large_file_mode
 
 
 def load_scimedia_data(filepath: str, largeFilePopup, update_progress=None):
 
-    file_metadata, sigarray = read_scimedia_data(
+    file_metadata, sigarray, large_file_mode = read_scimedia_data(
         filepath, largeFilePopup, update_progress=update_progress
     )
 
     signals = {}
 
     signals[0] = CardiacSignal(
-        signal=sigarray, metadata=file_metadata, channel="Single"
+        signal=sigarray, metadata=file_metadata, channel="Single", large_file = large_file_mode
     )
 
     return signals

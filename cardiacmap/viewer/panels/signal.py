@@ -209,6 +209,10 @@ class SignalPanel(QWidget):
 
         self.undo = QAction(text="Undo", parent=self)
         self.undo.setToolTip("Undo Last Action")
+        
+        if self.parent.signal.large_file_mode:
+            self.undo.setDisabled(True)
+            self.reset.setDisabled(True)
 
         invert = QAction("Invert", self)
 

@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, List, Literal, Tuple
+from typing import Dict, Literal
 
 import numpy as np
 
@@ -42,6 +42,7 @@ class CardiacSignal:
         metadata: Dict[str, str],
         channel: Literal["Single", "Odd", "Even"],
         source: Literal["cascade", "scimedia"] = "cascade",
+        large_file = False
     ):
 
         self.metadata = metadata
@@ -55,14 +56,18 @@ class CardiacSignal:
         # This is transposed to account go y-x instead of x-y
         signal = signal.transpose(0, 2, 1)
 
-        # This is the single source of truth that will be referred to again
-        self.base_data = deepcopy(signal).astype(np.float32)
-
         # Variable to hold the data signal for transformations. We use np.float32 to conserve memory
         self.transformed_data = deepcopy(signal).astype(np.float32)
 
-        # Extra copy to save the previous transform in case user wants to undo an action
-        self.previous_transform = deepcopy(signal).astype(np.float32)
+        self.large_file_mode = large_file
+        if not self.large_file_mode:
+            # This is the single source of truth that will be referred to again
+            self.base_data = deepcopy(signal).astype(np.float32)
+            # Extra copy to save the previous transform in case user wants to undo an action
+            self.previous_transform = deepcopy(signal).astype(np.float32)
+        else:
+            self.base_data = None
+            self.previous_transform = None
 
         # This is the base image data
         self.image_data = (signal - signal.min()) / signal.max()
@@ -112,7 +117,7 @@ class CardiacSignal:
         if update_progress:
             update_progress(0.2)
 
-        self.previous_transform = deepcopy(self.transformed_data)
+        if not self.large_file_mode: self.previous_transform = deepcopy(self.transformed_data)
 
         if type == "time":
             print("Time Averaging")
@@ -134,7 +139,7 @@ class CardiacSignal:
 
     def trim_data(self, startTrim, endTrim):
         self.trimmed = [self.trimmed[0] + startTrim, self.trimmed[1] + endTrim]
-        self.previous_transform = deepcopy(self.transformed_data)
+        if not self.large_file_mode: self.previous_transform = deepcopy(self.transformed_data)
         self.transformed_data = self.transformed_data[startTrim:-endTrim, :, :]
 
     def reset_data(self):
@@ -154,7 +159,7 @@ class CardiacSignal:
         else:
             n = NormalizeData(self.transformed_data[start:end, :, :])
         
-        print("Normalized Max:", np.unique(n.max(axis=0)), "Min:", np.unique(n.min(axis=0)))
+        #print("Normalized Max:", np.unique(n.max(axis=0)), "Min:", np.unique(n.min(axis=0)))
         self.transformed_data[start:end, :, :] = n
 
     def remove_baseline(
@@ -164,7 +169,7 @@ class CardiacSignal:
         end = end or len(self.transformed_data) - 1
 
         mask = self.mask
-        self.previous_transform = deepcopy(self.transformed_data)
+        if not self.large_file_mode: self.previous_transform = deepcopy(self.transformed_data)
         data = self.transformed_data[start:end]
         mask = self.mask
         threads = 4
@@ -239,8 +244,6 @@ class CardiacSignal:
     def apply_mask(self, mask_arr):
         self.mask = mask_arr
         print("Mask Applied")
-        # print(self.transformed_data.shape)
-        # print(self.image_data.shape)
         self.transformed_data = self.transformed_data * self.mask
         self.image_data = self.image_data * self.mask
 

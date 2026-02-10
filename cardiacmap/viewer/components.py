@@ -1,33 +1,24 @@
 from typing import List, Optional
+import numpy as np
 import psutil
 import os
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QApplication,
+    QCheckBox,
     QDialog,
-    QDockWidget,
     QGroupBox,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QMainWindow,
     QMenu,
-    QMenuBar,
-    QPlainTextEdit,
     QPushButton,
-    QSpinBox,
-    QSplitter,
-    QTabWidget,
-    QToolBar,
     QToolButton,
     QVBoxLayout,
-    QWidget,
     QWidgetAction,
     QDialogButtonBox,
-    QMessageBox
+    QMessageBox,
+    QVBoxLayout,
 )
 
 SPINBOX_STYLE = """SpinBox
@@ -225,22 +216,51 @@ class FrameInputDialog(QDialog):
         self.setWindowTitle("Large File Handler")
 
         layout = QVBoxLayout(self)
+        sublayout1 = QHBoxLayout()
+        sublayout2 = QHBoxLayout()
 
-        self.startLabel = QLabel(f"Enter Start Frame (0, {tLen}):")
+        startLabel = QLabel(f"Start Frame (0, {tLen}):")
         self.startInput = Spinbox(0, tLen, 0, min_width=100, max_width=100)
-        layout.addWidget(QLabel(f"File too large. {maxFrames} frames or less recommended."))
-        layout.addWidget(self.startLabel)
-        layout.addWidget(self.startInput)
+        endLabel = QLabel(f"End Frame (1, {tLen}):")
+        self.endInput = Spinbox(maxFrames, tLen, tLen, min_width=100, max_width=100)
+        sublayout1.addWidget(startLabel)
+        sublayout1.addWidget(self.startInput)
+        sublayout1.addWidget(endLabel)
+        sublayout1.addWidget(self.endInput)
 
-        self.endLabel = QLabel(f"Enter End Frame (1, {tLen}):")
-        self.endInput = Spinbox(1, tLen, tLen, min_width=100, max_width=100)
-        layout.addWidget(self.endLabel)
-        layout.addWidget(self.endInput)
+        checkbox_label = QLabel("Large File Mode (Disable \"undo\" and \"reset\"):")
+        self.large_file_mode_checkbox = QCheckBox()
+        self.large_file_mode_checkbox.checkStateChanged.connect(self.change_maxframes)
+        sublayout2.addWidget(checkbox_label)
+        sublayout2.addWidget(self.large_file_mode_checkbox)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        layout.addWidget(self.buttons)
+        sublayout2.addWidget(self.buttons)
+
+        self.framesLabel1 = QLabel(f"This file contains {tLen} frames. This machine has free memory for {maxFrames} frames.")
+        self.framesLabel2 = QLabel(f"This file contains {tLen} frames. This machine has free memory for {maxFrames * 3} frames.")
+        self.framesLabel2.hide()
+
+        layout.addWidget(self.framesLabel1)
+        layout.addWidget(self.framesLabel2)
+        layout.addSpacing(15)
+        layout.addWidget(QLabel(f"Please select a subset of frames from the file, or enable \"Large File Mode\""))
+        layout.addSpacing(30)
+        layout.addLayout(sublayout1)
+        layout.addLayout(sublayout2)
+        layout.addStretch()
+
+    def change_maxframes(self):
+        if self.large_file_mode_checkbox.isChecked():
+            self.framesLabel2.show()
+            self.framesLabel1.hide()
+            self.maxFrames = int(self.maxFrames * 3)
+        else:
+            self.framesLabel1.show()
+            self.framesLabel2.hide()
+            self.maxFrames = int(self.maxFrames / 3)
 
     def accept(self):
         start = int(self.startInput.value())
@@ -268,7 +288,7 @@ class FrameInputDialog(QDialog):
         super().reject()
 
     def getValues(self):
-        return self.start, self.end
+        return self.start, self.end, self.large_file_mode_checkbox.isChecked()
 
 def large_file_check(filepath, _callback, fileLen):
     """Helper method to check a Cascade file against available RAM to avoid OOM error
@@ -277,23 +297,27 @@ def large_file_check(filepath, _callback, fileLen):
     Returns:
         tuple: (skip_frames, read_frames) or (0, 0) if file is small enough to handle
     """
-    USAGE_THRESHOLD = 0.5
-    freeMem = psutil.virtual_memory()[1]
-    estDataSize = (
+    USAGE_THRESHOLD = .6
+    ram = psutil.virtual_memory()
+    print(f"Total RAM (GB): {round(ram.total / 1e9, 2)}")
+    print(f"Available RAM (GB): {round(ram.available / 1e9, 2)}")
+    print(f"File Size (GB): {round(os.path.getsize(filepath) / 1e9, 2)}")
+    freeMem = ram.available
+    dataSize = (
         os.path.getsize(filepath) * 6
-    )  # estimate conversion to float16 and 3 data sets (raw, transformed, previous)
-    # THIS IS A VERY ROUGH ESTIMATE PROBABLY NEEDS FURTHER INVESTIGATION
+    )  # estimate conversion to float32 and 3 data sets (raw, transformed, previous)
 
+
+    # default return vals
     (skip, size) = (0, 0)
+    large_file = False
 
-    usePercentage = estDataSize / freeMem
+    usePercentage = dataSize / freeMem
 
-    # use 50% threshold to leave room for apd, di, fft, etc.
+    # use 70% threshold to leave room for apd, di, fft, etc.
     if usePercentage > USAGE_THRESHOLD:
-        maxFrames = int(
-            (freeMem * 0.5) / 1040000
-        )  # AGAIN, VERY ROUGH ESTIMATE BASED ON 5k FRAMES @ 650MB
-        start, end = _callback(fileLen, maxFrames)  # pauses execution until popup is closed
+        maxFrames = int((freeMem * .6) / 524288) # ESTIMATE (32 bits * 128 * 128)
+        start, end, large_file = _callback(fileLen, maxFrames)  # pauses execution until popup is closed
 
         print(start, end)
 
@@ -303,4 +327,4 @@ def large_file_check(filepath, _callback, fileLen):
         else:
             return None
 
-    return (skip, size)
+    return (skip, size), large_file

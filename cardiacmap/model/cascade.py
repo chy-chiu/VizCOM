@@ -75,8 +75,8 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
     # This reads the actual signal data
     skip = skip_bytes // 2
 
-    trimFrames = large_file_check(filepath, largeFilePopup, span_T)
-    print(trimFrames)
+    trimFrames, large_file_mode = large_file_check(filepath, largeFilePopup, span_T)
+
     if trimFrames is not None:
         if trimFrames[1] == 0:
             sigarray = np.frombuffer(file.read(), dtype="uint16")
@@ -102,7 +102,7 @@ def read_cascade_data(filepath: str, largeFilePopup) -> np.ndarray:
 
     file.close()
 
-    return metadata, sigarray
+    return metadata, sigarray, large_file_mode
 
 
 def load_cascade_file(filepath, largeFilePopup, dual_mode=False) -> Dict[int, CardiacSignal]:
@@ -118,21 +118,21 @@ def load_cascade_file(filepath, largeFilePopup, dual_mode=False) -> Dict[int, Ca
     """
     signals = {}
 
-    file_metadata, sigarray = read_cascade_data(filepath, largeFilePopup)
+    file_metadata, sigarray, large_file_mode = read_cascade_data(filepath, largeFilePopup)
     if sigarray is not None:
 
         if dual_mode:
             odd_frames, even_frames = [sigarray[::2, :, :], sigarray[1::2, :, :]]
             signals[0] = CardiacSignal(
-                signal=odd_frames, metadata=file_metadata, channel="Odd"
+                signal=odd_frames, metadata=file_metadata, channel="Odd", large_file = large_file_mode
             )
             signals[1] = CardiacSignal(
-                signal=even_frames, metadata=file_metadata, channel="Even"
+                signal=even_frames, metadata=file_metadata, channel="Even", large_file = large_file_mode
             )
             file_metadata["span_T"] = file_metadata["span_T"] // 2
         else:
             signals[0] = CardiacSignal(
-                signal=sigarray, metadata=file_metadata, channel="Single"
+                signal=sigarray, metadata=file_metadata, channel="Single", large_file = large_file_mode
             )
 
     return signals
