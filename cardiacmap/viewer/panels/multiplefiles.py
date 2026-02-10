@@ -350,9 +350,8 @@ class MultipleFilesWindow(QDialog):
                             signal_2.perform_average("spatial", sigma, int(radius), mode)
                     case 3:
                         a = widget.paramsList[operation][0] + 1
-                        p = widget.paramsList[operation][0] + 3
-                        d = widget.paramsList[operation][0] + 5
-                        t = widget.paramsList[operation][0] + 7
+                        d = widget.paramsList[operation][0] + 3
+                        t = widget.paramsList[operation][0] + 5
 
                         alternans = widget.hlayout.itemAt(a).widget().isChecked()
                         distance = widget.hlayout.itemAt(d).widget().value()
@@ -367,9 +366,8 @@ class MultipleFilesWindow(QDialog):
                             signal_2.remove_baseline(paramDict)
                     case 4:
                         a = widget.paramsList[operation][0] + 1
-                        p = widget.paramsList[operation][0] + 3
-                        d = widget.paramsList[operation][0] + 5
-                        t = widget.paramsList[operation][0] + 7
+                        d = widget.paramsList[operation][0] + 3
+                        t = widget.paramsList[operation][0] + 5
 
                         alternans = widget.hlayout.itemAt(a).widget().isChecked()
                         distance = widget.hlayout.itemAt(d).widget().value()
