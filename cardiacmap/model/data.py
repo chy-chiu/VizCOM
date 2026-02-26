@@ -112,7 +112,7 @@ class CardiacSignal:
         end=None,
     ):
         start = start or 0
-        end = end or len(self.transformed_data) - 1
+        end = end or len(self.transformed_data)
 
         if update_progress:
             update_progress(0.2)
